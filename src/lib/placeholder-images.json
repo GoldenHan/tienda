@@ -1,3 +1,34 @@
 {
-  "placeholderImages": []
+  "placeholderImages": [
+    {
+      "id": "ceramic_mug",
+      "description": "A close-up of a rustic, handmade ceramic mug with a textured glaze.",
+      "imageUrl": "https://picsum.photos/seed/101/400/400",
+      "imageHint": "ceramic mug"
+    },
+    {
+      "id": "throw_pillow",
+      "description": "A soft, neutral-colored linen throw pillow on a comfortable sofa.",
+      "imageUrl": "https://picsum.photos/seed/102/400/400",
+      "imageHint": "throw pillow"
+    },
+    {
+      "id": "wax_candle",
+      "description": "An aesthetic soy wax candle in a glass jar, with dried lavender on top.",
+      "imageUrl": "https://picsum.photos/seed/103/400/400",
+      "imageHint": "wax candle"
+    },
+    {
+      "id": "leather_journal",
+      "description": "A classic leather-bound journal with a pen resting on its open pages.",
+      "imageUrl": "https://picsum.photos/seed/104/400/400",
+      "imageHint": "leather journal"
+    },
+    {
+      "id": "wall_clock",
+      "description": "A minimalist wall clock with wooden hands against a white wall.",
+      "imageUrl": "https://picsum.photos/seed/105/400/400",
+      "imageHint": "wall clock"
+    }
+  ]
 }
