@@ -8,13 +8,12 @@ import { Product } from "@/lib/types";
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>(initialProducts);
 
-  const handleAddProduct = (newProductData: Omit<Product, 'id' | 'description' | 'purchaseCost' | 'lowStockThreshold' | 'imageHint'>) => {
+  const handleAddProduct = (newProductData: {name: string, quantity: number, salePrice: number, imageUrl: string}) => {
     setProducts((prevProducts) => [
       ...prevProducts,
       {
         ...newProductData,
         id: `prod_${Date.now()}`,
-        // Provide default values for fields not in the form
         description: "Nueva descripción de producto.",
         purchaseCost: newProductData.salePrice * 0.5, // Example default
         lowStockThreshold: 10, // Example default

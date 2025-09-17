@@ -29,7 +29,7 @@ import { ProductForm } from "./product-form"
 
 interface ProductsTableProps extends ProductColumnActions {
   data: Product[];
-  onAddProduct: (product: Omit<Product, 'id' | 'description' | 'purchaseCost' | 'lowStockThreshold' | 'imageHint'>) => void;
+  onAddProduct: (product: {name: string, quantity: number, salePrice: number, imageUrl: string}) => void;
 }
 
 export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductsTableProps) {
