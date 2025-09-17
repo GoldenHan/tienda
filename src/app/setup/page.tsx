@@ -6,7 +6,10 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/auth-context";
-import { createCompanyAndAdmin } from "@/app/setup/actions";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, writeBatch } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -79,37 +82,55 @@ export default function SetupPage() {
         toast({ variant: "destructive", title: "Error", description: "No se encontraron los datos de registro." });
         return;
     }
+    if (!auth || !db) {
+      toast({ variant: "destructive", title: "Error de configuración", description: "Firebase no está inicializado." });
+      return;
+    }
 
     setIsSubmitting(true);
     try {
-      const result = await createCompanyAndAdmin({
-          companyName: values.companyName,
-          adminEmail: registrationData.email,
-          adminName: registrationData.name,
-          adminPassword: registrationData.password
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, registrationData.email, registrationData.password);
+      const adminUser = userCredential.user;
+      
+      const batch = writeBatch(db);
+
+      // 2. Create the new company document
+      const companyDocRef = doc(collection(db, "companies"));
+      batch.set(companyDocRef, {
+          name: values.companyName,
+          adminUid: adminUser.uid,
+          createdAt: new Date(),
       });
 
-      if (result.error) {
-        throw new Error(result.error);
-      }
+      // 3. Create the user document within the new company's subcollection
+      const userDocRef = doc(db, "companies", companyDocRef.id, "users", adminUser.uid);
+      batch.set(userDocRef, {
+          uid: adminUser.uid,
+          email: registrationData.email,
+          name: registrationData.name,
+          role: "admin",
+          createdAt: new Date(),
+      });
+
+      // 4. Commit the batch
+      await batch.commit();
       
       // Clear the session storage
       sessionStorage.removeItem('registrationData');
 
       toast({
         title: "¡Registro Completo!",
-        description: "Tu negocio está listo. Iniciando sesión...",
+        description: "Tu negocio está listo. Serás redirigido al panel de control.",
       });
       
-      // Log the user in with the credentials they just created
-      await login(registrationData.email, registrationData.password);
-
+      // The onAuthStateChanged listener in AuthContext will handle the redirect
       router.push("/dashboard");
 
     } catch (error: any) {
       console.error("Error al configurar la empresa:", error);
       let errorMessage = error.message || "No se pudo crear la empresa.";
-      if (error.message.includes('auth/email-already-exists')) {
+      if (error.code === 'auth/email-already-in-use') {
           errorMessage = 'Este correo electrónico ya está registrado. Por favor, inicia sesión.';
       }
       toast({
