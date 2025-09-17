@@ -83,13 +83,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           console.error("Error fetching user data:", error);
           // If there's an error (like permissions), log them out to be safe.
           setUser(null);
+        } finally {
+            setLoading(false);
         }
 
       } else {
         // User is not logged in, no need to query DB.
         setUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return () => unsubscribe();
