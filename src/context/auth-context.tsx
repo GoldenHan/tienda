@@ -9,7 +9,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, getDocs, query, where, writeBatch, addDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 interface User {
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // Search for user in all companies' user subcollections
+        // User is logged in, now we can safely query Firestore
         const companiesCol = collection(db, "companies");
         const companiesSnapshot = await getDocs(companiesCol);
         let userFound = false;
@@ -67,6 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
         if (!userFound) {
             // This could be a new user who just registered but hasn't completed setup
+            // Or a user whose company/user document was deleted
             setUser({
                 ...firebaseUser,
                 uid: firebaseUser.uid,
@@ -78,6 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
 
       } else {
+        // User is not logged in
         setUser(null);
       }
       setLoading(false);
