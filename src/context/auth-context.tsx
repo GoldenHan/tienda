@@ -24,7 +24,7 @@ interface AuthContextType {
   user: (FirebaseUser & User) | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<any>;
-  register: (email: string, password: string, name: string, companyName: string) => Promise<any>;
+  register: (email: string, password: string, name: string) => Promise<any>;
   logout: () => Promise<void>;
 }
 
@@ -59,12 +59,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     ...firebaseUser,
                     ...userData,
                     companyId: companyDoc.id,
+                    name: userData.name || firebaseUser.displayName, // Fallback to display name
                 });
                 userFound = true;
                 break;
             }
         }
-        if (!userFound) setUser(null);
+        if (!userFound) {
+            // This could be a new user who just registered but hasn't completed setup
+            setUser({
+                ...firebaseUser,
+                uid: firebaseUser.uid,
+                email: firebaseUser.email,
+                name: firebaseUser.displayName,
+                role: 'employee', // Default role until setup
+                companyId: '', // No company yet
+            });
+        };
 
       } else {
         setUser(null);
@@ -80,50 +91,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  const register = async (email: string, password: string, name: string, companyName: string) => {
-    if (!auth || !db) throw new Error(missingFirebaseError);
+  const register = async (email: string, password: string, name: string) => {
+     if (!auth) throw new Error(missingFirebaseError);
     
-    // Check if email is already in use by any user in any company
-    const q = query(collection(db, "companies"), where("users", "array-contains", email));
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-        // This is a simplified check. A more robust solution would be a top-level collection of emails.
-        // For now, we will rely on Firebase Auth's email uniqueness.
-    }
-    
+    // Step 1: Just create the user in Firebase Auth.
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
+
+    // We are NOT creating any DB documents here.
+    // The user will be redirected to /setup to complete company creation.
+    // We can temporarily store the name in the user object for the setup page
     
-    const batch = writeBatch(db);
-
-    // 1. Create the new company document
-    const companyDocRef = doc(collection(db, "companies"));
-    batch.set(companyDocRef, {
-      name: companyName,
-      adminUid: firebaseUser.uid,
-      createdAt: new Date(),
-    });
-
-    // 2. Create the user document within the new company's subcollection
-    const userDocRef = doc(db, "companies", companyDocRef.id, "users", firebaseUser.uid);
-    batch.set(userDocRef, {
-      uid: firebaseUser.uid,
-      email: firebaseUser.email,
-      name: name,
-      role: "admin",
-      createdAt: new Date(),
-    });
-    
-    await batch.commit();
-
-    // Manually set user state after registration to include companyId
     setUser({
         ...firebaseUser,
-        uid: firebaseUser.uid,
-        email: firebaseUser.email,
         name: name,
-        role: "admin",
-        companyId: companyDocRef.id,
+        email: firebaseUser.email,
+        uid: firebaseUser.uid,
+        role: 'employee', // temporary
+        companyId: '',
     });
 
     return userCredential;

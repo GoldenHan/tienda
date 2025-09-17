@@ -3,7 +3,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // =========================
+    // Helpers
+    // =========================
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -19,51 +21,71 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && getUserRole(request.auth.uid) == 'admin';
     }
-    
-    function isFirstUser() {
-      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(get(/databases/$(database)/documents/users).after(request)).size() == 0;
-    }
 
-    // Collection: users
-    // Anyone can create their user document if they are the first user.
-    // Admins can create new users (employees).
-    // Users can only read/update their own data.
+    // =========================
+    // Users collection
+    // =========================
     match /users/{userId} {
+      // Lectura: cualquier usuario autenticado puede leer usuarios
       allow read: if isAuthenticated();
-      allow create: if isFirstUser() || isAdmin();
+
+      // Crear: cualquier usuario puede crear su propio doc
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+      // Admin puede crear otros usuarios (empleados)
+      allow create: if isAdmin();
+
+      // Actualizar: solo el usuario mismo o admin
       allow update: if isUser(userId) || isAdmin();
+
+      // Eliminar: solo admin
       allow delete: if isAdmin();
     }
-    
-    // Collection: company
-    // The company info document can be created only if it doesn't exist yet.
-    // It can be read by any authenticated user and updated only by an admin.
+
+    // =========================
+    // Company (un solo documento)
+    // =========================
     match /company/info {
       allow read: if isAuthenticated();
-      allow create: if !exists(/databases/$(database)/documents/company/info);
+
+      // Solo admin puede crear la empresa
+      allow create: if isAdmin() && !exists(/databases/$(database)/documents/company/info);
+
+      // Solo admin puede actualizar
       allow update: if isAdmin();
+
+      // Nunca se puede eliminar
       allow delete: never;
     }
 
-    // Collection: products
-    // Any authenticated user can read products (for POS).
-    // Only admins can create, update, or delete products.
+    // =========================
+    // Products collection
+    // =========================
     match /products/{productId} {
       allow read: if isAuthenticated();
       allow create, update, delete: if isAdmin();
     }
 
-    // Collection: sales
-    // Any authenticated user can create a sale (completing a transaction).
-    // When a sale is created, the client batch write also updates product stock.
-    // The rule on /products/{productId} needs to allow this specific update.
-    // To simplify, we will trust the client logic to update stock correctly on sale creation,
-    // and restrict full product updates to admins.
-    // Only admins can update or delete past sales records.
+    // =========================
+    // Sales collection
+    // =========================
     match /sales/{saleId} {
+      // Lectura y creación: cualquier usuario autenticado
       allow read, create: if isAuthenticated();
+
+      // Actualización y eliminación: solo admin
       allow update, delete: if isAdmin();
+    }
+
+    // =========================
+    // Cart history collection
+    // =========================
+    match /cartHistory/{cartId} {
+      // Lectura: cualquier usuario autenticado
+      allow read: if isAuthenticated();
+
+      // Solo admin puede crear, actualizar o borrar historial
+      allow create, update, delete: if isAdmin();
     }
   }
 }

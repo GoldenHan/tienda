@@ -30,7 +30,6 @@ import { Loader2 } from "lucide-react";
 import { Warehouse } from "@/components/icons";
 
 const formSchema = z.object({
-  companyName: z.string().min(2, { message: "El nombre de la empresa debe tener al menos 2 caracteres." }),
   name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
   email: z.string().email({ message: "Por favor, introduce un email válido." }),
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
@@ -45,7 +44,6 @@ export default function RegisterPage() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      companyName: "",
       name: "",
       email: "",
       password: "",
@@ -55,19 +53,17 @@ export default function RegisterPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await register(values.email, values.password, values.name, values.companyName);
+      await register(values.email, values.password, values.name);
       toast({
         title: "Registro exitoso",
-        description: "Ahora puedes iniciar sesión.",
+        description: "Redirigiendo para configurar tu empresa.",
       });
-      router.push("/login");
+      router.push("/setup"); // Redirect to the new setup page
     } catch (error: any) {
       console.error("Error en el registro:", error);
       let errorMessage = "Ha ocurrido un error. Por favor, inténtalo de nuevo.";
       if (error.code === 'auth/email-already-in-use') {
         errorMessage = "Este email ya está registrado. Por favor, inicia sesión.";
-      } else if (error.message.includes("administrador ya ha sido registrada")) {
-        errorMessage = error.message;
       }
       
       toast({
@@ -87,27 +83,14 @@ export default function RegisterPage() {
            <div className="mb-4 flex justify-center">
             <Warehouse className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-headline">Configura tu Negocio</CardTitle>
+          <CardTitle className="text-2xl font-headline">Crear tu Cuenta de Administrador</CardTitle>
           <CardDescription>
-            Crea tu cuenta de administrador y registra tu empresa.
+            Este es el primer paso para configurar tu negocio.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              <FormField
-                control={form.control}
-                name="companyName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre de la Empresa</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Ej. Mi Tienda Increíble" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
                <FormField
                 control={form.control}
                 name="name"
