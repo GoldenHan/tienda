@@ -20,7 +20,7 @@ interface User {
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: (FirebaseUser & User) | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<any>;
   register: (email: string, password: string, name: string) => Promise<any>;
@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const missingFirebaseError = "Firebase is not configured. Please add your Firebase credentials to the .env file.";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<(FirebaseUser & User) | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -47,12 +47,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
         if (userDoc.exists()) {
-          const userData = userDoc.data();
+          const userData = userDoc.data() as User;
           setUser({
-            uid: firebaseUser.uid,
-            email: firebaseUser.email,
-            name: userData.name,
-            role: userData.role,
+            ...firebaseUser,
+            ...userData,
           });
         } else {
            setUser(null);

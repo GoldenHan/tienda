@@ -9,7 +9,12 @@ import { Button } from "@/components/ui/button"
 import { ArrowUpDown } from "lucide-react"
 import { DataTableRowActions } from "./data-table-row-actions"
 
-export const columns: ColumnDef<Product>[] = [
+export type ProductColumnActions = {
+  onUpdateProduct: (product: Product) => void
+  onDeleteProduct: (productId: string) => void
+}
+
+export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnActions): ColumnDef<Product>[] => [
   {
     accessorKey: "name",
     header: ({ column }) => {
@@ -101,7 +106,7 @@ export const columns: ColumnDef<Product>[] = [
   {
     id: "actions",
     cell: ({ row }) => {
-      return <DataTableRowActions row={row} />
+      return <DataTableRowActions row={row} onUpdateProduct={onUpdateProduct} onDeleteProduct={onDeleteProduct} />
     },
   },
 ]

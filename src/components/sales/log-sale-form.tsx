@@ -31,10 +31,11 @@ const formSchema = z.object({
 })
 
 interface LogSaleFormProps {
-  products: Product[]
+  products: Product[];
+  onSaleLogged: (data: { productId: string; quantity: number }) => void;
 }
 
-export function LogSaleForm({ products }: LogSaleFormProps) {
+export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
   const { toast } = useToast()
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -46,9 +47,29 @@ export function LogSaleForm({ products }: LogSaleFormProps) {
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     const product = products.find(p => p.id === values.productId)
+    if (!product) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Product not found.`,
+      })
+      return;
+    }
+    
+    if (product.quantity < values.quantity) {
+       toast({
+        variant: "destructive",
+        title: "Not enough stock",
+        description: `Only ${product.quantity} of ${product.name} available.`,
+      })
+      return;
+    }
+
+    onSaleLogged(values);
+
     toast({
       title: "Sale Logged",
-      description: `Sold ${values.quantity} of ${product?.name}.`,
+      description: `Sold ${values.quantity} of ${product.name}.`,
     })
     form.reset()
   }
@@ -76,8 +97,8 @@ export function LogSaleForm({ products }: LogSaleFormProps) {
                     </FormControl>
                     <SelectContent>
                       {products.map(product => (
-                        <SelectItem key={product.id} value={product.id}>
-                          {product.name}
+                        <SelectItem key={product.id} value={product.id} disabled={product.quantity === 0}>
+                          {product.name} ({product.quantity} in stock)
                         </SelectItem>
                       ))}
                     </SelectContent>

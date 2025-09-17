@@ -2,7 +2,6 @@
 
 import * as React from "react"
 import {
-  ColumnDef,
   ColumnFiltersState,
   SortingState,
   flexRender,
@@ -23,17 +22,26 @@ import {
 } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { columns } from "./columns"
+import { getColumns, ProductColumnActions } from "./columns"
 import { Product } from "@/lib/types"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ProductForm } from "./product-form"
 
-interface ProductsTableProps {
-  data: Product[]
+interface ProductsTableProps extends ProductColumnActions {
+  data: Product[];
+  onAddProduct: (product: Omit<Product, "id">) => void;
 }
 
-export function ProductsTable({ data }: ProductsTableProps) {
+export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductsTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
+  const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
 
+  const columns = React.useMemo(
+    () => getColumns({ onUpdateProduct, onDeleteProduct }),
+    [onUpdateProduct, onDeleteProduct]
+  );
+  
   const table = useReactTable({
     data,
     columns,
@@ -60,7 +68,20 @@ export function ProductsTable({ data }: ProductsTableProps) {
           }
           className="max-w-sm"
         />
-        <Button>Add Product</Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>Add Product</Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Product</DialogTitle>
+            </DialogHeader>
+            <ProductForm onSubmit={(data) => {
+              onAddProduct(data);
+              setIsAddDialogOpen(false);
+            }} />
+          </DialogContent>
+        </Dialog>
       </div>
       <div className="rounded-lg border">
         <Table>
