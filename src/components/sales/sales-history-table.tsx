@@ -5,18 +5,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TableFooter
 } from "@/components/ui/table"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { SaleItem } from "@/lib/types"
 
 interface SalesHistoryTableProps {
   items: SaleItem[]
-  total: number
 }
 
-export function SalesHistoryTable({ items, total }: SalesHistoryTableProps) {
+export function SalesHistoryTable({ items }: SalesHistoryTableProps) {
   return (
     <div className="border rounded-lg">
       <Table>
@@ -48,17 +44,6 @@ export function SalesHistoryTable({ items, total }: SalesHistoryTableProps) {
             </TableRow>
           ))}
         </TableBody>
-         <TableFooter>
-            <TableRow>
-              <TableCell colSpan={3} className="text-right font-bold">Total</TableCell>
-              <TableCell className="text-right font-bold">
-                 {new Intl.NumberFormat("es-NI", {
-                    style: "currency",
-                    currency: "NIO",
-                  }).format(total)}
-              </TableCell>
-            </TableRow>
-        </TableFooter>
       </Table>
     </div>
   )

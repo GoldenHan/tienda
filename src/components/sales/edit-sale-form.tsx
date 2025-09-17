@@ -1,4 +1,3 @@
-
 "use client";
 
 import { z } from "zod";
@@ -8,7 +7,7 @@ import { Sale, Product } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const saleItemSchema = z.object({
@@ -27,11 +26,12 @@ type EditSaleFormData = z.infer<typeof formSchema>;
 interface EditSaleFormProps {
   sale: Sale;
   products: Product[];
-  onSubmit: (data: Sale) => void;
+  onSubmit: (updatedSale: Sale, originalSale: Sale) => void;
   onClose: () => void;
+  isSubmitting?: boolean;
 }
 
-export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleFormProps) {
+export function EditSaleForm({ sale, products, onSubmit, onClose, isSubmitting }: EditSaleFormProps) {
   const { toast } = useToast();
   const form = useForm<EditSaleFormData>({
     resolver: zodResolver(formSchema),
@@ -40,7 +40,7 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
     },
   });
 
-  const { fields, remove } = useFieldArray({
+  const { fields } = useFieldArray({
     control: form.control,
     name: "items",
   });
@@ -48,18 +48,21 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
   const handleFormSubmit = (data: EditSaleFormData) => {
     // Check if stock is sufficient for any increased quantities
     let stockError = false;
-    data.items.forEach((editedItem, index) => {
+    data.items.forEach((editedItem) => {
       const originalItem = sale.items.find(i => i.productId === editedItem.productId);
       const productInStock = products.find(p => p.id === editedItem.productId);
       
       const originalQuantity = originalItem ? originalItem.quantity : 0;
-      const quantityChange = editedItem.quantity - originalQuantity;
+      const quantityChange = editedItem.quantity - originalQuantity; // Positive if quantity increased
 
-      if (productInStock && quantityChange > productInStock.quantity) {
+      // The available stock is the current stock in the DB plus what was in the original sale
+      const availableStock = (productInStock?.quantity ?? 0) + originalQuantity;
+
+      if (editedItem.quantity > availableStock) {
         toast({
           variant: "destructive",
           title: "Stock Insuficiente",
-          description: `No puedes aumentar la cantidad de "${editedItem.productName}". Solo hay ${productInStock.quantity} unidades adicionales disponibles en stock.`,
+          description: `No puedes aumentar la cantidad de "${editedItem.productName}". Solo hay ${availableStock} unidades en total disponibles.`,
         });
         stockError = true;
       }
@@ -67,9 +70,11 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
 
     if (stockError) return;
 
-    const updatedItems = data.items.map(item => ({
-      ...item,
-      total: item.quantity * item.salePrice
+    const updatedItems = data.items
+      .filter(item => item.quantity > 0) // Remove items with quantity 0
+      .map(item => ({
+        ...item,
+        total: item.quantity * item.salePrice
     }));
     
     const updatedSale: Sale = {
@@ -78,7 +83,7 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
       grandTotal: updatedItems.reduce((acc, item) => acc + item.total, 0),
     };
     
-    onSubmit(updatedSale);
+    onSubmit(updatedSale, sale);
     onClose();
   };
 
@@ -97,7 +102,7 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
                       <FormItem>
                         <FormLabel>Cantidad</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} />
+                          <Input type="number" {...field} disabled={isSubmitting}/>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -114,6 +119,7 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
                     description: `"${field.productName}" se eliminará al guardar.`,
                   });
                 }}
+                disabled={isSubmitting}
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
@@ -121,8 +127,11 @@ export function EditSaleForm({ sale, products, onSubmit, onClose }: EditSaleForm
           ))}
         </div>
         <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">Guardar Cambios</Button>
+            <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 className="animate-spin mr-2" />}
+              Guardar Cambios
+            </Button>
         </div>
       </form>
     </Form>

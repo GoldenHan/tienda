@@ -1,4 +1,3 @@
-
 "use client"
 
 import { useState } from "react";
@@ -19,10 +18,11 @@ import { EditSaleForm } from "./edit-sale-form";
 interface SalesHistoryAccordionProps {
   sales: Sale[];
   products: Product[];
-  onUpdateSale: (updatedSale: Sale) => void;
+  onUpdateSale: (updatedSale: Sale, originalSale: Sale) => void;
+  isLoading?: boolean;
 }
 
-export function SalesHistoryAccordion({ sales, products, onUpdateSale }: SalesHistoryAccordionProps) {
+export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading }: SalesHistoryAccordionProps) {
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
 
   const formatDate = (dateString: string) => {
@@ -51,7 +51,7 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale }: SalesHi
             <AccordionTrigger className="hover:no-underline">
               <div className="flex justify-between items-center w-full pr-4">
                 <div className="text-left">
-                  <p className="font-semibold">Transacción: {sale.id}</p>
+                  <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id}</p>
                   <p className="text-sm text-muted-foreground">{formatDate(sale.date)}</p>
                 </div>
                 <div className="flex items-center gap-4">
@@ -71,7 +71,7 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale }: SalesHi
               </div>
             </AccordionTrigger>
             <AccordionContent className="pt-2">
-              <SalesHistoryTable items={sale.items} total={sale.grandTotal} />
+              <SalesHistoryTable items={sale.items} />
             </AccordionContent>
           </AccordionItem>
         ))}
@@ -87,7 +87,8 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale }: SalesHi
               sale={editingSale} 
               products={products}
               onSubmit={onUpdateSale} 
-              onClose={() => setEditingSale(null)} 
+              onClose={() => setEditingSale(null)}
+              isSubmitting={isLoading} 
             />
           )}
         </DialogContent>

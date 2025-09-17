@@ -12,23 +12,26 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, UploadCloud } from "lucide-react";
 import { uploadImage } from "@/lib/storage-helpers";
+import { Textarea } from "../ui/textarea";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
+  description: z.string().optional(),
   quantity: z.coerce.number().int().min(0, "La cantidad debe ser un número entero"),
   salePrice: z.coerce.number().min(0, "El precio de venta debe ser positivo"),
+  purchaseCost: z.coerce.number().min(0, "El costo de compra debe ser positivo"),
+  lowStockThreshold: z.coerce.number().int().min(0, "El umbral debe ser un número entero"),
 });
 
-// We remove imageUrl from the form schema, as we'll handle it separately
 type ProductFormData = z.infer<typeof formSchema>;
 
 interface ProductFormProps {
   product?: Product;
-  // onSubmit now receives the image URL as a separate argument
-  onSubmit: (data: ProductFormData & { imageUrl: string }) => void;
+  onSubmit: (data: ProductFormData & { imageUrl: string, imageHint: string }) => void;
+  isSubmitting?: boolean;
 }
 
-export function ProductForm({ product, onSubmit }: ProductFormProps) {
+export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProps) {
   const { toast } = useToast();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.imageUrl || null);
@@ -38,8 +41,11 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: product?.name || "",
+      description: product?.description || "",
       quantity: product?.quantity || 0,
       salePrice: product?.salePrice || 0,
+      purchaseCost: product?.purchaseCost || 0,
+      lowStockThreshold: product?.lowStockThreshold || 10,
     },
   });
 
@@ -61,14 +67,12 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
 
     try {
       if (imageFile) {
-        // If there's a new file, upload it
         imageUrl = await uploadImage(imageFile);
         toast({
           title: "Imagen Subida",
           description: "La nueva imagen del producto se ha guardado.",
         });
       } else if (!imageUrl) {
-        // If there is no new file and no existing image, it's an error
         toast({
           variant: "destructive",
           title: "Error",
@@ -77,9 +81,10 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
         setIsUploading(false);
         return;
       }
+      
+      const imageHint = imageFile?.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || product?.imageHint || 'producto';
 
-      // Call the original onSubmit with the complete data
-      onSubmit({ ...data, imageUrl });
+      onSubmit({ ...data, imageUrl, imageHint });
 
     } catch (error) {
       console.error("Error al subir imagen o guardar producto:", error);
@@ -92,6 +97,8 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
       setIsUploading(false);
     }
   };
+  
+  const isLoading = isUploading || isSubmitting;
 
   return (
     <Form {...form}>
@@ -104,7 +111,7 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
               <label htmlFor="image-upload" className="cursor-pointer">
                 <div className="relative w-full h-48 border-2 border-dashed rounded-lg flex flex-col justify-center items-center text-muted-foreground hover:border-primary transition-colors">
                   {previewUrl ? (
-                    <Image src={previewUrl} alt="Vista previa" fill className="object-contain rounded-lg" />
+                    <Image src={previewUrl} alt="Vista previa" fill className="object-contain rounded-lg p-2" />
                   ) : (
                     <>
                       <UploadCloud className="w-10 h-10 mb-2" />
@@ -120,7 +127,7 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
                 className="hidden"
                 accept="image/png, image/jpeg, image/webp"
                 onChange={handleImageChange} 
-                disabled={isUploading}
+                disabled={isLoading}
               />
             </div>
           </FormControl>
@@ -134,7 +141,21 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
             <FormItem>
               <FormLabel>Nombre del Producto</FormLabel>
               <FormControl>
-                <Input placeholder="Ej. Taza Artesanal" {...field} disabled={isUploading} />
+                <Input placeholder="Ej. Taza Artesanal" {...field} disabled={isLoading} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Descripción</FormLabel>
+              <FormControl>
+                <Textarea placeholder="Describe el producto" {...field} disabled={isLoading} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -149,7 +170,36 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
               <FormItem>
                 <FormLabel>Cantidad en Stock</FormLabel>
                 <FormControl>
-                  <Input type="number" {...field} disabled={isUploading} />
+                  <Input type="number" {...field} disabled={isLoading} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="lowStockThreshold"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Umbral Stock Bajo</FormLabel>
+                <FormControl>
+                  <Input type="number" {...field} disabled={isLoading} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+        
+         <div className="grid grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="purchaseCost"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Costo de Compra (C$)</FormLabel>
+                <FormControl>
+                  <Input type="number" step="0.01" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -162,15 +212,16 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
               <FormItem>
                 <FormLabel>Precio de Venta (C$)</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" {...field} disabled={isUploading} />
+                  <Input type="number" step="0.01" {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
             )}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={isUploading}>
-          {isUploading ? <Loader2 className="animate-spin" /> : (product ? "Guardar Cambios" : "Añadir Producto")}
+
+        <Button type="submit" className="w-full" disabled={isLoading}>
+          {isLoading ? <Loader2 className="animate-spin" /> : (product ? "Guardar Cambios" : "Añadir Producto")}
         </Button>
       </form>
     </Form>

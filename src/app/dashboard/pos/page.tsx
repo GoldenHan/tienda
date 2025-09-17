@@ -1,19 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import { products as initialProducts, sales as initialSales } from "@/lib/data";
+import { useState, useEffect } from "react";
 import { Product, Sale, SaleItem } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
+import { getProducts, addSale, updateProduct } from "@/lib/firestore-helpers";
+import { Skeleton } from "@/components/ui/skeleton";
+import { v4 as uuidv4 } from "uuid";
 
 export type CartItem = Product & { quantityInCart: number };
 
 export default function POSPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
-  const [sales, setSales] = useState<Sale[]>(initialSales);
+  const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const fetchProducts = async () => {
+    try {
+      setLoading(true);
+      const productsData = await getProducts();
+      setProducts(productsData);
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
   const handleAddToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -75,7 +94,7 @@ export default function POSPage() {
   };
 
 
-  const handleCompleteSale = () => {
+  const handleCompleteSale = async () => {
     if (cart.length === 0) {
       toast({
         variant: "destructive",
@@ -84,20 +103,10 @@ export default function POSPage() {
       });
       return;
     }
-    
-    // 1. Update product quantities in stock
-    setProducts((prevProducts) => {
-      const updatedProducts = [...prevProducts];
-      for (const cartItem of cart) {
-        const productIndex = updatedProducts.findIndex(p => p.id === cartItem.id);
-        if (productIndex !== -1) {
-          updatedProducts[productIndex].quantity -= cartItem.quantityInCart;
-        }
-      }
-      return updatedProducts;
-    });
 
-    // 2. Create a single Sale object for the transaction
+    setLoading(true);
+    
+    // 1. Create a single Sale object for the transaction
     const newSaleItems: SaleItem[] = cart.map((cartItem) => ({
       productId: cartItem.id,
       productName: cartItem.name,
@@ -106,23 +115,38 @@ export default function POSPage() {
       total: cartItem.salePrice * cartItem.quantityInCart,
     }));
     
-    const newSale: Sale = {
-      id: `TRANS_${Date.now()}`,
+    const newSale: Omit<Sale, 'id'> = {
       date: new Date().toISOString(),
       items: newSaleItems,
       grandTotal: newSaleItems.reduce((acc, item) => acc + item.total, 0),
     };
 
-    // 3. Add the new sale to the sales history
-    setSales((prevSales) => [newSale, ...prevSales]);
-    
-    // 4. Clear the cart
-    setCart([]);
+    try {
+      // 2. Add the new sale to the sales collection in Firestore
+      await addSale(newSale);
 
-    toast({
-      title: "Venta completada",
-      description: "El stock de productos y el historial de ventas han sido actualizados.",
-    });
+      // 3. Update product quantities in stock in Firestore
+      const stockUpdatePromises = cart.map(cartItem => {
+        const newQuantity = cartItem.quantity - cartItem.quantityInCart;
+        return updateProduct(cartItem.id, { quantity: newQuantity });
+      });
+      await Promise.all(stockUpdatePromises);
+      
+      // 4. Clear the cart and re-fetch products
+      setCart([]);
+      await fetchProducts();
+
+      toast({
+        title: "Venta completada",
+        description: "El stock y el historial de ventas han sido actualizados.",
+      });
+
+    } catch (error) {
+      console.error(error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo completar la venta." });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -137,7 +161,13 @@ export default function POSPage() {
       </header>
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 pt-0 sm:p-6 sm:pt-0 overflow-hidden">
         <div className="lg:col-span-2 h-full overflow-y-auto">
-           <ProductGrid products={products} onAddToCart={handleAddToCart} />
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+              {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-square" />)}
+            </div>
+          ) : (
+            <ProductGrid products={products} onAddToCart={handleAddToCart} />
+          )}
         </div>
         <div className="lg:col-span-1 h-full flex flex-col">
           <Cart 
@@ -145,6 +175,7 @@ export default function POSPage() {
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveFromCart}
             onCompleteSale={handleCompleteSale}
+            disabled={loading}
           />
         </div>
       </main>

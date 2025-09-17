@@ -3,7 +3,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, ShoppingCart } from "lucide-react";
+import { Trash2, ShoppingCart, Loader2 } from "lucide-react";
 import type { CartItem } from "@/app/dashboard/pos/page";
 
 interface CartProps {
@@ -11,9 +11,10 @@ interface CartProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onCompleteSale: () => void;
+  disabled?: boolean;
 }
 
-export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale }: CartProps) {
+export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale, disabled = false }: CartProps) {
   const total = cartItems.reduce((acc, item) => acc + item.salePrice * item.quantityInCart, 0);
 
   return (
@@ -45,8 +46,9 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
                     value={item.quantityInCart}
                     onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value, 10))}
                     className="w-16 h-8 text-center"
+                    disabled={disabled}
                   />
-                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onRemoveItem(item.id)}>
+                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onRemoveItem(item.id)} disabled={disabled}>
                       <Trash2 className="h-4 w-4" />
                    </Button>
                 </div>
@@ -63,7 +65,8 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
                 <span>{new Intl.NumberFormat("es-NI", { style: "currency", currency: "NIO" }).format(total)}</span>
             </div>
         </div>
-        <Button className="w-full" onClick={onCompleteSale} disabled={cartItems.length === 0}>
+        <Button className="w-full" onClick={onCompleteSale} disabled={cartItems.length === 0 || disabled}>
+          {disabled && <Loader2 className="animate-spin mr-2" />}
           Completar Venta
         </Button>
       </CardFooter>

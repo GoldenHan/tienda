@@ -1,22 +1,69 @@
-import StatCard from '@/components/dashboard/stat-card'
-import { products, sales } from '@/lib/data'
-import { DollarSign, Package, AlertTriangle, ShoppingCart } from 'lucide-react'
+"use client";
+
+import { useState, useEffect } from 'react';
+import StatCard from '@/components/dashboard/stat-card';
+import { Product, Sale } from '@/lib/types';
+import { getProducts, getSales } from '@/lib/firestore-helpers';
+import { DollarSign, Package, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
-  const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0)
-  const totalSales = sales.length
+  const [products, setProducts] = useState<Product[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [productsData, salesData] = await Promise.all([getProducts(), getSales()]);
+        setProducts(productsData);
+        setSales(salesData);
+      } catch (error) {
+        console.error(error);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos del panel.' });
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [toast]);
+
+  const totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
+  const totalSalesCount = sales.length;
 
   const totalProfit = sales.reduce((acc, sale) => {
-    const product = products.find(p => p.name === sale.productName)
-    if (product) {
-      return acc + (sale.total - product.purchaseCost * sale.quantity)
-    }
-    return acc
-  }, 0)
+    const saleProfit = sale.items.reduce((itemAcc, item) => {
+      const product = products.find(p => p.id === item.productId);
+      if (product) {
+        return itemAcc + (item.total - product.purchaseCost * item.quantity);
+      }
+      return itemAcc;
+    }, 0);
+    return acc + saleProfit;
+  }, 0);
 
-  const lowStockItems = products.filter(
-    p => p.quantity <= p.lowStockThreshold
-  ).length
+  const lowStockItems = products.filter(p => p.quantity <= p.lowStockThreshold).length;
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col">
+        <header className="p-4 sm:p-6">
+           <h1 className="text-2xl font-bold tracking-tight font-headline">
+            Panel de Control
+          </h1>
+        </header>
+        <main className="grid flex-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col">
@@ -51,7 +98,7 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Ventas Totales"
-          value={totalSales.toString()}
+          value={totalSalesCount.toString()}
           icon={ShoppingCart}
           description="Número total de transacciones de venta"
         />
@@ -64,5 +111,5 @@ export default function DashboardPage() {
         />
       </main>
     </div>
-  )
+  );
 }
