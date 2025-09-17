@@ -5,9 +5,8 @@ import { Product, Sale, SaleItem } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
-import { getProducts, addSale, updateProduct } from "@/lib/firestore-helpers";
+import { getProducts, addSale } from "@/lib/firestore-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
-import { v4 as uuidv4 } from "uuid";
 
 export type CartItem = Product & { quantityInCart: number };
 
@@ -106,7 +105,6 @@ export default function POSPage() {
 
     setLoading(true);
     
-    // 1. Create a single Sale object for the transaction
     const newSaleItems: SaleItem[] = cart.map((cartItem) => ({
       productId: cartItem.id,
       productName: cartItem.name,
@@ -122,17 +120,10 @@ export default function POSPage() {
     };
 
     try {
-      // 2. Add the new sale to the sales collection in Firestore
-      await addSale(newSale);
-
-      // 3. Update product quantities in stock in Firestore
-      const stockUpdatePromises = cart.map(cartItem => {
-        const newQuantity = cartItem.quantity - cartItem.quantityInCart;
-        return updateProduct(cartItem.id, { quantity: newQuantity });
-      });
-      await Promise.all(stockUpdatePromises);
+      // Use the new addSale function which uses a batch write
+      await addSale(newSale, cart);
       
-      // 4. Clear the cart and re-fetch products
+      // Clear the cart and re-fetch products to show updated stock
       setCart([]);
       await fetchProducts();
 
@@ -142,8 +133,8 @@ export default function POSPage() {
       });
 
     } catch (error) {
-      console.error(error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo completar la venta." });
+      console.error("Error al completar la venta:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo completar la venta. Revisa los permisos de la base de datos." });
     } finally {
       setLoading(false);
     }

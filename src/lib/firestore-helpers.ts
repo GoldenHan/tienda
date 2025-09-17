@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
 import { Product, Sale } from "./types";
 
@@ -37,17 +37,32 @@ export const deleteProduct = async (id: string) => {
 };
 
 
-// Get all sales
+// Get all sales (Only for Admins, enforced by security rules)
 export const getSales = async (): Promise<Sale[]> => {
   const q = query(salesCollection, orderBy("date", "desc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 
-// Add a new sale
-export const addSale = async (saleData: Omit<Sale, 'id'>) => {
-  await addDoc(salesCollection, saleData);
+// Add a new sale using a write batch for atomicity
+export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
+  const batch = writeBatch(db);
+
+  // 1. Create the new sale document
+  const newSaleRef = doc(collection(db, "sales"));
+  batch.set(newSaleRef, saleData);
+
+  // 2. Update the stock for each product in the cart
+  for (const item of cartItems) {
+    const productRef = doc(db, "products", item.id);
+    const newQuantity = item.quantity - item.quantityInCart;
+    batch.update(productRef, { quantity: newQuantity });
+  }
+
+  // 3. Commit the batch
+  await batch.commit();
 };
+
 
 // Update a sale
 export const updateSale = async (id: string, updates: Partial<Sale>) => {
