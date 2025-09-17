@@ -45,48 +45,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // User is logged in, now we can safely query Firestore to find their company and role.
-        setLoading(true); // Set loading while we fetch user details
+        setLoading(true);
+        let userFound = false;
+        
         try {
-          const companiesCol = collection(db, "companies");
-          const companiesSnapshot = await getDocs(companiesCol);
-          let userFound = false;
-
-          for (const companyDoc of companiesSnapshot.docs) {
-              const userDocRef = doc(db, "companies", companyDoc.id, "users", firebaseUser.uid);
-              const userDocSnap = await getDoc(userDocRef);
-              if (userDocSnap.exists()) {
-                  const userData = userDocSnap.data() as User;
-                  setUser({
-                      ...firebaseUser,
-                      ...userData,
-                      companyId: companyDoc.id,
-                      name: userData.name || firebaseUser.displayName, // Fallback to display name
-                  });
-                  userFound = true;
-                  break; 
-              }
+          // Optimization: Check sessionStorage first (for post-registration flow)
+          const companyIdFromSession = sessionStorage.getItem('companyId');
+          if (companyIdFromSession) {
+            const userDocRef = doc(db, "companies", companyIdFromSession, "users", firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              const userData = userDocSnap.data() as User;
+              setUser({
+                  ...firebaseUser,
+                  ...userData,
+                  companyId: companyIdFromSession,
+                  name: userData.name || firebaseUser.displayName,
+              });
+              userFound = true;
+              sessionStorage.removeItem('companyId'); // Clean up
+            }
           }
 
+          // Fallback: If not found via session, scan all companies
           if (!userFound) {
-              // This can happen if the user's document was deleted but they still have a valid auth session.
-              // Or during the brief moment after registration but before the setup page redirects.
-              // We log them out to force a clean login.
-              console.warn("Authenticated user not found in any company. Logging out.");
-              await signOut(auth);
-              setUser(null);
+            const companiesCol = collection(db, "companies");
+            const companiesSnapshot = await getDocs(companiesCol);
+
+            for (const companyDoc of companiesSnapshot.docs) {
+                const userDocRef = doc(db, "companies", companyDoc.id, "users", firebaseUser.uid);
+                const userDocSnap = await getDoc(userDocRef);
+                if (userDocSnap.exists()) {
+                    const userData = userDocSnap.data() as User;
+                    setUser({
+                        ...firebaseUser,
+                        ...userData,
+                        companyId: companyDoc.id,
+                        name: userData.name || firebaseUser.displayName,
+                    });
+                    userFound = true;
+                    break; 
+                }
+            }
           }
+          
+          if (!userFound) {
+            console.warn("Authenticated user not found in any company. Logging out.");
+            await signOut(auth);
+            setUser(null);
+          }
+
         } catch (error) {
           console.error("Error fetching user data:", error);
-          // If there's an error (like permissions), log them out to be safe.
           await signOut(auth);
           setUser(null);
         } finally {
-            setLoading(false);
+          setLoading(false);
         }
 
       } else {
-        // User is not logged in, no need to query DB.
         setUser(null);
         setLoading(false);
       }
@@ -101,8 +118,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, name: string) => {
-    // This function is no longer responsible for creating the user in Auth.
-    // It's kept for compatibility but the main logic is now in the setup server action.
     console.warn("The register function in AuthContext should not be called directly. The flow has been moved to the /setup page.");
     return Promise.resolve();
   };

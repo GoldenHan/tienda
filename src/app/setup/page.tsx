@@ -108,7 +108,8 @@ export default function SetupPage() {
       // 4. Commit the batch
       await batch.commit();
       
-      // Clear the session storage
+      // Store companyId to help AuthContext find the user faster
+      sessionStorage.setItem('companyId', companyDocRef.id);
       sessionStorage.removeItem('registrationData');
 
       toast({
