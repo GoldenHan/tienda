@@ -75,6 +75,8 @@ export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: D
           <ProductForm 
             product={product} 
             onSubmit={(data) => {
+              // We merge the updated data with the existing product data
+              // This is important because the form only contains a subset of fields
               onUpdateProduct({ ...product, ...data })
               setShowEditDialog(false)
             }} 

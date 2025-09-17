@@ -8,13 +8,16 @@ import { Product } from "@/lib/types";
 export default function InventoryPage() {
   const [products, setProducts] = useState<Product[]>(initialProducts);
 
-  const handleAddProduct = (newProduct: Omit<Product, "id">) => {
+  const handleAddProduct = (newProductData: Omit<Product, 'id' | 'description' | 'purchaseCost' | 'lowStockThreshold' | 'imageHint'>) => {
     setProducts((prevProducts) => [
       ...prevProducts,
       {
-        ...newProduct,
+        ...newProductData,
         id: `prod_${Date.now()}`,
-        imageUrl: "https://picsum.photos/seed/placeholder/400/400", // Default placeholder
+        // Provide default values for fields not in the form
+        description: "New product description.",
+        purchaseCost: newProductData.salePrice * 0.5, // Example default
+        lowStockThreshold: 10, // Example default
         imageHint: "new product",
       },
     ]);

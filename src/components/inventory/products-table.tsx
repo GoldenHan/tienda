@@ -29,7 +29,7 @@ import { ProductForm } from "./product-form"
 
 interface ProductsTableProps extends ProductColumnActions {
   data: Product[];
-  onAddProduct: (product: Omit<Product, "id">) => void;
+  onAddProduct: (product: Omit<Product, 'id' | 'description' | 'purchaseCost' | 'lowStockThreshold' | 'imageHint'>) => void;
 }
 
 export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductsTableProps) {
@@ -112,7 +112,7 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {render(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>

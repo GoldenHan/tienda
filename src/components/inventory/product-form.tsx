@@ -6,41 +6,46 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Product } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  description: z.string().min(1, "Description is required"),
-  purchaseCost: z.coerce.number().min(0, "Purchase cost must be positive"),
-  salePrice: z.coerce.number().min(0, "Sale price must be positive"),
+  imageUrl: z.string().url("Must be a valid URL"),
   quantity: z.coerce.number().int().min(0, "Quantity must be a whole number"),
-  lowStockThreshold: z.coerce.number().int().min(0, "Threshold must be a whole number"),
+  salePrice: z.coerce.number().min(0, "Sale price must be positive"),
 });
 
+// We create a new type that only includes the fields we want to edit.
+// This makes the form more focused.
 type ProductFormData = z.infer<typeof formSchema>;
 
 interface ProductFormProps {
+  // We accept the full Product type for default values
   product?: Product;
+  // The onSubmit function receives only the data from the form
   onSubmit: (data: ProductFormData) => void;
 }
 
 export function ProductForm({ product, onSubmit }: ProductFormProps) {
   const form = useForm<ProductFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: product || {
-      name: "",
-      description: "",
-      purchaseCost: 0,
-      salePrice: 0,
-      quantity: 0,
-      lowStockThreshold: 0,
+    // We map the full product to the form data, providing defaults
+    defaultValues: {
+      name: product?.name || "",
+      imageUrl: product?.imageUrl || "",
+      quantity: product?.quantity || 0,
+      salePrice: product?.salePrice || 0,
     },
   });
 
+  // The submit handler now correctly uses the form's data type
+  const handleFormSubmit = (data: ProductFormData) => {
+    onSubmit(data);
+  };
+
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
         <FormField
           control={form.control}
           name="name"
@@ -56,45 +61,17 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
         />
         <FormField
           control={form.control}
-          name="description"
+          name="imageUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Description</FormLabel>
+              <FormLabel>Image URL</FormLabel>
               <FormControl>
-                <Textarea placeholder="A short description of the product." {...field} />
+                <Input placeholder="https://example.com/image.png" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="purchaseCost"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Purchase Cost ($)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="salePrice"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Sale Price ($)</FormLabel>
-                <FormControl>
-                  <Input type="number" step="0.01" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
         <div className="grid grid-cols-2 gap-4">
           <FormField
             control={form.control}
@@ -111,12 +88,12 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
           />
           <FormField
             control={form.control}
-            name="lowStockThreshold"
+            name="salePrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Low Stock Threshold</FormLabel>
+                <FormLabel>Sale Price ($)</FormLabel>
                 <FormControl>
-                  <Input type="number" {...field} />
+                  <Input type="number" step="0.01" {...field} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
