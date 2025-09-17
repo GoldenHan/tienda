@@ -1,7 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
-import { db, auth as mainAuth } from "./firebase";
+import { db } from "./firebase";
 import { Product, Sale, User, EmployeeData, Company } from "./types";
 
 if (!db) {
@@ -21,16 +21,10 @@ const firebaseConfig = {
 const secondaryApp = initializeApp(firebaseConfig, "secondary");
 const secondaryAuth = getAuth(secondaryApp);
 
-// Collection references
-const productsCollection = collection(db, "products");
-const salesCollection = collection(db, "sales");
-const usersCollection = collection(db, "users");
-const companyCollection = collection(db, "company");
-
 // --- Company Info ---
 
-export const getCompany = async (): Promise<Company | null> => {
-  const companyDocRef = doc(db, "company", "info");
+export const getCompany = async (companyId: string): Promise<Company | null> => {
+  const companyDocRef = doc(db, "companies", companyId);
   const docSnap = await getDoc(companyDocRef);
   if (docSnap.exists()) {
     return docSnap.data() as Company;
@@ -38,22 +32,20 @@ export const getCompany = async (): Promise<Company | null> => {
   return null;
 }
 
-
 // --- User Management ---
 
-export const getUsers = async (): Promise<User[]> => {
-  const q = query(usersCollection, orderBy("name"));
+export const getUsers = async (companyId: string): Promise<User[]> => {
+  const usersCollectionRef = collection(db, "companies", companyId, "users");
+  const q = query(usersCollectionRef, orderBy("name"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => doc.data() as User);
 };
 
-export const addEmployee = async (employeeData: EmployeeData) => {
-  // Create user in Firebase Auth using the secondary app
+export const addEmployee = async (companyId: string, employeeData: EmployeeData) => {
   const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
   const newUser = userCredential.user;
 
-  // Add user document to Firestore
-  const userDocRef = doc(db, "users", newUser.uid);
+  const userDocRef = doc(db, "companies", companyId, "users", newUser.uid);
   await setDoc(userDocRef, {
     uid: newUser.uid,
     name: employeeData.name,
@@ -63,46 +55,48 @@ export const addEmployee = async (employeeData: EmployeeData) => {
   });
 };
 
-
 // --- Product Management ---
 
-export const getProducts = async (): Promise<Product[]> => {
-  const q = query(productsCollection, orderBy("name"));
+export const getProducts = async (companyId: string): Promise<Product[]> => {
+  const productsCollectionRef = collection(db, "companies", companyId, "products");
+  const q = query(productsCollectionRef, orderBy("name"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 };
 
-export const addProduct = async (productData: Omit<Product, 'id'>) => {
-  await addDoc(productsCollection, productData);
+export const addProduct = async (companyId: string, productData: Omit<Product, 'id'>) => {
+  const productsCollectionRef = collection(db, "companies", companyId, "products");
+  await addDoc(productsCollectionRef, productData);
 };
 
-export const updateProduct = async (id: string, updates: Partial<Product>) => {
-  const productDoc = doc(db, "products", id);
-  await updateDoc(productDoc, updates);
+export const updateProduct = async (companyId: string, id: string, updates: Partial<Product>) => {
+  const productDocRef = doc(db, "companies", companyId, "products", id);
+  await updateDoc(productDocRef, updates);
 };
 
-export const deleteProduct = async (id: string) => {
-  const productDoc = doc(db, "products", id);
-  await deleteDoc(productDoc);
+export const deleteProduct = async (companyId: string, id: string) => {
+  const productDocRef = doc(db, "companies", companyId, "products", id);
+  await deleteDoc(productDocRef);
 };
-
 
 // --- Sales Management ---
 
-export const getSales = async (): Promise<Sale[]> => {
-  const q = query(salesCollection, orderBy("date", "desc"));
+export const getSales = async (companyId: string): Promise<Sale[]> => {
+  const salesCollectionRef = collection(db, "companies", companyId, "sales");
+  const q = query(salesCollectionRef, orderBy("date", "desc"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 
-export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
+export const addSale = async (companyId: string, saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
   const batch = writeBatch(db);
 
-  const newSaleRef = doc(collection(db, "sales"));
+  const salesCollectionRef = collection(db, "companies", companyId, "sales");
+  const newSaleRef = doc(salesCollectionRef);
   batch.set(newSaleRef, saleData);
 
   for (const item of cartItems) {
-    const productRef = doc(db, "products", item.id);
+    const productRef = doc(db, "companies", companyId, "products", item.id);
     const newQuantity = item.quantity - item.quantityInCart;
     batch.update(productRef, { quantity: newQuantity });
   }
@@ -110,7 +104,7 @@ export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & 
   await batch.commit();
 };
 
-export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale) => {
+export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: Sale, originalSale: Sale) => {
   try {
     await runTransaction(db, async (transaction) => {
       const stockAdjustments: { [productId: string]: number } = {};
@@ -128,7 +122,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
         const adjustment = stockAdjustments[productId];
         if (adjustment === 0) continue;
 
-        const productRef = doc(db, "products", productId);
+        const productRef = doc(db, "companies", companyId, "products", productId);
         const productDoc = await transaction.get(productRef);
 
         if (!productDoc.exists()) {
@@ -148,7 +142,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
         transaction.update(ref, { quantity: newQuantity });
       });
 
-      const saleDocRef = doc(db, "sales", updatedSale.id);
+      const saleDocRef = doc(db, "companies", companyId, "sales", updatedSale.id);
       transaction.update(saleDocRef, {
         items: updatedSale.items,
         grandTotal: updatedSale.grandTotal,
@@ -158,15 +152,4 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
     console.error("Falló la transacción de actualización de venta:", e);
     throw e;
   }
-};
-
-
-export const updateSale = async (id: string, updates: Partial<Sale>) => {
-  const saleDoc = doc(db, "sales", id);
-  await updateDoc(saleDoc, updates);
-};
-
-export const deleteSale = async (id: string) => {
-  const saleDoc = doc(db, "sales", id);
-  await deleteDoc(saleDoc);
 };

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
 import { getUsers, addEmployee } from '@/lib/firestore-helpers';
+import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -14,15 +15,17 @@ import { Badge } from '@/components/ui/badge';
 import type { EmployeeData } from '@/lib/types';
 
 export default function UsersPage() {
+  const { user } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchUsers = async () => {
+    if (!user?.companyId) return;
     setLoading(true);
     try {
-      const usersData = await getUsers();
+      const usersData = await getUsers(user.companyId);
       setUsers(usersData);
     } catch (error) {
       console.error(error);
@@ -33,12 +36,15 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    if (user?.companyId) {
+      fetchUsers();
+    }
+  }, [user]);
 
   const handleAddEmployee = async (data: EmployeeData) => {
+    if (!user?.companyId) return;
     try {
-      await addEmployee(data);
+      await addEmployee(user.companyId, data);
       await fetchUsers(); // Refresh the user list
       setIsAddDialogOpen(false);
       toast({ title: 'Éxito', description: 'Empleado añadido correctamente.' });

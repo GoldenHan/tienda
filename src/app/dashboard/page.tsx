@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale } from '@/lib/types';
 import { getProducts, getSales } from '@/lib/firestore-helpers';
+import { useAuth } from '@/context/auth-context';
 import { DollarSign, Package, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,9 +18,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
+      if (!user?.companyId) return;
       try {
         setLoading(true);
-        const [productsData, salesData] = await Promise.all([getProducts(), getSales()]);
+        const [productsData, salesData] = await Promise.all([getProducts(user.companyId), getSales(user.companyId)]);
         setProducts(productsData);
         setSales(salesData);
       } catch (error) {
@@ -28,8 +31,10 @@ export default function DashboardPage() {
         setLoading(false);
       }
     };
-    fetchData();
-  }, [toast]);
+    if (user?.companyId) {
+      fetchData();
+    }
+  }, [user, toast]);
 
   const totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
   const totalSalesCount = sales.length;

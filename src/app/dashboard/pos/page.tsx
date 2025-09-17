@@ -5,21 +5,24 @@ import { Product, Sale, SaleItem } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/auth-context";
 import { getProducts, addSale } from "@/lib/firestore-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export type CartItem = Product & { quantityInCart: number };
 
 export default function POSPage() {
+  const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchProducts = async () => {
+    if (!user?.companyId) return;
     try {
       setLoading(true);
-      const productsData = await getProducts();
+      const productsData = await getProducts(user.companyId);
       setProducts(productsData);
     } catch (error) {
       console.error(error);
@@ -30,8 +33,10 @@ export default function POSPage() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if(user?.companyId){
+      fetchProducts();
+    }
+  }, [user]);
 
   const handleAddToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -94,6 +99,7 @@ export default function POSPage() {
 
 
   const handleCompleteSale = async () => {
+    if (!user?.companyId) return;
     if (cart.length === 0) {
       toast({
         variant: "destructive",
@@ -120,10 +126,8 @@ export default function POSPage() {
     };
 
     try {
-      // Use the new addSale function which uses a batch write
-      await addSale(newSale, cart);
+      await addSale(user.companyId, newSale, cart);
       
-      // Clear the cart and re-fetch products to show updated stock
       setCart([]);
       await fetchProducts();
 

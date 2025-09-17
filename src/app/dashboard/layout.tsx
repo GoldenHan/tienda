@@ -26,7 +26,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
   useEffect(() => {
     if (loading) return;
 
-    if (!user) {
+    if (!user || !user.companyId) {
       router.push("/login");
       return;
     }
@@ -37,7 +37,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
 
     const fetchCompany = async () => {
       try {
-        const companyData = await getCompany();
+        const companyData = await getCompany(user.companyId);
         if (companyData) {
           setCompanyName(companyData.name);
         }

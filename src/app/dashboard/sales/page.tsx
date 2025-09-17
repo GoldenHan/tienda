@@ -4,19 +4,22 @@ import { useState, useEffect } from "react";
 import { SalesHistoryAccordion } from "@/components/sales/sales-history-accordion";
 import { Product, Sale } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/context/auth-context";
 import { getSales, getProducts, updateSaleAndAdjustStock } from "@/lib/firestore-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SalesPage() {
+  const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
   const fetchData = async () => {
+    if (!user?.companyId) return;
     setLoading(true);
     try {
-      const [salesData, productsData] = await Promise.all([getSales(), getProducts()]);
+      const [salesData, productsData] = await Promise.all([getSales(user.companyId), getProducts(user.companyId)]);
       setSales(salesData);
       setProducts(productsData);
     } catch (error) {
@@ -28,14 +31,16 @@ export default function SalesPage() {
   };
 
   useEffect(() => {
-    fetchData();
-  }, []);
+    if(user?.companyId) {
+      fetchData();
+    }
+  }, [user]);
 
   const handleUpdateSale = async (updatedSale: Sale, originalSale: Sale) => {
-     setLoading(true);
+    if (!user?.companyId) return;
+    setLoading(true);
     try {
-      // Use the new atomic function
-      await updateSaleAndAdjustStock(updatedSale, originalSale);
+      await updateSaleAndAdjustStock(user.companyId, updatedSale, originalSale);
 
       toast({
         title: "Venta Actualizada",
@@ -46,7 +51,6 @@ export default function SalesPage() {
       console.error("Error al actualizar la venta:", error);
       toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
     } finally {
-       // Refresh all data
        await fetchData();
     }
   };

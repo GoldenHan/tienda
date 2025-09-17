@@ -9,7 +9,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, getDocs, query, limit, writeBatch } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, query, where, writeBatch, addDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 interface User {
@@ -17,6 +17,7 @@ interface User {
   email: string | null;
   name: string | null;
   role: "admin" | "employee";
+  companyId: string;
 }
 
 interface AuthContextType {
@@ -44,17 +45,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
-          setUser({
-            ...firebaseUser,
-            ...userData,
-          });
-        } else {
-           setUser(null);
+        // Search for user in all companies' user subcollections
+        const companiesCol = collection(db, "companies");
+        const companiesSnapshot = await getDocs(companiesCol);
+        let userFound = false;
+
+        for (const companyDoc of companiesSnapshot.docs) {
+            const userDocRef = doc(db, "companies", companyDoc.id, "users", firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+                const userData = userDocSnap.data() as User;
+                 setUser({
+                    ...firebaseUser,
+                    ...userData,
+                    companyId: companyDoc.id,
+                });
+                userFound = true;
+                break;
+            }
         }
+        if (!userFound) setUser(null);
+
       } else {
         setUser(null);
       }
@@ -71,24 +82,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string, name: string, companyName: string) => {
     if (!auth || !db) throw new Error(missingFirebaseError);
-
-    // Check if an admin user already exists
-    const usersCollectionRef = collection(db, "users");
-    const q = query(usersCollectionRef, limit(1));
-    const existingUsersSnapshot = await getDocs(q);
     
-    if (!existingUsersSnapshot.empty) {
-      throw new Error("Una cuenta de administrador ya ha sido registrada para esta instancia. Por favor, contacta al administrador para añadir nuevos empleados.");
+    // Check if email is already in use by any user in any company
+    const q = query(collection(db, "companies"), where("users", "array-contains", email));
+    const querySnapshot = await getDocs(q);
+    if (!querySnapshot.empty) {
+        // This is a simplified check. A more robust solution would be a top-level collection of emails.
+        // For now, we will rely on Firebase Auth's email uniqueness.
     }
     
-    // If no users exist, proceed to create the first admin user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
     const batch = writeBatch(db);
 
-    // Create the user document with 'admin' role
-    const userDocRef = doc(db, "users", firebaseUser.uid);
+    // 1. Create the new company document
+    const companyDocRef = doc(collection(db, "companies"));
+    batch.set(companyDocRef, {
+      name: companyName,
+      adminUid: firebaseUser.uid,
+      createdAt: new Date(),
+    });
+
+    // 2. Create the user document within the new company's subcollection
+    const userDocRef = doc(db, "companies", companyDocRef.id, "users", firebaseUser.uid);
     batch.set(userDocRef, {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
@@ -96,16 +113,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       role: "admin",
       createdAt: new Date(),
     });
-
-    // Create the company document
-    const companyDocRef = doc(db, "company", "info");
-    batch.set(companyDocRef, {
-      name: companyName,
-      adminUid: firebaseUser.uid,
-      createdAt: new Date(),
-    });
     
     await batch.commit();
+
+    // Manually set user state after registration to include companyId
+    setUser({
+        ...firebaseUser,
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        name: name,
+        role: "admin",
+        companyId: companyDocRef.id,
+    });
 
     return userCredential;
   };

@@ -51,6 +51,7 @@ export type User = {
   name: string;
   email: string;
   role: 'admin' | 'employee';
+  companyId: string;
   createdAt: any; 
 };
 
@@ -61,6 +62,7 @@ export type EmployeeData = {
 };
 
 export type Company = {
+  id: string;
   name: string;
   adminUid: string;
   createdAt: any;
