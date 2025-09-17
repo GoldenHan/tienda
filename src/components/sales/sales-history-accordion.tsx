@@ -48,28 +48,29 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
       <Accordion type="single" collapsible className="w-full space-y-2">
         {sales.map((sale) => (
           <AccordionItem value={sale.id} key={sale.id} className="border rounded-lg px-4 bg-card">
-            <AccordionTrigger className="hover:no-underline">
-              <div className="flex justify-between items-center w-full pr-4">
-                <div className="text-left">
-                  <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id}</p>
-                  <p className="text-sm text-muted-foreground">{formatDate(sale.date)}</p>
+            <div className="flex justify-between items-center w-full">
+                <AccordionTrigger className="hover:no-underline flex-1 py-4">
+                  <div className="flex justify-between items-center w-full">
+                    <div className="text-left">
+                      <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id}</p>
+                      <p className="text-sm text-muted-foreground">{formatDate(sale.date)}</p>
+                    </div>
+                  </div>
+                </AccordionTrigger>
+                 <div className="flex items-center gap-4 pl-4" onClick={(e) => e.stopPropagation()}>
+                    <p className="font-semibold text-lg">
+                        {new Intl.NumberFormat("es-NI", {
+                        style: "currency",
+                        currency: "NIO",
+                        }).format(sale.grandTotal)}
+                    </p>
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setEditingSale(sale);
+                    }}>
+                        <Edit className="h-4 w-4" />
+                    </Button>
                 </div>
-                <div className="flex items-center gap-4">
-                  <p className="font-semibold text-lg">
-                    {new Intl.NumberFormat("es-NI", {
-                      style: "currency",
-                      currency: "NIO",
-                    }).format(sale.grandTotal)}
-                  </p>
-                  <Button variant="ghost" size="icon" onClick={(e) => {
-                    e.stopPropagation();
-                    setEditingSale(sale);
-                  }}>
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </AccordionTrigger>
+            </div>
             <AccordionContent className="pt-2">
               <SalesHistoryTable items={sale.items} />
             </AccordionContent>
