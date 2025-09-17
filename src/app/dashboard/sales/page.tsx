@@ -43,7 +43,7 @@ export default function SalesPage() {
       });
 
     } catch (error: any) {
-      console.error(error);
+      console.error("Error al actualizar la venta:", error);
       toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
     } finally {
        // Refresh all data

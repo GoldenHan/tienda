@@ -3,60 +3,42 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper function to check if the user has the 'admin' role.
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function getUserRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+    
     function isAdmin() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && getUserRole(request.auth.uid) == 'admin';
     }
 
-    // Helper function to check if a sale transaction is being performed.
-    // This checks that only the 'quantity' field is being changed.
-    function isStockUpdate() {
-      let incomingKeys = request.resource.data.keys();
-      let existingKeys = resource.data.keys();
-      // Ensure only known fields are being written and 'quantity' is one of them.
-      return incomingKeys.hasAll(existingKeys) &&
-             existingKeys.hasAll(incomingKeys) &&
-             // Only the quantity can be different.
-             request.resource.data.name == resource.data.name &&
-             request.resource.data.description == resource.data.description &&
-             request.resource.data.purchaseCost == resource.data.purchaseCost &&
-             request.resource.data.salePrice == resource.data.salePrice &&
-             request.resource.data.lowStockThreshold == resource.data.lowStockThreshold &&
-             request.resource.data.imageUrl == resource.data.imageUrl &&
-             request.resource.data.imageHint == resource.data.imageHint;
-    }
-
-    // Products collection rules
-    match /products/{productId} {
-      // Any authenticated user can read products (needed for POS).
-      allow read: if request.auth != null;
-      
-      // Admins can create and delete products.
-      allow create, delete: if isAdmin();
-      
-      // Update permissions are more complex:
-      // - Admins can update anything.
-      // - Authenticated users (employees) can ONLY update a product's quantity as part of a sale.
-      allow update: if isAdmin() || (request.auth != null && isStockUpdate());
-    }
-
-    // Sales collection rules
-    match /sales/{saleId} {
-      // Any authenticated user can create sales.
-      allow create: if request.auth != null;
-      
-      // Only admins can read, update, or delete past sales.
-      allow read, update, delete: if isAdmin();
-    }
-
-    // Users collection rules
+    // Rules for the 'users' collection
     match /users/{userId} {
-      // A user can read or update their own document.
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      
-      // A new user can create their own document upon registration.
-      allow create: if request.auth != null;
+      allow read: if isAuthenticated();
+      // Only the user themselves or an admin can update their own data
+      allow update: if request.auth.uid == userId || isAdmin();
+      // Only admins can create or delete users
+      allow create, delete: if isAdmin();
+    }
+    
+    // Rules for the 'products' collection
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      // Allow creation, full updates, and deletion only for admins
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin();
+    }
+    
+    // Rules for the 'sales' collection
+    match /sales/{saleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated(); // Allow any authenticated user to create a sale (POS)
+      // Allow updates and deletes only for admins (Editing sale history)
+      allow update, delete: if isAdmin();
     }
   }
 }

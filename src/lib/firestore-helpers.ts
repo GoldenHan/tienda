@@ -70,18 +70,20 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
       // 1. Calculate stock changes
       const stockAdjustments: { [productId: string]: number } = {};
 
+      // Add back the quantities from the original sale
       originalSale.items.forEach(originalItem => {
         const quantityChange = originalItem.quantity;
         stockAdjustments[originalItem.productId] = (stockAdjustments[originalItem.productId] || 0) + quantityChange;
       });
 
+      // Subtract the quantities from the updated sale
       updatedSale.items.forEach(updatedItem => {
         const quantityChange = -updatedItem.quantity;
         stockAdjustments[updatedItem.productId] = (stockAdjustments[updatedItem.productId] || 0) + quantityChange;
       });
 
       // 2. Read current product stocks and prepare updates
-      const productRefs: { ref: any, newQuantity: number }[] = [];
+      const productUpdates: { ref: any, newQuantity: number }[] = [];
       for (const productId in stockAdjustments) {
         const adjustment = stockAdjustments[productId];
         if (adjustment === 0) continue;
@@ -99,16 +101,16 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
         if (newQuantity < 0) {
           throw new Error(`Stock insuficiente para "${productDoc.data().name}".`);
         }
-        productRefs.push({ ref: productRef, newQuantity });
+        productUpdates.push({ ref: productRef, newQuantity });
       }
 
       // 3. Perform all writes
       // Update product stocks
-      productRefs.forEach(({ ref, newQuantity }) => {
+      productUpdates.forEach(({ ref, newQuantity }) => {
         transaction.update(ref, { quantity: newQuantity });
       });
 
-      // Update the sale document
+      // Update the sale document itself
       const saleDocRef = doc(db, "sales", updatedSale.id);
       transaction.update(saleDocRef, {
         items: updatedSale.items,
