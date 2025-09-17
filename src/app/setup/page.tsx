@@ -8,6 +8,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/auth-context";
 import { createCompanyAndAdmin } from "@/app/setup/actions";
+import { auth } from "@/lib/firebase";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -61,7 +62,7 @@ export default function SetupPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user) {
+    if (!user || !user.email) {
         toast({ variant: "destructive", title: "Error", description: "Debes estar autenticado." });
         return;
     }
@@ -72,7 +73,7 @@ export default function SetupPage() {
           companyName: values.companyName,
           adminUid: user.uid,
           adminName: user.name || "Admin",
-          adminEmail: user.email || ""
+          adminEmail: user.email
       });
 
       if (result.error) {
@@ -84,7 +85,9 @@ export default function SetupPage() {
         description: "Tu negocio está listo. Redirigiendo al panel de control...",
       });
       // Force a reload of user data to get new companyId and role
-      await auth.currentUser?.getIdToken(true); 
+      if (auth?.currentUser) {
+        await auth.currentUser.getIdToken(true); 
+      }
       router.push("/dashboard");
 
     } catch (error: any) {
