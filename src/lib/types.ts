@@ -45,3 +45,17 @@ export type InventoryData = {
   quantity: number;
   value: number;
 };
+
+export type User = {
+  uid: string;
+  name: string;
+  email: string;
+  role: 'admin' | 'employee';
+  createdAt: any; 
+};
+
+export type EmployeeData = {
+  name: string;
+  email: string;
+  password: string;
+};

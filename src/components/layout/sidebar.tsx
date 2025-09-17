@@ -9,7 +9,8 @@ import {
   LogOut,
   Settings,
   ShoppingCart,
-  Tablet
+  Tablet,
+  Users
 } from 'lucide-react'
 
 import {
@@ -27,17 +28,20 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 
 const links = [
-  { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard },
-  { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes },
-  { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart },
-  { href: '/dashboard/pos', label: 'Venta', icon: Tablet },
-  { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3 },
-  { href: '/dashboard/settings', label: 'Configuración', icon: Settings },
+  { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard, adminOnly: false },
+  { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, adminOnly: true },
+  { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart, adminOnly: true },
+  { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
+  { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3, adminOnly: true },
+  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: true },
+  { href: '/dashboard/users', label: 'Usuarios', icon: Users, adminOnly: true },
 ]
 
 export function AppSidebar() {
   const pathname = usePathname()
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+
+  const visibleLinks = links.filter(link => !link.adminOnly || user?.role === 'admin');
 
   return (
     <Sidebar>
@@ -59,7 +63,7 @@ export function AppSidebar() {
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>
-          {links.map(link => (
+          {visibleLinks.map(link => (
             <SidebarMenuItem key={link.href}>
               <Link href={link.href} className="w-full">
                 <SidebarMenuButton

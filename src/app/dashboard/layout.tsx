@@ -12,6 +12,7 @@ const ADMIN_ONLY_ROUTES = [
   "/dashboard/reports",
   "/dashboard/sales",
   "/dashboard/settings",
+  "/dashboard/users",
 ];
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
