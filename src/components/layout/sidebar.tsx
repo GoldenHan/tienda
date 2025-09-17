@@ -9,6 +9,7 @@ import {
   LogOut,
   Settings,
   ShoppingCart,
+  Tablet
 } from 'lucide-react'
 
 import {
@@ -29,6 +30,7 @@ const links = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/dashboard/inventory', label: 'Inventory', icon: Boxes },
   { href: '/dashboard/sales', label: 'Sales', icon: ShoppingCart },
+  { href: '/dashboard/pos', label: 'POS', icon: Tablet },
   { href: '/dashboard/reports', label: 'Reports', icon: BarChart3 },
   { href: '/dashboard/settings', label: 'Settings', icon: Settings },
 ]
