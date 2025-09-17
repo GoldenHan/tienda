@@ -1,92 +1,73 @@
-rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================
-    // Helpers
-    // =========================
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Check if the user document exists for a given companyId
     function isUserInCompany(companyId, userId) {
       return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(userId));
     }
 
-    // Get user data from within a company
     function getUserData(companyId, userId) {
       return get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId)).data;
     }
 
-    // Check if the authenticated user is an admin of a specific company
     function isAdmin(companyId) {
       return isAuthenticated() && isUserInCompany(companyId, request.auth.uid) && getUserData(companyId, request.auth.uid).role == 'admin';
     }
 
-    // Check if the authenticated user is part of a specific company
     function isEmployee(companyId) {
-       return isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
+      return isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
     }
-    
+
     // =========================
-    // Companies collection
+    // Companies
     // =========================
     match /companies/{companyId} {
-      
-      // Allow creation of a new company document by any authenticated user
-      // This is necessary for the setup flow.
-      allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
-      
-      // Allow reads on the company document itself if the user is an employee of that company
-      allow read: if isEmployee(companyId);
 
-      // Only admins of that company can update the company info
+      // Allow creation of a company if the authenticated user is the admin
+      allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
+
+      // Allow reading the company if the user is part of the company OR this is the first read (setup)
+      allow read: if isEmployee(companyId) || (!exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)) && request.auth.uid == request.resource.data.adminUid);
+
+      // Only admins can update company info
       allow update: if isAdmin(companyId);
 
-      // Nobody can delete a company document
       allow delete: if false;
 
       // =========================
       // Users subcollection
       // =========================
       match /users/{userId} {
-        // Allow creating the very first user (the admin) during company setup
+        // Allow creation of the first admin user during setup
         allow create: if isAuthenticated() && request.auth.uid == userId && request.resource.data.role == 'admin';
 
-        // Allow reading user documents if you are part of the same company
+        // Employees can read users in their company
         allow read: if isEmployee(companyId);
-        
-        // Allow updating a user if you are an admin of that company, or if you are updating your own document
-        allow update: if isAdmin(companyId) || (request.auth.uid == userId);
-        
-        // Only admins can delete users (and not themselves)
+
+        // Admin or the user itself can update
+        allow update: if isAdmin(companyId) || request.auth.uid == userId;
+
+        // Only admin can delete other users
         allow delete: if isAdmin(companyId) && request.auth.uid != userId;
       }
 
       // =========================
-      // Products subcollection
+      // Products
       // =========================
       match /products/{productId} {
-        // Any employee of the company can see the products
         allow read: if isEmployee(companyId);
-        
-        // Only admins can create, update, or delete products
         allow create, update, delete: if isAdmin(companyId);
       }
 
       // =========================
-      // Sales subcollection
+      // Sales
       // =========================
       match /sales/{saleId} {
-        // Any employee can read sales history
         allow read: if isEmployee(companyId);
-        
-        // Any employee can create a sale (perform a transaction)
         allow create: if isEmployee(companyId);
-
-        // Only admins can update or delete sales records
         allow update, delete: if isAdmin(companyId);
       }
     }
