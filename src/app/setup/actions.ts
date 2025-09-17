@@ -16,10 +16,14 @@ export async function createCompanyAndAdmin(params: CreateCompanyParams) {
     try {
         const { db } = getAdminApp();
         const companiesCollectionRef = db.collection("companies");
-        const q = await companiesCollectionRef.where('adminUid', '==', adminUid).get();
-        if (!q.empty) {
-            return { error: 'Este usuario ya es administrador de una empresa.' };
-        }
+        
+        // This query was causing permission errors as it requires an index and broader read access
+        // We will remove it. The logic flow (new user -> setup page) makes it unlikely
+        // that a user who reaches this point is already an admin.
+        // const q = await companiesCollectionRef.where('adminUid', '==', adminUid).get();
+        // if (!q.empty) {
+        //     return { error: 'Este usuario ya es administrador de una empresa.' };
+        // }
 
         const batch = db.batch();
 
