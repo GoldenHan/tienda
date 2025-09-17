@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { SalesHistoryAccordion } from "@/components/sales/sales-history-accordion";
 import { Product, Sale } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
-import { getSales, getProducts, updateSale, updateProduct } from "@/lib/firestore-helpers";
+import { getSales, getProducts, updateSaleAndAdjustStock } from "@/lib/firestore-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SalesPage() {
@@ -34,33 +34,8 @@ export default function SalesPage() {
   const handleUpdateSale = async (updatedSale: Sale, originalSale: Sale) => {
      setLoading(true);
     try {
-      // Adjust product stock based on the changes
-      const stockUpdates: { [productId: string]: number } = {};
-
-      // Calculate the difference in quantities for each item
-      originalSale.items.forEach(originalItem => {
-        const updatedItem = updatedSale.items.find(ui => ui.productId === originalItem.productId);
-        const updatedQuantity = updatedItem ? updatedItem.quantity : 0;
-        const quantityChange = originalItem.quantity - updatedQuantity; // Positive if quantity decreased, negative if increased
-        stockUpdates[originalItem.productId] = (stockUpdates[originalItem.productId] || 0) + quantityChange;
-      });
-
-      // Apply the stock updates to Firestore
-      const updatePromises = Object.keys(stockUpdates).map(async (productId) => {
-        const product = products.find(p => p.id === productId);
-        if (product) {
-          const newQuantity = product.quantity + stockUpdates[productId];
-           if (newQuantity < 0) {
-            throw new Error(`Stock insuficiente para ${product.name}`);
-          }
-          return updateProduct(productId, { quantity: newQuantity });
-        }
-      });
-      
-      await Promise.all(updatePromises);
-      
-      // Update the sale document itself
-      await updateSale(updatedSale.id, updatedSale);
+      // Use the new atomic function
+      await updateSaleAndAdjustStock(updatedSale, originalSale);
 
       toast({
         title: "Venta Actualizada",
@@ -94,7 +69,7 @@ export default function SalesPage() {
             <Skeleton className="h-20 w-full" />
           </div>
         ) : (
-          <SalesHistoryAccordion sales={sales} products={products} onUpdateSale={handleUpdateSale} />
+          <SalesHistoryAccordion sales={sales} products={products} onUpdateSale={handleUpdateSale} isLoading={loading} />
         )}
       </main>
     </div>

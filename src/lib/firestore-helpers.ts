@@ -1,4 +1,4 @@
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, getDoc, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
 import { Product, Sale } from "./types";
 
@@ -61,6 +61,64 @@ export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & 
 
   // 3. Commit the batch
   await batch.commit();
+};
+
+// Update a sale and adjust stock atomically using a transaction
+export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale) => {
+  try {
+    await runTransaction(db, async (transaction) => {
+      // 1. Calculate stock changes
+      const stockAdjustments: { [productId: string]: number } = {};
+
+      originalSale.items.forEach(originalItem => {
+        const quantityChange = originalItem.quantity;
+        stockAdjustments[originalItem.productId] = (stockAdjustments[originalItem.productId] || 0) + quantityChange;
+      });
+
+      updatedSale.items.forEach(updatedItem => {
+        const quantityChange = -updatedItem.quantity;
+        stockAdjustments[updatedItem.productId] = (stockAdjustments[updatedItem.productId] || 0) + quantityChange;
+      });
+
+      // 2. Read current product stocks and prepare updates
+      const productRefs: { ref: any, newQuantity: number }[] = [];
+      for (const productId in stockAdjustments) {
+        const adjustment = stockAdjustments[productId];
+        if (adjustment === 0) continue;
+
+        const productRef = doc(db, "products", productId);
+        const productDoc = await transaction.get(productRef);
+
+        if (!productDoc.exists()) {
+          throw new Error(`Producto con ID ${productId} no encontrado.`);
+        }
+
+        const currentQuantity = productDoc.data().quantity;
+        const newQuantity = currentQuantity + adjustment;
+
+        if (newQuantity < 0) {
+          throw new Error(`Stock insuficiente para "${productDoc.data().name}".`);
+        }
+        productRefs.push({ ref: productRef, newQuantity });
+      }
+
+      // 3. Perform all writes
+      // Update product stocks
+      productRefs.forEach(({ ref, newQuantity }) => {
+        transaction.update(ref, { quantity: newQuantity });
+      });
+
+      // Update the sale document
+      const saleDocRef = doc(db, "sales", updatedSale.id);
+      transaction.update(saleDocRef, {
+        items: updatedSale.items,
+        grandTotal: updatedSale.grandTotal,
+      });
+    });
+  } catch (e) {
+    console.error("Falló la transacción de actualización de venta:", e);
+    throw e; // Re-throw the error to be caught by the calling function
+  }
 };
 
 
