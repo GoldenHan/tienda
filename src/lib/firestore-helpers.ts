@@ -1,9 +1,9 @@
 
-import { initializeApp, getApp, getApps } from "firebase/app";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db } from "./firebase";
 import { Product, Sale, User, EmployeeData, Company } from "./types";
+import { initializeApp, getApps, getApp } from "firebase/app";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -13,20 +13,23 @@ function getDbOrThrow() {
   return db;
 }
 
+
 // --- Secondary App for User Creation ---
 // This is used so an admin can create a new employee account without being logged out themselves.
-const secondaryApp = !getApps().find(app => app.name === 'secondary')
-  ? initializeApp({
+const secondaryAppConfig = {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
       projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
       messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    }, "secondary")
-  : getApp("secondary");
+    };
 
-const secondaryAuth = getAuth(secondaryApp);
+const secondaryApp = secondaryAppConfig.apiKey ? (!getApps().find(app => app.name === 'secondary')
+  ? initializeApp(secondaryAppConfig, "secondary")
+  : getApp("secondary")) : null;
+
+const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : null;
 
 
 // --- Company Info ---
@@ -51,6 +54,10 @@ export const getUsers = async (companyId: string): Promise<User[]> => {
 
 export const addEmployee = async (companyId: string, employeeData: EmployeeData) => {
   const firestore = getDbOrThrow();
+  if (!secondaryAuth) {
+    throw new Error("Secondary Firebase app for employee creation is not initialized.");
+  }
+  
   const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
   const newUser = userCredential.user;
 
