@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getColumns, ProductColumnActions } from "./columns"
 import { Product } from "@/lib/types"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ProductForm } from "./product-form"
 
 interface ProductsTableProps extends ProductColumnActions {
@@ -75,6 +75,9 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Añadir Nuevo Producto</DialogTitle>
+              <DialogDescription>
+                Completa los detalles a continuación para añadir un nuevo producto a tu inventario.
+              </DialogDescription>
             </DialogHeader>
             <ProductForm onSubmit={(data) => {
               onAddProduct(data);

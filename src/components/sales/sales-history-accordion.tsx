@@ -8,7 +8,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Edit } from "lucide-react";
 
 import { Sale, Product } from "@/lib/types";
@@ -82,6 +82,9 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle>Editar Transacción {editingSale?.id}</DialogTitle>
+            <DialogDescription>
+              Ajusta las cantidades de los productos de esta venta. El stock se recalculará al guardar.
+            </DialogDescription>
           </DialogHeader>
           {editingSale && (
             <EditSaleForm 

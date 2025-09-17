@@ -23,7 +23,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { ProductForm } from "./product-form"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
 import type { Product } from "@/lib/types"
 
 interface DataTableRowActionsProps {
@@ -71,6 +71,9 @@ export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: D
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar Producto</DialogTitle>
+             <DialogDescription>
+              Realiza cambios en los detalles del producto. Haz clic en guardar cuando hayas terminado.
+            </DialogDescription>
           </DialogHeader>
           <ProductForm 
             product={product} 

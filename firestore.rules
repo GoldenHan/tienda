@@ -1,29 +1,51 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the requesting user is an admin.
+    // Helper function to check if the user is authenticated.
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to get the user's role from the 'users' collection.
+    function getUserRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Helper function to check if the user is an admin.
     function isAdmin() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return isAuthenticated() && getUserRole() == 'admin';
     }
 
-    // Users can read/update their own document. Only admins can create new users (implicitly via auth).
+    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read, update: if request.auth.uid == userId;
-      allow create: if isAdmin(); // Or allow anyone to create their own user doc on signup.
-      allow list, delete: if isAdmin();
+      // Anyone can create their own user document (on sign up).
+      allow create: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Only the user themselves or an admin can read/update their own data.
+      allow read, update: if (isAuthenticated() && request.auth.uid == userId) || isAdmin();
     }
-    
-    // Products: Admins can write. Any authenticated user can read.
+
+    // Rules for the 'products' collection
     match /products/{productId} {
-      allow read: if request.auth != null;
+      // Any authenticated user can read products (needed for POS).
+      allow read: if isAuthenticated();
+      
+      // Only admins can create, update, or delete products.
       allow create, update, delete: if isAdmin();
     }
 
-    // Sales: Admins can write. Any authenticated user can read.
+    // Rules for the 'sales' collection
     match /sales/{saleId} {
-      allow read: if request.auth != null;
-      allow create, update, delete: if isAdmin();
+      // Any authenticated user can create a new sale (from POS).
+      allow create: if isAuthenticated();
+      
+      // Any authenticated user can read sales history.
+      allow read: if isAuthenticated();
+
+      // Only admins can update or delete sales records.
+      allow update, delete: if isAdmin();
     }
   }
 }
