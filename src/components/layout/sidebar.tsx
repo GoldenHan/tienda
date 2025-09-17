@@ -6,6 +6,7 @@ import {
   BarChart3,
   Boxes,
   LayoutDashboard,
+  LogOut,
   Settings,
   ShoppingCart,
 } from 'lucide-react'
@@ -18,9 +19,11 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarTrigger,
+  SidebarFooter,
 } from '@/components/ui/sidebar'
 import { Warehouse } from '@/components/icons'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/context/auth-context'
 
 const links = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -32,6 +35,7 @@ const links = [
 
 export function AppSidebar() {
   const pathname = usePathname()
+  const { logout } = useAuth();
 
   return (
     <Sidebar>
@@ -69,6 +73,16 @@ export function AppSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
+      <SidebarFooter>
+        <SidebarMenu>
+          <SidebarMenuItem asChild>
+            <SidebarMenuButton onClick={logout} className="justify-start w-full">
+              <LogOut />
+              <span>Cerrar Sesión</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
+      </SidebarFooter>
     </Sidebar>
   )
 }
