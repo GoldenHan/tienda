@@ -16,7 +16,7 @@ export async function createCompanyAndAdmin(params: CreateCompanyParams) {
     try {
         const { db } = getAdminApp();
         const companiesCollectionRef = db.collection("companies");
-        const q = await companiesCollectionRef.where('adminUid', '==', adminUid).get();
+        const q = await companiesCollectioneRef.where('adminUid', '==', adminUid).get();
         if (!q.empty) {
             return { error: 'Este usuario ya es administrador de una empresa.' };
         }

@@ -1,2 +1,2 @@
-import { config } from 'dotenv';
-config();
+// This file is intentionally left blank.
+// Environment variables are now loaded directly in server actions.
