@@ -96,9 +96,9 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
     },
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("salePrice"))
-      const formatted = new Intl.NumberFormat("es-ES", {
+      const formatted = new Intl.NumberFormat("es-NI", {
         style: "currency",
-        currency: "USD",
+        currency: "NIO",
       }).format(amount)
       return <div className="text-right font-medium">{formatted}</div>
     },

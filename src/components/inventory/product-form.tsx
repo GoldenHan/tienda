@@ -91,7 +91,7 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
             name="salePrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Precio de Venta ($)</FormLabel>
+                <FormLabel>Precio de Venta (C$)</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} />
                 </FormControl>

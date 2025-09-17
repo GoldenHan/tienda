@@ -42,9 +42,9 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
       </CardContent>
       <CardFooter className="p-3 pt-0 flex justify-between items-center">
         <p className="font-bold text-lg">
-          {new Intl.NumberFormat("es-ES", {
+          {new Intl.NumberFormat("es-NI", {
             style: "currency",
-            currency: "USD",
+            currency: "NIO",
           }).format(product.salePrice)}
         </p>
         <p className="text-xs text-muted-foreground">

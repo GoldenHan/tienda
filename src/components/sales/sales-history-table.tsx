@@ -38,9 +38,9 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                   <TableCell className="font-medium">{sale.productName}</TableCell>
                   <TableCell className="text-center">{sale.quantity}</TableCell>
                   <TableCell className="text-right">
-                    {new Intl.NumberFormat("es-ES", {
+                    {new Intl.NumberFormat("es-NI", {
                       style: "currency",
-                      currency: "USD",
+                      currency: "NIO",
                     }).format(sale.total)}
                   </TableCell>
                   <TableCell className="text-right text-muted-foreground">{sale.date}</TableCell>

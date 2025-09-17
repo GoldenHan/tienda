@@ -36,7 +36,7 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
                   <div className="flex-1">
                     <p className="font-medium text-sm truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                       {new Intl.NumberFormat("es-ES", { style: "currency", currency: "USD" }).format(item.salePrice)}
+                       {new Intl.NumberFormat("es-NI", { style: "currency", currency: "NIO" }).format(item.salePrice)}
                     </p>
                   </div>
                   <Input
@@ -60,7 +60,7 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
         <div className="w-full space-y-2 text-sm">
             <div className="flex justify-between font-bold text-base">
                 <span>Total</span>
-                <span>{new Intl.NumberFormat("es-ES", { style: "currency", currency: "USD" }).format(total)}</span>
+                <span>{new Intl.NumberFormat("es-NI", { style: "currency", currency: "NIO" }).format(total)}</span>
             </div>
         </div>
         <Button className="w-full" onClick={onCompleteSale} disabled={cartItems.length === 0}>

@@ -28,19 +28,23 @@ export default function DashboardPage() {
       <main className="grid flex-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
         <StatCard
           title="Ingresos Totales"
-          value={`$${totalRevenue.toLocaleString('es-ES', {
+          value={totalRevenue.toLocaleString('es-NI', {
+            style: 'currency',
+            currency: 'NIO',
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-          })}`}
+          })}
           icon={DollarSign}
           description="Ingresos totales de todas las ventas"
         />
         <StatCard
           title="Beneficio Total"
-          value={`$${totalProfit.toLocaleString('es-ES', {
+          value={totalProfit.toLocaleString('es-NI', {
+            style: 'currency',
+            currency: 'NIO',
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
-          })}`}
+          })}
           icon={DollarSign}
           description="Beneficio total de todas las ventas"
           variant="secondary"
