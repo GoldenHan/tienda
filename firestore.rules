@@ -1,91 +1,71 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================
-    // Helpers
-    // =========================
+    // =================================
+    // Helper Functions
+    // =================================
+
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    function isUser(uid) {
-      return isAuthenticated() && request.auth.uid == uid;
+    // Verifica si el UID del solicitante existe en la subcolección de usuarios de la empresa
+    // y si su rol es 'admin'.
+    function isAdmin(companyId) {
+      let userDoc = get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid));
+      return isAuthenticated() && userDoc.data.role == 'admin';
     }
 
-    function getUserRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    // Verifica si el UID del solicitante existe en la subcolección de usuarios de la empresa.
+    function isMemberOfCompany(companyId) {
+       return isAuthenticated() && exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid));
     }
 
-    function isAdmin() {
-      return isAuthenticated() && getUserRole(request.auth.uid) == 'admin';
-    }
 
-    // =========================
-    // Users collection
-    // =========================
-    match /users/{userId} {
-      // Lectura: cualquier usuario autenticado puede leer usuarios
-      allow read: if isAuthenticated();
+    // =================================
+    // Companies Collection
+    // =================================
+    match /companies/{companyId} {
+      // El documento de la empresa puede ser leído por sus miembros.
+      // Solo puede ser creado por el usuario que se convierte en admin.
+      // Solo el admin puede actualizarlo.
+      allow read: if isMemberOfCompany(companyId);
+      allow create: if request.auth.uid == request.resource.data.adminUid;
+      allow update: if isAdmin(companyId);
+      allow delete: if false;
 
-      // Crear: cualquier usuario puede crear su propio doc
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      // --- Users Subcollection ---
+      match /users/{userId} {
+        // Un usuario puede leer los datos de otros usuarios en su misma empresa.
+        allow read: if isMemberOfCompany(companyId);
 
-      // Admin puede crear otros usuarios (empleados)
-      allow create: if isAdmin();
+        // El admin puede crear nuevos usuarios (empleados).
+        allow create: if isAdmin(companyId);
 
-      // Actualizar: solo el usuario mismo o admin
-      allow update: if isUser(userId) || isAdmin();
+        // Un usuario puede actualizar su propio perfil, o un admin puede actualizar cualquier perfil.
+        allow update: if (isAuthenticated() && request.auth.uid == userId) || isAdmin(companyId);
 
-      // Eliminar: solo admin
-      allow delete: if isAdmin();
-    }
+        // Solo un admin puede eliminar a un usuario, y no puede eliminarse a sí mismo.
+        allow delete: if isAdmin(companyId) && request.auth.uid != userId;
+      }
 
-    // =========================
-    // Company (un solo documento)
-    // =========================
-    match /company/info {
-      allow read: if isAuthenticated();
+      // --- Products Subcollection ---
+      match /products/{productId} {
+        allow read: if isMemberOfCompany(companyId);
+        allow create, update, delete: if isAdmin(companyId);
+      }
 
-      // Solo admin puede crear la empresa
-      allow create: if isAdmin() && !exists(/databases/$(database)/documents/company/info);
-
-      // Solo admin puede actualizar
-      allow update: if isAdmin();
-
-      // Nunca se puede eliminar
-      allow delete: never;
-    }
-
-    // =========================
-    // Products collection
-    // =========================
-    match /products/{productId} {
-      allow read: if isAuthenticated();
-      allow create, update, delete: if isAdmin();
-    }
-
-    // =========================
-    // Sales collection
-    // =========================
-    match /sales/{saleId} {
-      // Lectura y creación: cualquier usuario autenticado
-      allow read, create: if isAuthenticated();
-
-      // Actualización y eliminación: solo admin
-      allow update, delete: if isAdmin();
-    }
-
-    // =========================
-    // Cart history collection
-    // =========================
-    match /cartHistory/{cartId} {
-      // Lectura: cualquier usuario autenticado
-      allow read: if isAuthenticated();
-
-      // Solo admin puede crear, actualizar o borrar historial
-      allow create, update, delete: if isAdmin();
+      // --- Sales Subcollection ---
+      match /sales/{saleId} {
+        allow read: if isMemberOfCompany(companyId);
+        // Cualquier miembro de la empresa (admin o empleado) puede crear una venta.
+        allow create: if isMemberOfCompany(companyId);
+        // Solo el admin puede modificar o eliminar el historial de ventas.
+        allow update, delete: if isAdmin(companyId);
+      }
     }
   }
 }
