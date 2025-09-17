@@ -1,6 +1,6 @@
 
 "use server";
-import 'dotenv/config';
+
 import { getAdminApp } from "@/lib/firebase-admin";
 
 interface CreateCompanyParams {
@@ -17,14 +17,6 @@ export async function createCompanyAndAdmin(params: CreateCompanyParams) {
         const { db } = getAdminApp();
         const companiesCollectionRef = db.collection("companies");
         
-        // This query was causing permission errors as it requires an index and broader read access
-        // We will remove it. The logic flow (new user -> setup page) makes it unlikely
-        // that a user who reaches this point is already an admin.
-        // const q = await companiesCollectionRef.where('adminUid', '==', adminUid).get();
-        // if (!q.empty) {
-        //     return { error: 'Este usuario ya es administrador de una empresa.' };
-        // }
-
         const batch = db.batch();
 
         // 1. Create the new company document
