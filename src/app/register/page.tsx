@@ -62,10 +62,14 @@ export default function RegisterPage() {
       });
       router.push("/login");
     } catch (error: any) {
-      console.error(error);
-      const errorMessage = error.code === 'auth/email-already-in-use' 
-        ? "Este email ya está registrado. Por favor, inicia sesión."
-        : "Ha ocurrido un error. Por favor, inténtalo de nuevo.";
+      console.error("Error en el registro:", error);
+      let errorMessage = "Ha ocurrido un error. Por favor, inténtalo de nuevo.";
+      if (error.code === 'auth/email-already-in-use') {
+        errorMessage = "Este email ya está registrado. Por favor, inicia sesión.";
+      } else if (error.message.includes("administrador ya ha sido registrada")) {
+        errorMessage = error.message;
+      }
+      
       toast({
         variant: "destructive",
         title: "Error en el registro",

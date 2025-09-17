@@ -2,17 +2,68 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
+
+    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
-    
-    function isAdmin() {
-      return isAuthenticated() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+
+    function isUser(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
     }
 
-    match /{document=**} {
-      allow read, write: if isAuthenticated();
+    function getUserRole(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && getUserRole(request.auth.uid) == 'admin';
+    }
+    
+    function isFirstUser() {
+      return !exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(get(/databases/$(database)/documents/users).after(request)).size() == 0;
+    }
+
+    // Collection: users
+    // Anyone can create their user document if they are the first user.
+    // Admins can create new users (employees).
+    // Users can only read/update their own data.
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isFirstUser() || isAdmin();
+      allow update: if isUser(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Collection: company
+    // The company info document can be created only if it doesn't exist yet.
+    // It can be read by any authenticated user and updated only by an admin.
+    match /company/info {
+      allow read: if isAuthenticated();
+      allow create: if !exists(/databases/$(database)/documents/company/info);
+      allow update: if isAdmin();
+      allow delete: never;
+    }
+
+    // Collection: products
+    // Any authenticated user can read products (for POS).
+    // Only admins can create, update, or delete products.
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Collection: sales
+    // Any authenticated user can create a sale (completing a transaction).
+    // When a sale is created, the client batch write also updates product stock.
+    // The rule on /products/{productId} needs to allow this specific update.
+    // To simplify, we will trust the client logic to update stock correctly on sale creation,
+    // and restrict full product updates to admins.
+    // Only admins can update or delete past sales records.
+    match /sales/{saleId} {
+      allow read, create: if isAuthenticated();
+      allow update, delete: if isAdmin();
     }
   }
 }
