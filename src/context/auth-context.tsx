@@ -9,7 +9,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, setDoc, getDoc, collection, getDocs, query, limit } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, query, limit, writeBatch } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 interface User {
@@ -23,7 +23,7 @@ interface AuthContextType {
   user: (FirebaseUser & User) | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<any>;
-  register: (email: string, password: string, name: string) => Promise<any>;
+  register: (email: string, password: string, name: string, companyName: string) => Promise<any>;
   logout: () => Promise<void>;
 }
 
@@ -69,27 +69,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return signInWithEmailAndPassword(auth, email, password);
   };
 
-  const register = async (email: string, password: string, name: string) => {
+  const register = async (email: string, password: string, name: string, companyName: string) => {
     if (!auth || !db) throw new Error(missingFirebaseError);
 
-    // Check if any user exists to determine role
     const usersCollectionRef = collection(db, "users");
     const q = query(usersCollectionRef, limit(1));
     const existingUsersSnapshot = await getDocs(q);
-    const isFirstUser = existingUsersSnapshot.empty;
-    const role = isFirstUser ? "admin" : "employee";
+    
+    if (!existingUsersSnapshot.empty) {
+      throw new Error("Una cuenta de administrador ya ha sido registrada para esta instancia. Por favor, contacta al administrador para añadir nuevos empleados.");
+    }
     
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
+    const batch = writeBatch(db);
+
     const userDocRef = doc(db, "users", firebaseUser.uid);
-    await setDoc(userDocRef, {
+    batch.set(userDocRef, {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
       name: name,
-      role: role, // Assign role based on whether it's the first user
+      role: "admin",
       createdAt: new Date(),
     });
+
+    const companyDocRef = doc(db, "company", "info");
+    batch.set(companyDocRef, {
+      name: companyName,
+      adminUid: firebaseUser.uid,
+      createdAt: new Date(),
+    });
+    
+    await batch.commit();
 
     return userCredential;
   };

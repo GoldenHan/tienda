@@ -5,7 +5,7 @@ import { AuthProvider } from "@/context/auth-context";
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'San José Inventory',
+  title: 'Inventory App',
   description: 'Inventory Management System',
 };
 

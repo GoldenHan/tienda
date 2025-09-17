@@ -59,3 +59,9 @@ export type EmployeeData = {
   email: string;
   password: string;
 };
+
+export type Company = {
+  name: string;
+  adminUid: string;
+  createdAt: any;
+};

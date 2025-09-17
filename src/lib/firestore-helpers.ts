@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
 import { db, auth as mainAuth } from "./firebase";
-import { Product, Sale, User, EmployeeData } from "./types";
+import { Product, Sale, User, EmployeeData, Company } from "./types";
 
 if (!db) {
   throw new Error("Firebase is not configured. Please check your .env file.");
@@ -25,6 +25,19 @@ const secondaryAuth = getAuth(secondaryApp);
 const productsCollection = collection(db, "products");
 const salesCollection = collection(db, "sales");
 const usersCollection = collection(db, "users");
+const companyCollection = collection(db, "company");
+
+// --- Company Info ---
+
+export const getCompany = async (): Promise<Company | null> => {
+  const companyDocRef = doc(db, "company", "info");
+  const docSnap = await getDoc(companyDocRef);
+  if (docSnap.exists()) {
+    return docSnap.data() as Company;
+  }
+  return null;
+}
+
 
 // --- User Management ---
 

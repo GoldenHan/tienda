@@ -37,7 +37,11 @@ const links = [
   { href: '/dashboard/users', label: 'Usuarios', icon: Users, adminOnly: true },
 ]
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  companyName: string;
+}
+
+export function AppSidebar({ companyName }: AppSidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth();
 
@@ -54,7 +58,7 @@ export function AppSidebar() {
         >
           <Warehouse className="h-6 w-6 text-primary" />
           <h2 className="font-headline text-lg font-semibold tracking-tight">
-            San José
+            {companyName}
           </h2>
         </div>
         <div className="p-2 md:hidden">
