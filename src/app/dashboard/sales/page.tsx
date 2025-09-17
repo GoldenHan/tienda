@@ -7,7 +7,6 @@ import { products as initialProducts, sales as initialSales } from "@/lib/data";
 import { Product, Sale } from "@/lib/types";
 
 export default function SalesPage() {
-  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [sales, setSales] = useState<Sale[]>(initialSales);
 
   // Note: The ability to log sales from this page has been removed.
