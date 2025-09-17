@@ -5,51 +5,61 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter
 } from "@/components/ui/table"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Sale } from "@/lib/types"
+import { SaleItem } from "@/lib/types"
 
 interface SalesHistoryTableProps {
-  sales: Sale[]
+  items: SaleItem[]
+  total: number
 }
 
-export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
+export function SalesHistoryTable({ items, total }: SalesHistoryTableProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Historial de Ventas</CardTitle>
-        <CardDescription>Un registro de tus transacciones de venta recientes.</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea className="h-96">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Producto</TableHead>
-                <TableHead className="text-center">Cantidad</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Fecha</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sales.map((sale) => (
-                <TableRow key={sale.id}>
-                  <TableCell className="font-medium">{sale.productName}</TableCell>
-                  <TableCell className="text-center">{sale.quantity}</TableCell>
-                  <TableCell className="text-right">
-                    {new Intl.NumberFormat("es-NI", {
-                      style: "currency",
-                      currency: "NIO",
-                    }).format(sale.total)}
-                  </TableCell>
-                  <TableCell className="text-right text-muted-foreground">{sale.date}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+    <div className="border rounded-lg">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Producto</TableHead>
+            <TableHead className="text-center">Cantidad</TableHead>
+            <TableHead className="text-right">Precio Unitario</TableHead>
+            <TableHead className="text-right">Subtotal</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow key={item.productId}>
+              <TableCell className="font-medium">{item.productName}</TableCell>
+              <TableCell className="text-center">{item.quantity}</TableCell>
+              <TableCell className="text-right">
+                {new Intl.NumberFormat("es-NI", {
+                  style: "currency",
+                  currency: "NIO",
+                }).format(item.salePrice)}
+              </TableCell>
+              <TableCell className="text-right">
+                {new Intl.NumberFormat("es-NI", {
+                  style: "currency",
+                  currency: "NIO",
+                }).format(item.total)}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+         <TableFooter>
+            <TableRow>
+              <TableCell colSpan={3} className="text-right font-bold">Total</TableCell>
+              <TableCell className="text-right font-bold">
+                 {new Intl.NumberFormat("es-NI", {
+                    style: "currency",
+                    currency: "NIO",
+                  }).format(total)}
+              </TableCell>
+            </TableRow>
+        </TableFooter>
+      </Table>
+    </div>
   )
 }

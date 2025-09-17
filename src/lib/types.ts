@@ -10,13 +10,19 @@ export type Product = {
   imageHint: string;
 };
 
-export type Sale = {
-  id: string;
+export type SaleItem = {
+  productId: string;
   productName: string;
   quantity: number;
-  salePrice: number;
+  salePrice: number; // Price at the time of sale
   total: number;
+};
+
+export type Sale = {
+  id: string;
   date: string;
+  items: SaleItem[];
+  grandTotal: number;
 };
 
 export type Inflow = {

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { products as initialProducts, sales as initialSales } from "@/lib/data";
-import { Product, Sale } from "@/lib/types";
+import { Product, Sale, SaleItem } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
@@ -84,32 +84,39 @@ export default function POSPage() {
       });
       return;
     }
-    // Update product quantities
+    
+    // 1. Update product quantities in stock
     setProducts((prevProducts) => {
-      let tempProducts = [...prevProducts];
-      cart.forEach((cartItem) => {
-        tempProducts = tempProducts.map((p) =>
-          p.id === cartItem.id
-            ? { ...p, quantity: p.quantity - cartItem.quantityInCart }
-            : p
-        );
-      });
-      return tempProducts;
+      const updatedProducts = [...prevProducts];
+      for (const cartItem of cart) {
+        const productIndex = updatedProducts.findIndex(p => p.id === cartItem.id);
+        if (productIndex !== -1) {
+          updatedProducts[productIndex].quantity -= cartItem.quantityInCart;
+        }
+      }
+      return updatedProducts;
     });
 
-    // Add to sales history
-    const newSales: Sale[] = cart.map((cartItem) => ({
-      id: `sale_${Date.now()}_${cartItem.id}`,
+    // 2. Create a single Sale object for the transaction
+    const newSaleItems: SaleItem[] = cart.map((cartItem) => ({
+      productId: cartItem.id,
       productName: cartItem.name,
       quantity: cartItem.quantityInCart,
       salePrice: cartItem.salePrice,
       total: cartItem.salePrice * cartItem.quantityInCart,
-      date: new Date().toISOString().split("T")[0],
     }));
-
-    setSales((prevSales) => [...newSales, ...prevSales]);
     
-    // Clear cart
+    const newSale: Sale = {
+      id: `TRANS_${Date.now()}`,
+      date: new Date().toISOString(),
+      items: newSaleItems,
+      grandTotal: newSaleItems.reduce((acc, item) => acc + item.total, 0),
+    };
+
+    // 3. Add the new sale to the sales history
+    setSales((prevSales) => [newSale, ...prevSales]);
+    
+    // 4. Clear the cart
     setCart([]);
 
     toast({
