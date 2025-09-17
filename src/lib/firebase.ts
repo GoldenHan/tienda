@@ -21,7 +21,8 @@ let storage: FirebaseStorage | null = null;
 if (firebaseConfig.apiKey) {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   auth = getAuth(app);
-  db = getFirestore(app);
+  // Connect to the 'tienda' database instead of the default one.
+  db = getFirestore(app, "tienda");
   storage = getStorage(app);
 } else {
   console.warn("Firebase configuration is missing. Please check your .env file.");
