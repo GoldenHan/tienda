@@ -1,8 +1,7 @@
 
 "use server";
 
-import { db } from "@/lib/firebase-admin";
-import { writeBatch, collection, doc } from "firebase/firestore";
+import { getAdminApp } from "@/lib/firebase-admin";
 
 interface CreateCompanyParams {
     companyName: string;
@@ -15,8 +14,9 @@ export async function createCompanyAndAdmin(params: CreateCompanyParams) {
     const { companyName, adminUid, adminName, adminEmail } = params;
 
     try {
-        const companiesCollectionRef = collection(db, "companies");
-        const q = await db.collection('companies').where('adminUid', '==', adminUid).get();
+        const { db } = getAdminApp();
+        const companiesCollectionRef = db.collection("companies");
+        const q = await companiesCollectionRef.where('adminUid', '==', adminUid).get();
         if (!q.empty) {
             return { error: 'Este usuario ya es administrador de una empresa.' };
         }
@@ -24,7 +24,7 @@ export async function createCompanyAndAdmin(params: CreateCompanyParams) {
         const batch = db.batch();
 
         // 1. Create the new company document
-        const companyDocRef = doc(companiesCollectionRef);
+        const companyDocRef = companiesCollectionRef.doc();
         batch.set(companyDocRef, {
             name: companyName,
             adminUid: adminUid,
@@ -32,7 +32,7 @@ export async function createCompanyAndAdmin(params: CreateCompanyParams) {
         });
 
         // 2. Create the user document within the new company's subcollection
-        const userDocRef = doc(db, "companies", companyDocRef.id, "users", adminUid);
+        const userDocRef = db.collection("companies").doc(companyDocRef.id).collection("users").doc(adminUid);
         batch.set(userDocRef, {
             uid: adminUid,
             email: adminEmail,
