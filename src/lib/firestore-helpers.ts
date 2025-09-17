@@ -1,4 +1,5 @@
-import { initializeApp } from "firebase/app";
+
+import { initializeApp, getApp, getApps } from "firebase/app";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
 import { db } from "./firebase";
@@ -18,7 +19,10 @@ const firebaseConfig = {
 };
 
 // Secondary app instance for creating users without logging out the admin
-const secondaryApp = initializeApp(firebaseConfig, "secondary");
+const secondaryApp = !getApps().find(app => app.name === 'secondary')
+  ? initializeApp(firebaseConfig, "secondary")
+  : getApp("secondary");
+
 const secondaryAuth = getAuth(secondaryApp);
 
 // --- Company Info ---
@@ -27,7 +31,8 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
   const companyDocRef = doc(db, "companies", companyId);
   const docSnap = await getDoc(companyDocRef);
   if (docSnap.exists()) {
-    return docSnap.data() as Company;
+    // We combine the ID with the data to create the full Company object
+    return { id: docSnap.id, ...docSnap.data() } as Company;
   }
   return null;
 }
@@ -117,7 +122,7 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
         stockAdjustments[updatedItem.productId] = (stockAdjustments[updatedItem.productId] || 0) - updatedItem.quantity;
       });
 
-      const productUpdates: { ref: any, newQuantity: number }[] = [];
+      const productUpdates: { ref: any, newQuantity: number, name: string }[] = [];
       for (const productId in stockAdjustments) {
         const adjustment = stockAdjustments[productId];
         if (adjustment === 0) continue;
@@ -135,12 +140,12 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
         if (newQuantity < 0) {
           throw new Error(`Stock insuficiente para "${productDoc.data().name}".`);
         }
-        productUpdates.push({ ref: productRef, newQuantity });
+        productUpdates.push({ ref: productRef, newQuantity, name: productDoc.data().name });
       }
 
-      productUpdates.forEach(({ ref, newQuantity }) => {
+      for (const { ref, newQuantity } of productUpdates) {
         transaction.update(ref, { quantity: newQuantity });
-      });
+      }
 
       const saleDocRef = doc(db, "companies", companyId, "sales", updatedSale.id);
       transaction.update(saleDocRef, {
@@ -148,7 +153,7 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
         grandTotal: updatedSale.grandTotal,
       });
     });
-  } catch (e) {
+  } catch (e: any) {
     console.error("Falló la transacción de actualización de venta:", e);
     throw e;
   }
