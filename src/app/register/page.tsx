@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "@/context/auth-context";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,9 +36,7 @@ const formSchema = z.object({
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
   const { toast } = useToast();
-  const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -50,29 +47,23 @@ export default function RegisterPage() {
     },
   });
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
-    setIsLoading(true);
+  function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      await register(values.email, values.password, values.name);
-      toast({
-        title: "Registro exitoso",
-        description: "Redirigiendo para configurar tu empresa.",
-      });
-      router.push("/setup"); // Redirect to the new setup page
-    } catch (error: any) {
-      console.error("Error en el registro:", error);
-      let errorMessage = "Ha ocurrido un error. Por favor, inténtalo de nuevo.";
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = "Este email ya está registrado. Por favor, inicia sesión.";
-      }
+      // Store the registration data in sessionStorage to pass it to the next step
+      sessionStorage.setItem('registrationData', JSON.stringify(values));
       
+      toast({
+        title: "Paso 1 Completo",
+        description: "Ahora, configura tu empresa.",
+      });
+      router.push("/setup");
+    } catch (error: any) {
+      console.error("Error al guardar datos de registro:", error);
       toast({
         variant: "destructive",
         title: "Error en el registro",
-        description: errorMessage,
+        description: "No se pudieron guardar los datos para el siguiente paso. Revisa la configuración de tu navegador.",
       });
-    } finally {
-      setIsLoading(false);
     }
   }
 
@@ -130,8 +121,8 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? <Loader2 className="animate-spin" /> : "Crear Cuenta"}
+              <Button type="submit" className="w-full">
+                Siguiente: Configurar Empresa
               </Button>
             </form>
           </Form>

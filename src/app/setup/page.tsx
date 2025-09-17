@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -8,7 +7,6 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useAuth } from "@/context/auth-context";
 import { createCompanyAndAdmin } from "@/app/setup/actions";
-import { auth } from "@/lib/firebase";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,8 +27,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Warehouse } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
-
+import type { EmployeeData } from "@/lib/types";
 
 const formSchema = z.object({
   companyName: z.string().min(2, { message: "El nombre de la empresa debe tener al menos 2 caracteres." }),
@@ -38,20 +35,36 @@ const formSchema = z.object({
 
 export default function SetupPage() {
   const router = useRouter();
-  const { user, loading } = useAuth();
+  const { user, loading, login } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationData, setRegistrationData] = useState<EmployeeData | null>(null);
 
   useEffect(() => {
     // If user is loaded and already has a company, redirect them.
     if (!loading && user?.companyId) {
       router.replace("/dashboard");
     }
-    // If user is loaded and not authenticated, send to login
-    if (!loading && !user) {
-        router.replace('/login');
-    }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    try {
+      const storedData = sessionStorage.getItem('registrationData');
+      if (!storedData) {
+        toast({
+            variant: 'destructive',
+            title: 'Faltan datos de registro',
+            description: 'Por favor, comienza desde la página de registro.',
+        });
+        router.push('/register');
+        return;
+      }
+      setRegistrationData(JSON.parse(storedData));
+    } catch (error) {
+      console.error("Error reading from sessionStorage", error);
+      router.push('/register');
+    }
+  }, [router, toast]);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -62,8 +75,8 @@ export default function SetupPage() {
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
-    if (!user || !user.email) {
-        toast({ variant: "destructive", title: "Error", description: "Debes estar autenticado." });
+    if (!registrationData) {
+        toast({ variant: "destructive", title: "Error", description: "No se encontraron los datos de registro." });
         return;
     }
 
@@ -71,38 +84,45 @@ export default function SetupPage() {
     try {
       const result = await createCompanyAndAdmin({
           companyName: values.companyName,
-          adminUid: user.uid,
-          adminName: user.name || "Admin",
-          adminEmail: user.email
+          adminEmail: registrationData.email,
+          adminName: registrationData.name,
+          adminPassword: registrationData.password
       });
 
       if (result.error) {
         throw new Error(result.error);
       }
       
+      // Clear the session storage
+      sessionStorage.removeItem('registrationData');
+
       toast({
-        title: "¡Empresa Configurada!",
-        description: "Tu negocio está listo. Redirigiendo al panel de control...",
+        title: "¡Registro Completo!",
+        description: "Tu negocio está listo. Iniciando sesión...",
       });
-      // Force a reload of user data to get new companyId and role
-      if (auth?.currentUser) {
-        await auth.currentUser.getIdToken(true); 
-      }
+      
+      // Log the user in with the credentials they just created
+      await login(registrationData.email, registrationData.password);
+
       router.push("/dashboard");
 
     } catch (error: any) {
       console.error("Error al configurar la empresa:", error);
+      let errorMessage = error.message || "No se pudo crear la empresa.";
+      if (error.message.includes('auth/email-already-exists')) {
+          errorMessage = 'Este correo electrónico ya está registrado. Por favor, inicia sesión.';
+      }
       toast({
         variant: "destructive",
         title: "Error en la configuración",
-        description: error.message || "No se pudo crear la empresa.",
+        description: errorMessage,
       });
     } finally {
       setIsSubmitting(false);
     }
   }
 
-  if (loading || !user) {
+  if (loading || !registrationData) {
     return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />

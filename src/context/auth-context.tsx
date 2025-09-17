@@ -46,6 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         // User is logged in, now we can safely query Firestore to find their company and role.
+        setLoading(true); // Set loading while we fetch user details
         try {
           const companiesCol = collection(db, "companies");
           const companiesSnapshot = await getDocs(companiesCol);
@@ -68,20 +69,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           if (!userFound) {
-              // This case happens for a newly registered user who hasn't completed the setup page.
-              // They are authenticated but don't have a user document in any company yet.
-              setUser({
-                  ...firebaseUser,
-                  uid: firebaseUser.uid,
-                  email: firebaseUser.email,
-                  name: firebaseUser.displayName,
-                  role: 'employee', // Default role until setup
-                  companyId: '', // No company yet
-              });
+              // This can happen if the user's document was deleted but they still have a valid auth session.
+              // Or during the brief moment after registration but before the setup page redirects.
+              // We log them out to force a clean login.
+              console.warn("Authenticated user not found in any company. Logging out.");
+              await signOut(auth);
+              setUser(null);
           }
         } catch (error) {
           console.error("Error fetching user data:", error);
           // If there's an error (like permissions), log them out to be safe.
+          await signOut(auth);
           setUser(null);
         } finally {
             setLoading(false);
@@ -103,26 +101,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const register = async (email: string, password: string, name: string) => {
-     if (!auth) throw new Error(missingFirebaseError);
-    
-    // Step 1: Just create the user in Firebase Auth.
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    const firebaseUser = userCredential.user;
-
-    // We are NOT creating any DB documents here.
-    // The user will be redirected to /setup to complete company creation.
-    // We can temporarily store the name in the user object for the setup page
-    
-    setUser({
-        ...firebaseUser,
-        name: name,
-        email: firebaseUser.email,
-        uid: firebaseUser.uid,
-        role: 'employee', // temporary
-        companyId: '',
-    });
-
-    return userCredential;
+    // This function is no longer responsible for creating the user in Auth.
+    // It's kept for compatibility but the main logic is now in the setup server action.
+    console.warn("The register function in AuthContext should not be called directly. The flow has been moved to the /setup page.");
+    return Promise.resolve();
   };
 
   const logout = async () => {
