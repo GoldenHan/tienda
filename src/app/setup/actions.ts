@@ -1,6 +1,6 @@
 
 "use server";
-
+import 'dotenv/config';
 import { getAdminApp } from "@/lib/firebase-admin";
 
 interface CreateCompanyParams {
