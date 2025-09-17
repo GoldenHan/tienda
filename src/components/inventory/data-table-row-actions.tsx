@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import { Row } from "@tanstack/react-table"
-import { MoreHorizontal, Sparkles, Pencil, Trash2 } from "lucide-react"
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -12,8 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Product } from "@/lib/types"
-import { ReorderSuggestionModal } from "./reorder-suggestion-modal"
 
 interface DataTableRowActionsProps<TData> {
   row: Row<TData>
@@ -22,16 +19,9 @@ interface DataTableRowActionsProps<TData> {
 export function DataTableRowActions<TData>({
   row,
 }: DataTableRowActionsProps<TData>) {
-  const product = row.original as Product
-  const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
     <>
-      <ReorderSuggestionModal
-        product={product}
-        isOpen={isModalOpen}
-        onOpenChange={setIsModalOpen}
-      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -43,10 +33,6 @@ export function DataTableRowActions<TData>({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[180px]">
-          <DropdownMenuItem onClick={() => setIsModalOpen(true)}>
-            <Sparkles className="mr-2 h-4 w-4" />
-            Suggest Reorder
-          </DropdownMenuItem>
           <DropdownMenuItem>
             <Pencil className="mr-2 h-4 w-4" />
             Edit Product

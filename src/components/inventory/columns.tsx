@@ -33,7 +33,6 @@ export const columns: ColumnDef<Product>[] = [
             width={40}
             height={40}
             className="rounded-md object-cover"
-            data-ai-hint={product.imageHint}
           />
           <div className="flex flex-col">
             <span className="font-medium">{product.name}</span>
