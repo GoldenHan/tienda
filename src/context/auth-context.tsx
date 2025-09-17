@@ -1,3 +1,4 @@
+
 "use client";
 
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
@@ -28,11 +29,19 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const missingFirebaseError = "Firebase is not configured. Please add your Firebase credentials to the .env file.";
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!auth || !db) {
+      console.error(missingFirebaseError);
+      setLoading(false);
+      return;
+    }
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         const userDocRef = doc(db, "users", firebaseUser.uid);
@@ -46,8 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: userData.role,
           });
         } else {
-           // This case can happen if the user document is not created yet
-           // or was deleted. We'll treat them as logged out.
            setUser(null);
         }
       } else {
@@ -60,14 +67,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (!auth) throw new Error(missingFirebaseError);
     return signInWithEmailAndPassword(auth, email, password);
   };
 
   const register = async (email: string, password: string, name: string) => {
+    if (!auth || !db) throw new Error(missingFirebaseError);
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
-    // Create a user document in Firestore
     const userDocRef = doc(db, "users", firebaseUser.uid);
     await setDoc(userDocRef, {
       uid: firebaseUser.uid,
@@ -81,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    if (!auth) throw new Error(missingFirebaseError);
     setUser(null);
     await signOut(auth);
   };
