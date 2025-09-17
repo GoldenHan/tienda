@@ -45,41 +45,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
-        // User is logged in, now we can safely query Firestore
-        const companiesCol = collection(db, "companies");
-        const companiesSnapshot = await getDocs(companiesCol);
-        let userFound = false;
+        // User is logged in, now we can safely query Firestore to find their company and role.
+        try {
+          const companiesCol = collection(db, "companies");
+          const companiesSnapshot = await getDocs(companiesCol);
+          let userFound = false;
 
-        for (const companyDoc of companiesSnapshot.docs) {
-            const userDocRef = doc(db, "companies", companyDoc.id, "users", firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-                const userData = userDocSnap.data() as User;
-                 setUser({
-                    ...firebaseUser,
-                    ...userData,
-                    companyId: companyDoc.id,
-                    name: userData.name || firebaseUser.displayName, // Fallback to display name
-                });
-                userFound = true;
-                break;
-            }
+          for (const companyDoc of companiesSnapshot.docs) {
+              const userDocRef = doc(db, "companies", companyDoc.id, "users", firebaseUser.uid);
+              const userDocSnap = await getDoc(userDocRef);
+              if (userDocSnap.exists()) {
+                  const userData = userDocSnap.data() as User;
+                  setUser({
+                      ...firebaseUser,
+                      ...userData,
+                      companyId: companyDoc.id,
+                      name: userData.name || firebaseUser.displayName, // Fallback to display name
+                  });
+                  userFound = true;
+                  break; 
+              }
+          }
+
+          if (!userFound) {
+              // This case happens for a newly registered user who hasn't completed the setup page.
+              // They are authenticated but don't have a user document in any company yet.
+              setUser({
+                  ...firebaseUser,
+                  uid: firebaseUser.uid,
+                  email: firebaseUser.email,
+                  name: firebaseUser.displayName,
+                  role: 'employee', // Default role until setup
+                  companyId: '', // No company yet
+              });
+          }
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          // If there's an error (like permissions), log them out to be safe.
+          setUser(null);
         }
-        if (!userFound) {
-            // This could be a new user who just registered but hasn't completed setup
-            // Or a user whose company/user document was deleted
-            setUser({
-                ...firebaseUser,
-                uid: firebaseUser.uid,
-                email: firebaseUser.email,
-                name: firebaseUser.displayName,
-                role: 'employee', // Default role until setup
-                companyId: '', // No company yet
-            });
-        };
 
       } else {
-        // User is not logged in
+        // User is not logged in, no need to query DB.
         setUser(null);
       }
       setLoading(false);
