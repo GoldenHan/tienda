@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (email: string, password: string, name: string, companyName: string) => {
     if (!auth || !db) throw new Error(missingFirebaseError);
 
+    // Check if an admin user already exists
     const usersCollectionRef = collection(db, "users");
     const q = query(usersCollectionRef, limit(1));
     const existingUsersSnapshot = await getDocs(q);
@@ -80,11 +81,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error("Una cuenta de administrador ya ha sido registrada para esta instancia. Por favor, contacta al administrador para añadir nuevos empleados.");
     }
     
+    // If no users exist, proceed to create the first admin user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
     
     const batch = writeBatch(db);
 
+    // Create the user document with 'admin' role
     const userDocRef = doc(db, "users", firebaseUser.uid);
     batch.set(userDocRef, {
       uid: firebaseUser.uid,
@@ -94,6 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       createdAt: new Date(),
     });
 
+    // Create the company document
     const companyDocRef = doc(db, "company", "info");
     batch.set(companyDocRef, {
       name: companyName,
