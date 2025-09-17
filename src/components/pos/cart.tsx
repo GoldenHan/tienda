@@ -14,10 +14,7 @@ interface CartProps {
 }
 
 export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale }: CartProps) {
-  const subtotal = cartItems.reduce((acc, item) => acc + item.salePrice * item.quantityInCart, 0);
-  // Simple tax calculation example
-  const taxes = subtotal * 0.08; 
-  const total = subtotal + taxes;
+  const total = cartItems.reduce((acc, item) => acc + item.salePrice * item.quantityInCart, 0);
 
   return (
     <Card className="flex flex-col h-full">
@@ -39,7 +36,7 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
                   <div className="flex-1">
                     <p className="font-medium text-sm truncate">{item.name}</p>
                     <p className="text-xs text-muted-foreground">
-                       {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(item.salePrice)}
+                       {new Intl.NumberFormat("es-ES", { style: "currency", currency: "USD" }).format(item.salePrice)}
                     </p>
                   </div>
                   <Input
@@ -61,18 +58,9 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
       <Separator />
       <CardFooter className="flex flex-col p-4 space-y-4">
         <div className="w-full space-y-2 text-sm">
-            <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(subtotal)}</span>
-            </div>
-            <div className="flex justify-between">
-                <span>Impuestos (8%)</span>
-                <span>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(taxes)}</span>
-            </div>
-            <Separator />
             <div className="flex justify-between font-bold text-base">
                 <span>Total</span>
-                <span>{new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(total)}</span>
+                <span>{new Intl.NumberFormat("es-ES", { style: "currency", currency: "USD" }).format(total)}</span>
             </div>
         </div>
         <Button className="w-full" onClick={onCompleteSale} disabled={cartItems.length === 0}>

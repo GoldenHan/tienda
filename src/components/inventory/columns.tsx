@@ -23,7 +23,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
           variant="ghost"
           onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
         >
-          Product
+          Producto
           <ArrowUpDown className="ml-2 h-4 w-4" />
         </Button>
       )
@@ -56,7 +56,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Quantity
+            Cantidad
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -68,13 +68,13 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
   },
   {
     id: "status",
-    header: "Status",
+    header: "Estado",
     cell: ({ row }) => {
       const product = row.original
       const isLowStock = product.quantity <= product.lowStockThreshold
       return (
         <Badge variant={isLowStock ? "destructive" : "outline"}>
-          {isLowStock ? "Low Stock" : "In Stock"}
+          {isLowStock ? "Poco Stock" : "En Stock"}
         </Badge>
       )
     },
@@ -88,7 +88,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
             variant="ghost"
             onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
           >
-            Sale Price
+            Precio de Venta
             <ArrowUpDown className="ml-2 h-4 w-4" />
           </Button>
         </div>
@@ -96,7 +96,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
     },
     cell: ({ row }) => {
       const amount = parseFloat(row.getValue("salePrice"))
-      const formatted = new Intl.NumberFormat("en-US", {
+      const formatted = new Intl.NumberFormat("es-ES", {
         style: "currency",
         currency: "USD",
       }).format(amount)

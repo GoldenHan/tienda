@@ -18,18 +18,18 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Sales History</CardTitle>
-        <CardDescription>A record of your recent sales transactions.</CardDescription>
+        <CardTitle>Historial de Ventas</CardTitle>
+        <CardDescription>Un registro de tus transacciones de venta recientes.</CardDescription>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-96">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product</TableHead>
-                <TableHead className="text-center">Quantity</TableHead>
+                <TableHead>Producto</TableHead>
+                <TableHead className="text-center">Cantidad</TableHead>
                 <TableHead className="text-right">Total</TableHead>
-                <TableHead className="text-right">Date</TableHead>
+                <TableHead className="text-right">Fecha</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -38,7 +38,7 @@ export function SalesHistoryTable({ sales }: SalesHistoryTableProps) {
                   <TableCell className="font-medium">{sale.productName}</TableCell>
                   <TableCell className="text-center">{sale.quantity}</TableCell>
                   <TableCell className="text-right">
-                    {new Intl.NumberFormat("en-US", {
+                    {new Intl.NumberFormat("es-ES", {
                       style: "currency",
                       currency: "USD",
                     }).format(sale.total)}

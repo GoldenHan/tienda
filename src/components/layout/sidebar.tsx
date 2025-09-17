@@ -27,12 +27,12 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 
 const links = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/inventory', label: 'Inventory', icon: Boxes },
-  { href: '/dashboard/sales', label: 'Sales', icon: ShoppingCart },
-  { href: '/dashboard/pos', label: 'POS', icon: Tablet },
-  { href: '/dashboard/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard },
+  { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes },
+  { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart },
+  { href: '/dashboard/pos', label: 'Venta', icon: Tablet },
+  { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3 },
+  { href: '/dashboard/settings', label: 'Configuración', icon: Settings },
 ]
 
 export function AppSidebar() {

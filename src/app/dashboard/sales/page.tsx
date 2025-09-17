@@ -42,10 +42,10 @@ export default function SalesPage() {
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
-          Sales
+          Ventas
         </h1>
         <p className="text-muted-foreground">
-          Log new sales and view transaction history.
+          Registra nuevas ventas y consulta el historial de transacciones.
         </p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">

@@ -26,8 +26,8 @@ import { useToast } from "@/hooks/use-toast"
 import { Product } from "@/lib/types"
 
 const formSchema = z.object({
-  productId: z.string().min(1, { message: "Please select a product." }),
-  quantity: z.coerce.number().min(1, { message: "Quantity must be at least 1." }),
+  productId: z.string().min(1, { message: "Por favor, selecciona un producto." }),
+  quantity: z.coerce.number().min(1, { message: "La cantidad debe ser al menos 1." }),
 })
 
 interface LogSaleFormProps {
@@ -51,7 +51,7 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Product not found.`,
+        description: `Producto no encontrado.`,
       })
       return;
     }
@@ -59,8 +59,8 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
     if (product.quantity < values.quantity) {
        toast({
         variant: "destructive",
-        title: "Not enough stock",
-        description: `Only ${product.quantity} of ${product.name} available.`,
+        title: "Stock insuficiente",
+        description: `Solo hay ${product.quantity} de ${product.name} disponibles.`,
       })
       return;
     }
@@ -68,8 +68,8 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
     onSaleLogged(values);
 
     toast({
-      title: "Sale Logged",
-      description: `Sold ${values.quantity} of ${product.name}.`,
+      title: "Venta Registrada",
+      description: `Se vendieron ${values.quantity} de ${product.name}.`,
     })
     form.reset()
   }
@@ -77,8 +77,8 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Log a New Sale</CardTitle>
-        <CardDescription>Select a product and quantity to record a transaction.</CardDescription>
+        <CardTitle>Registrar Nueva Venta</CardTitle>
+        <CardDescription>Selecciona un producto y cantidad para registrar una transacción.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -88,17 +88,17 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
               name="productId"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Product</FormLabel>
+                  <FormLabel>Producto</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a product" />
+                        <SelectValue placeholder="Selecciona un producto" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
                       {products.map(product => (
                         <SelectItem key={product.id} value={product.id} disabled={product.quantity === 0}>
-                          {product.name} ({product.quantity} in stock)
+                          {product.name} ({product.quantity} en stock)
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -112,7 +112,7 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
               name="quantity"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Quantity</FormLabel>
+                  <FormLabel>Cantidad</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} />
                   </FormControl>
@@ -120,7 +120,7 @@ export function LogSaleForm({ products, onSaleLogged }: LogSaleFormProps) {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">Log Sale</Button>
+            <Button type="submit" className="w-full">Registrar Venta</Button>
           </form>
         </Form>
       </CardContent>

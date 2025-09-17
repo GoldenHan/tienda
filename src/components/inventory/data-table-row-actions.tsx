@@ -47,14 +47,14 @@ export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: D
               className="flex h-8 w-8 p-0 data-[state=open]:bg-muted"
             >
               <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">Open menu</span>
+              <span className="sr-only">Abrir menú</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[180px]">
              <DialogTrigger asChild>
               <DropdownMenuItem>
                 <Pencil className="mr-2 h-4 w-4" />
-                Edit Product
+                Editar Producto
               </DropdownMenuItem>
             </DialogTrigger>
             <DropdownMenuSeparator />
@@ -63,14 +63,14 @@ export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: D
               onSelect={() => setShowDeleteDialog(true)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Delete Product
+              Eliminar Producto
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Product</DialogTitle>
+            <DialogTitle>Editar Producto</DialogTitle>
           </DialogHeader>
           <ProductForm 
             product={product} 
@@ -87,21 +87,21 @@ export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: D
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the
-              product "{product.name}".
+              Esta acción no se puede deshacer. Esto eliminará permanentemente el
+              producto "{product.name}".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 onDeleteProduct(product.id)
               }}
               className="bg-destructive hover:bg-destructive/90"
             >
-              Delete
+              Eliminar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

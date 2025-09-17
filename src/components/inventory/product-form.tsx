@@ -9,10 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Name is required"),
-  imageUrl: z.string().url("Must be a valid URL"),
-  quantity: z.coerce.number().int().min(0, "Quantity must be a whole number"),
-  salePrice: z.coerce.number().min(0, "Sale price must be positive"),
+  name: z.string().min(1, "El nombre es requerido"),
+  imageUrl: z.string().url("Debe ser una URL válida"),
+  quantity: z.coerce.number().int().min(0, "La cantidad debe ser un número entero"),
+  salePrice: z.coerce.number().min(0, "El precio de venta debe ser positivo"),
 });
 
 // We create a new type that only includes the fields we want to edit.
@@ -51,9 +51,9 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Product Name</FormLabel>
+              <FormLabel>Nombre del Producto</FormLabel>
               <FormControl>
-                <Input placeholder="e.g. Artisan Mug" {...field} />
+                <Input placeholder="Ej. Taza Artesanal" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -64,9 +64,9 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
           name="imageUrl"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Image URL</FormLabel>
+              <FormLabel>URL de la Imagen</FormLabel>
               <FormControl>
-                <Input placeholder="https://example.com/image.png" {...field} />
+                <Input placeholder="https://ejemplo.com/imagen.png" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -78,7 +78,7 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
             name="quantity"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Quantity in Stock</FormLabel>
+                <FormLabel>Cantidad en Stock</FormLabel>
                 <FormControl>
                   <Input type="number" {...field} />
                 </FormControl>
@@ -91,7 +91,7 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
             name="salePrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Sale Price ($)</FormLabel>
+                <FormLabel>Precio de Venta ($)</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} />
                 </FormControl>
@@ -101,7 +101,7 @@ export function ProductForm({ product, onSubmit }: ProductFormProps) {
           />
         </div>
         <Button type="submit" className="w-full">
-          {product ? "Save Changes" : "Add Product"}
+          {product ? "Guardar Cambios" : "Añadir Producto"}
         </Button>
       </form>
     </Form>

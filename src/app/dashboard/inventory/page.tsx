@@ -15,10 +15,10 @@ export default function InventoryPage() {
         ...newProductData,
         id: `prod_${Date.now()}`,
         // Provide default values for fields not in the form
-        description: "New product description.",
+        description: "Nueva descripción de producto.",
         purchaseCost: newProductData.salePrice * 0.5, // Example default
         lowStockThreshold: 10, // Example default
-        imageHint: "new product",
+        imageHint: "nuevo producto",
       },
     ]);
   };
@@ -41,10 +41,10 @@ export default function InventoryPage() {
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
-          Inventory
+          Inventario
         </h1>
         <p className="text-muted-foreground">
-          Manage your products and track stock levels.
+          Gestiona tus productos y controla los niveles de stock.
         </p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">

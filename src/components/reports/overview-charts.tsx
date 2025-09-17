@@ -9,11 +9,11 @@ import { DateRangePicker } from "./date-range-picker"
 
 const chartConfig = {
   sales: {
-    label: "Sales",
+    label: "Ventas",
     color: "hsl(var(--primary))",
   },
   profit: {
-    label: "Profit",
+    label: "Beneficio",
     color: "hsl(var(--accent))",
   },
 }
@@ -22,14 +22,14 @@ export function OverviewCharts() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold font-headline">Overview</h2>
+        <h2 className="text-xl font-semibold font-headline">Visión General</h2>
         <DateRangePicker />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Sales & Profit</CardTitle>
-          <CardDescription>January - June 2024</CardDescription>
+          <CardTitle>Ventas y Beneficios</CardTitle>
+          <CardDescription>Enero - Junio 2024</CardDescription>
         </CardHeader>
         <CardContent>
           <ChartContainer config={chartConfig} className="h-[300px] w-full">

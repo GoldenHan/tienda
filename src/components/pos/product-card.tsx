@@ -42,7 +42,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
       </CardContent>
       <CardFooter className="p-3 pt-0 flex justify-between items-center">
         <p className="font-bold text-lg">
-          {new Intl.NumberFormat("en-US", {
+          {new Intl.NumberFormat("es-ES", {
             style: "currency",
             currency: "USD",
           }).format(product.salePrice)}

@@ -8,15 +8,15 @@ export default function ReportsPage() {
       <header className="flex items-center justify-between gap-4 p-4 sm:p-6">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-headline">
-            Reports
+            Reportes
           </h1>
           <p className="text-muted-foreground">
-            View sales, profit, and inventory reports.
+            Visualiza reportes de ventas, beneficios e inventario.
           </p>
         </div>
         <Button variant="outline">
           <Printer className="mr-2" />
-          Print Report
+          Imprimir Reporte
         </Button>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">

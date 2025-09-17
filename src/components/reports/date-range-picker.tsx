@@ -3,6 +3,7 @@
 import * as React from "react"
 import { CalendarIcon } from "lucide-react"
 import { addDays, format } from "date-fns"
+import { es } from "date-fns/locale"
 import { DateRange } from "react-day-picker"
 
 import { cn } from "@/lib/utils"
@@ -38,14 +39,14 @@ export function DateRangePicker({
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "LLL dd, y")} -{" "}
-                  {format(date.to, "LLL dd, y")}
+                  {format(date.from, "LLL dd, y", { locale: es })} -{" "}
+                  {format(date.to, "LLL dd, y", { locale: es })}
                 </>
               ) : (
-                format(date.from, "LLL dd, y")
+                format(date.from, "LLL dd, y", { locale: es })
               )
             ) : (
-              <span>Pick a date</span>
+              <span>Selecciona una fecha</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -57,6 +58,7 @@ export function DateRangePicker({
             selected={date}
             onSelect={setDate}
             numberOfMonths={2}
+            locale={es}
           />
         </PopoverContent>
       </Popover>

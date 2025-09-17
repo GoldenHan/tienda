@@ -122,7 +122,7 @@ export default function POSPage() {
     <div className="flex h-full flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
-          Punto de Venta (POS)
+          Punto de Venta
         </h1>
         <p className="text-muted-foreground">
           Selecciona productos para añadirlos al carrito y completar la venta.

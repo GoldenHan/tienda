@@ -13,10 +13,12 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { Label } from "@/components/ui/label";
+
 
 const formSchema = z.object({
-  currentPassword: z.string().min(1, { message: "Current password is required." }),
-  newPassword: z.string().min(6, { message: "New password must be at least 6 characters." }),
+  currentPassword: z.string().min(1, { message: "La contraseña actual es requerida." }),
+  newPassword: z.string().min(6, { message: "La nueva contraseña debe tener al menos 6 caracteres." }),
 });
 
 export default function SettingsPage() {
@@ -34,7 +36,7 @@ export default function SettingsPage() {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user || !user.email) {
-      toast({ variant: "destructive", title: "Error", description: "No user is signed in." });
+      toast({ variant: "destructive", title: "Error", description: "No hay ningún usuario conectado." });
       return;
     }
 
@@ -49,18 +51,18 @@ export default function SettingsPage() {
       await updatePassword(user, values.newPassword);
       
       toast({
-        title: "Password Updated",
-        description: "Your password has been successfully updated.",
+        title: "Contraseña Actualizada",
+        description: "Tu contraseña ha sido actualizada exitosamente.",
       });
       form.reset();
     } catch (error: any) {
-      console.error("Password update error:", error);
+      console.error("Error al actualizar contraseña:", error);
       toast({
         variant: "destructive",
-        title: "Error Updating Password",
+        title: "Error al Actualizar la Contraseña",
         description: error.code === 'auth/wrong-password' 
-          ? "The current password you entered is incorrect."
-          : "An error occurred. Please try again.",
+          ? "La contraseña actual que ingresaste es incorrecta."
+          : "Ocurrió un error. Por favor, inténtalo de nuevo.",
       });
     } finally {
       setIsLoading(false);
@@ -71,15 +73,15 @@ export default function SettingsPage() {
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
-          Settings
+          Configuración
         </h1>
-        <p className="text-muted-foreground">Manage your account settings.</p>
+        <p className="text-muted-foreground">Gestiona la configuración de tu cuenta.</p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
         <Card className="max-w-xl">
           <CardHeader>
-            <CardTitle>Admin Account</CardTitle>
-            <CardDescription>Update your administrator credentials.</CardDescription>
+            <CardTitle>Cuenta de Administrador</CardTitle>
+            <CardDescription>Actualiza tus credenciales de administrador.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -93,7 +95,7 @@ export default function SettingsPage() {
                   name="currentPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Current Password</FormLabel>
+                      <FormLabel>Contraseña Actual</FormLabel>
                       <FormControl>
                         <Input type="password" {...field} />
                       </FormControl>
@@ -106,7 +108,7 @@ export default function SettingsPage() {
                   name="newPassword"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>New Password</FormLabel>
+                      <FormLabel>Nueva Contraseña</FormLabel>
                       <FormControl>
                         <Input type="password" {...field} />
                       </FormControl>
@@ -115,7 +117,7 @@ export default function SettingsPage() {
                   )}
                 />
                 <Button type="submit" disabled={isLoading}>
-                  {isLoading ? <Loader2 className="animate-spin" /> : "Update Password"}
+                  {isLoading ? <Loader2 className="animate-spin" /> : "Actualizar Contraseña"}
                 </Button>
               </form>
             </Form>

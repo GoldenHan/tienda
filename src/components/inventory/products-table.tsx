@@ -61,7 +61,7 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <Input
-          placeholder="Filter products..."
+          placeholder="Filtrar productos..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
           onChange={(event) =>
             table.getColumn("name")?.setFilterValue(event.target.value)
@@ -70,11 +70,11 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
         />
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button>Add Product</Button>
+            <Button>Añadir Producto</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
+              <DialogTitle>Añadir Nuevo Producto</DialogTitle>
             </DialogHeader>
             <ProductForm onSubmit={(data) => {
               onAddProduct(data);
@@ -112,7 +112,7 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {render(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>
@@ -120,7 +120,7 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  No results.
+                  Sin resultados.
                 </TableCell>
               </TableRow>
             )}
@@ -134,7 +134,7 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
           onClick={() => table.previousPage()}
           disabled={!table.getCanPreviousPage()}
         >
-          Previous
+          Anterior
         </Button>
         <Button
           variant="outline"
@@ -142,7 +142,7 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
           onClick={() => table.nextPage()}
           disabled={!table.getCanNextPage()}
         >
-          Next
+          Siguiente
         </Button>
       </div>
     </div>

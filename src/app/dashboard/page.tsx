@@ -22,40 +22,40 @@ export default function DashboardPage() {
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
-          Dashboard
+          Panel de Control
         </h1>
       </header>
       <main className="grid flex-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
         <StatCard
-          title="Total Revenue"
-          value={`$${totalRevenue.toLocaleString('en-US', {
+          title="Ingresos Totales"
+          value={`$${totalRevenue.toLocaleString('es-ES', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`}
           icon={DollarSign}
-          description="Total revenue from all sales"
+          description="Ingresos totales de todas las ventas"
         />
         <StatCard
-          title="Total Profit"
-          value={`$${totalProfit.toLocaleString('en-US', {
+          title="Beneficio Total"
+          value={`$${totalProfit.toLocaleString('es-ES', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`}
           icon={DollarSign}
-          description="Total profit from all sales"
+          description="Beneficio total de todas las ventas"
           variant="secondary"
         />
         <StatCard
-          title="Total Sales"
+          title="Ventas Totales"
           value={totalSales.toString()}
           icon={ShoppingCart}
-          description="Total number of sales transactions"
+          description="Número total de transacciones de venta"
         />
         <StatCard
-          title="Low Stock Items"
+          title="Artículos con Poco Stock"
           value={lowStockItems.toString()}
           icon={AlertTriangle}
-          description="Items needing to be restocked soon"
+          description="Artículos que necesitan ser reabastecidos pronto"
           variant={lowStockItems > 0 ? 'destructive' : 'default'}
         />
       </main>
