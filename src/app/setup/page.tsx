@@ -5,9 +5,8 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useAuth } from "@/context/auth-context";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, writeBatch } from "firebase/firestore";
+import { doc, writeBatch, collection } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 
@@ -29,7 +28,8 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Warehouse } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { Warehouse } from "@/components/icons";
 import type { EmployeeData } from "@/lib/types";
 
 const formSchema = z.object({
@@ -38,17 +38,9 @@ const formSchema = z.object({
 
 export default function SetupPage() {
   const router = useRouter();
-  const { user, loading, login } = useAuth();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [registrationData, setRegistrationData] = useState<EmployeeData | null>(null);
-
-  useEffect(() => {
-    // If user is loaded and already has a company, redirect them.
-    if (!loading && user?.companyId) {
-      router.replace("/dashboard");
-    }
-  }, [user, loading, router]);
 
   useEffect(() => {
     try {
@@ -143,7 +135,7 @@ export default function SetupPage() {
     }
   }
 
-  if (loading || !registrationData) {
+  if (!registrationData) {
     return (
         <div className="flex min-h-screen items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
