@@ -34,7 +34,7 @@ export default function SalesPage() {
     if(user?.companyId) {
       fetchData();
     }
-  }, [user]);
+  }, [user, toast]);
 
   const handleUpdateSale = async (updatedSale: Sale, originalSale: Sale) => {
     if (!user?.companyId) return;
