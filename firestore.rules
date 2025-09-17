@@ -3,41 +3,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Helper functions
     function isAuthenticated() {
       return request.auth != null;
     }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
 
-    function getUserRole(uid) {
-      return get(/databases/$(database)/documents/users/$(uid)).data.role;
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
     }
     
     function isAdmin() {
       return isAuthenticated() && getUserRole(request.auth.uid) == 'admin';
     }
 
-    // Rules for the 'users' collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      // Only the user themselves or an admin can update their own data
-      allow update: if request.auth.uid == userId || isAdmin();
-      // Only admins can create or delete users
-      allow create, delete: if isAdmin();
+      // Allow creation if it's the very first user (db is empty) OR if the requester is an admin.
+      allow create: if (exists(/databases/$(database)/documents/users/$(request.auth.uid)) == false && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') || isAdmin();
+      // Allow users to read/update their own data. Admins can read all.
+      allow read, update: if isOwner(userId) || isAdmin();
+      allow list, delete: if isAdmin();
     }
-    
-    // Rules for the 'products' collection
+
+    match /company/{docId} {
+        // Allow creation of the 'info' doc if it doesn't exist yet by an authenticated user.
+        allow create: if docId == 'info' && !exists(/databases/$(database)/documents/company/info) && isAuthenticated();
+        // Allow reads by any authenticated user, but only admins can update.
+        allow read: if isAuthenticated();
+        allow update, delete: if isAdmin();
+    }
+
     match /products/{productId} {
       allow read: if isAuthenticated();
-      // Allow creation, full updates, and deletion only for admins
-      allow create, delete: if isAdmin();
-      allow update: if isAdmin();
+      // Only admins can create, update, or delete products.
+      allow create, update, delete: if isAdmin();
     }
-    
-    // Rules for the 'sales' collection
+
     match /sales/{saleId} {
       allow read: if isAuthenticated();
-      allow create: if isAuthenticated(); // Allow any authenticated user to create a sale (POS)
-      // Allow updates and deletes only for admins (Editing sale history)
+      // Any authenticated user can create a sale (from POS).
+      allow create: if isAuthenticated();
+      // Only admins can modify or delete sales history.
       allow update, delete: if isAdmin();
     }
   }
