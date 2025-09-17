@@ -1,21 +1,37 @@
 "use client";
 
 import { PropsWithChildren, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { useAuth } from "@/context/auth-context";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 
+const ADMIN_ONLY_ROUTES = [
+  "/dashboard/inventory",
+  "/dashboard/reports",
+  "/dashboard/sales",
+  "/dashboard/settings",
+];
+
 export default function DashboardLayout({ children }: PropsWithChildren) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    if (!user) {
       router.push("/login");
+      return;
     }
-  }, [user, loading, router]);
+
+    // Role-based access control
+    if (user.role !== "admin" && ADMIN_ONLY_ROUTES.includes(pathname)) {
+      router.replace("/dashboard/pos");
+    }
+  }, [user, loading, router, pathname]);
 
   if (loading || !user) {
     return (
@@ -30,8 +46,6 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       </div>
     );
   }
-
-  // TODO: Add role-based access control here to check for admin role
 
   return (
     <SidebarProvider>

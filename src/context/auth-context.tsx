@@ -9,7 +9,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc, collection, getDocs, query, limit } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 interface User {
@@ -71,6 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = async (email: string, password: string, name: string) => {
     if (!auth || !db) throw new Error(missingFirebaseError);
+
+    // Check if any user exists to determine role
+    const usersCollectionRef = collection(db, "users");
+    const q = query(usersCollectionRef, limit(1));
+    const existingUsersSnapshot = await getDocs(q);
+    const isFirstUser = existingUsersSnapshot.empty;
+    const role = isFirstUser ? "admin" : "employee";
     
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const firebaseUser = userCredential.user;
@@ -80,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       uid: firebaseUser.uid,
       email: firebaseUser.email,
       name: name,
-      role: "employee", // Default role
+      role: role, // Assign role based on whether it's the first user
       createdAt: new Date(),
     });
 

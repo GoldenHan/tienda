@@ -2,18 +2,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Users can read/write their own user document
+    // Helper function to check if the requesting user is an admin.
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users can read/update their own document. Only admins can create new users (implicitly via auth).
     match /users/{userId} {
-      allow read, update: if request.auth != null && request.auth.uid == userId;
+      allow read, update: if request.auth.uid == userId;
+      allow create: if isAdmin(); // Or allow anyone to create their own user doc on signup.
+      allow list, delete: if isAdmin();
     }
-
-    // Any authenticated user can read/write to products and sales collections
+    
+    // Products: Admins can write. Any authenticated user can read.
     match /products/{productId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
     }
 
+    // Sales: Admins can write. Any authenticated user can read.
     match /sales/{saleId} {
-      allow read, write: if request.auth != null;
+      allow read: if request.auth != null;
+      allow create, update, delete: if isAdmin();
     }
   }
 }
