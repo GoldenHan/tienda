@@ -29,6 +29,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           src={product.imageUrl}
           alt={product.name}
           fill
+          sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 33vw"
           className={cn("object-cover", isOutOfStock && "grayscale")}
         />
         {isOutOfStock && (
