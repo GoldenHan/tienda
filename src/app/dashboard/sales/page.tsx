@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -15,15 +16,17 @@ export default function SalesPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchData = async () => {
-    if (!user?.companyId) return;
+  const fetchData = async (companyId: string) => {
     setLoading(true);
     try {
-      const [salesData, productsData] = await Promise.all([getSales(user.companyId), getProducts(user.companyId)]);
+      const [salesData, productsData] = await Promise.all([
+        getSales(companyId), 
+        getProducts(companyId)
+      ]);
       setSales(salesData);
       setProducts(productsData);
     } catch (error) {
-      console.error(error);
+      console.error("Sales page fetch error:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
     } finally {
       setLoading(false);
@@ -32,26 +35,25 @@ export default function SalesPage() {
 
   useEffect(() => {
     if(user?.companyId) {
-      fetchData();
+      fetchData(user.companyId);
+    } else {
+      setLoading(false);
     }
-  }, [user, toast]);
+  }, [user]);
 
   const handleUpdateSale = async (updatedSale: Sale, originalSale: Sale) => {
     if (!user?.companyId) return;
-    setLoading(true);
     try {
       await updateSaleAndAdjustStock(user.companyId, updatedSale, originalSale);
-
       toast({
         title: "Venta Actualizada",
         description: `La transacción ${updatedSale.id} ha sido modificada.`,
       });
-
+      await fetchData(user.companyId); // Refresh data after update
     } catch (error: any) {
       console.error("Error al actualizar la venta:", error);
       toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
-    } finally {
-       await fetchData();
+      await fetchData(user.companyId); // Re-fetch data even on error to show original state
     }
   };
 

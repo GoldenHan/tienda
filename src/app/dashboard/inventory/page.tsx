@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,13 +15,14 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchProducts = async () => {
-    if (!user?.companyId) return;
+  // Memoized fetch function to prevent re-creation on re-renders
+  const fetchProducts = async (companyId: string) => {
+    setLoading(true);
     try {
-      const productsData = await getProducts(user.companyId);
+      const productsData = await getProducts(companyId);
       setProducts(productsData);
     } catch (error) {
-      console.error(error);
+      console.error("Inventory fetch error:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
     } finally {
       setLoading(false);
@@ -28,53 +30,48 @@ export default function InventoryPage() {
   };
 
   useEffect(() => {
+    // Only fetch if we have a user and a companyId
     if (user?.companyId) {
-      fetchProducts();
+      fetchProducts(user.companyId);
+    } else {
+      // If there's no user, we're not loading anything.
+      setLoading(false);
     }
   }, [user]);
 
   const handleAddProduct = async (newProductData: Omit<Product, 'id'>) => {
     if (!user?.companyId) return;
     try {
-      setLoading(true);
       await addProduct(user.companyId, newProductData);
-      await fetchProducts(); // Re-fetch to get the new product with its ID
+      await fetchProducts(user.companyId); // Re-fetch to get the new product with its ID
       toast({ title: "Éxito", description: "Producto añadido correctamente." });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo añadir el producto." });
-    } finally {
-        setLoading(false);
     }
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
     if (!user?.companyId) return;
     try {
-      setLoading(true);
       await updateProduct(user.companyId, updatedProduct.id, updatedProduct);
-      await fetchProducts();
+      await fetchProducts(user.companyId);
       toast({ title: "Éxito", description: "Producto actualizado correctamente." });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo actualizar el producto." });
-    } finally {
-        setLoading(false);
     }
   };
 
   const handleDeleteProduct = async (productId: string) => {
     if (!user?.companyId) return;
     try {
-      setLoading(true);
       await deleteProduct(user.companyId, productId);
-      await fetchProducts();
+      await fetchProducts(user.companyId);
       toast({ title: "Éxito", description: "Producto eliminado correctamente." });
     } catch (error) {
       console.error(error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar el producto." });
-    } finally {
-      setLoading(false);
     }
   };
 

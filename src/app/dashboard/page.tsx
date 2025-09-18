@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -18,22 +19,32 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!user?.companyId) return;
+      // Don't fetch if there's no user or companyId
+      if (!user?.companyId) {
+        setLoading(false);
+        return;
+      }
+      
+      setLoading(true);
       try {
-        setLoading(true);
-        const [productsData, salesData] = await Promise.all([getProducts(user.companyId), getSales(user.companyId)]);
+        // Pass companyId to both helpers
+        const [productsData, salesData] = await Promise.all([
+          getProducts(user.companyId), 
+          getSales(user.companyId)
+        ]);
         setProducts(productsData);
         setSales(salesData);
       } catch (error) {
-        console.error(error);
+        console.error("Dashboard fetch error:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos del panel.' });
       } finally {
         setLoading(false);
       }
     };
-    if (user?.companyId) {
-      fetchData();
-    }
+    
+    // Trigger fetch only when user object is available
+    fetchData();
+
   }, [user, toast]);
 
   const totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
@@ -43,7 +54,9 @@ export default function DashboardPage() {
     const saleProfit = sale.items.reduce((itemAcc, item) => {
       const product = products.find(p => p.id === item.productId);
       if (product) {
-        return itemAcc + (item.total - product.purchaseCost * item.quantity);
+        // Ensure purchaseCost is a number before calculation
+        const purchaseCost = typeof product.purchaseCost === 'number' ? product.purchaseCost : 0;
+        return itemAcc + (item.total - purchaseCost * item.quantity);
       }
       return itemAcc;
     }, 0);

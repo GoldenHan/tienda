@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -18,14 +19,13 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchProducts = async () => {
-    if (!user?.companyId) return;
+  const fetchProducts = async (companyId: string) => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const productsData = await getProducts(user.companyId);
+      const productsData = await getProducts(companyId);
       setProducts(productsData);
     } catch (error) {
-      console.error(error);
+      console.error("POS fetch error:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
     } finally {
       setLoading(false);
@@ -34,7 +34,9 @@ export default function POSPage() {
 
   useEffect(() => {
     if(user?.companyId){
-      fetchProducts();
+      fetchProducts(user.companyId);
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
@@ -129,7 +131,7 @@ export default function POSPage() {
       await addSale(user.companyId, newSale, cart);
       
       setCart([]);
-      await fetchProducts();
+      await fetchProducts(user.companyId); // Re-fetch products with updated stock
 
       toast({
         title: "Venta completada",

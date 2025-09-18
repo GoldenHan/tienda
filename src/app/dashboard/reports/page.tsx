@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -16,6 +17,7 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const fetchSales = async () => {
+      // Don't fetch if there's no user or companyId
       if (!user?.companyId) {
         setLoading(false);
         return;
@@ -26,7 +28,7 @@ export default function ReportsPage() {
         const salesData = await getSales(user.companyId);
         setSales(salesData);
       } catch (error) {
-        console.error(error);
+        console.error("Reports fetch error:", error);
         toast({
           variant: "destructive",
           title: "Error",

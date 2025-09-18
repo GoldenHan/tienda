@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -21,14 +22,13 @@ export default function UsersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchUsers = async () => {
-    if (!user?.companyId) return;
+  const fetchUsers = async (companyId: string) => {
     setLoading(true);
     try {
-      const usersData = await getUsers(user.companyId);
+      const usersData = await getUsers(companyId);
       setUsers(usersData);
     } catch (error) {
-      console.error(error);
+      console.error("Users fetch error:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los usuarios.' });
     } finally {
       setLoading(false);
@@ -37,7 +37,9 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (user?.companyId) {
-      fetchUsers();
+      fetchUsers(user.companyId);
+    } else {
+      setLoading(false);
     }
   }, [user]);
 
@@ -45,7 +47,7 @@ export default function UsersPage() {
     if (!user?.companyId) return;
     try {
       await addEmployee(user.companyId, data);
-      await fetchUsers(); // Refresh the user list
+      await fetchUsers(user.companyId); // Refresh the user list
       setIsAddDialogOpen(false);
       toast({ title: 'Éxito', description: 'Empleado añadido correctamente.' });
     } catch (error: any) {
@@ -55,7 +57,7 @@ export default function UsersPage() {
   };
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    return name?.split(' ').map(n => n[0]).join('').toUpperCase() || '';
   }
 
   if (loading) {
