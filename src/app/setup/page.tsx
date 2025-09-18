@@ -106,11 +106,16 @@ export default function SetupPage() {
           createdAt: new Date(),
       });
 
-      // 4. Commit the batch
+      // 4. Create the root user lookup document
+      const userLookupDocRef = doc(db, "users", adminUser.uid);
+      batch.set(userLookupDocRef, {
+        companyId: companyDocRef.id
+      });
+
+
+      // 5. Commit the batch
       await batch.commit();
       
-      // Store companyId to help AuthContext find the user faster
-      sessionStorage.setItem('companyId', companyDocRef.id);
       sessionStorage.removeItem('registrationData');
 
       toast({

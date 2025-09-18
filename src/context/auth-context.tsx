@@ -9,7 +9,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc, collection, getDocs } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 interface User {
@@ -46,54 +46,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         setLoading(true);
-        let userFound = false;
-        
         try {
-          // Optimization: Check sessionStorage first (for post-registration flow)
-          const companyIdFromSession = sessionStorage.getItem('companyId');
-          if (companyIdFromSession) {
-            const userDocRef = doc(db, "companies", companyIdFromSession, "users", firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
-            if (userDocSnap.exists()) {
-              const userData = userDocSnap.data() as User;
-              setUser({
-                  ...firebaseUser,
-                  ...userData,
-                  companyId: companyIdFromSession,
-                  name: userData.name || firebaseUser.displayName,
-              });
-              userFound = true;
-              sessionStorage.removeItem('companyId'); // Clean up
-            }
-          }
+          // 1. Get the user's companyId from the root /users/{uid} lookup document
+          const userLookupRef = doc(db, "users", firebaseUser.uid);
+          const userLookupSnap = await getDoc(userLookupRef);
 
-          // Fallback: If not found via session, scan all companies
-          if (!userFound) {
-            const companiesCol = collection(db, "companies");
-            const companiesSnapshot = await getDocs(companiesCol);
-
-            for (const companyDoc of companiesSnapshot.docs) {
-                const userDocRef = doc(db, "companies", companyDoc.id, "users", firebaseUser.uid);
-                const userDocSnap = await getDoc(userDocRef);
-                if (userDocSnap.exists()) {
-                    const userData = userDocSnap.data() as User;
-                    setUser({
-                        ...firebaseUser,
-                        ...userData,
-                        companyId: companyDoc.id,
-                        name: userData.name || firebaseUser.displayName,
-                    });
-                    userFound = true;
-                    break; 
-                }
-            }
+          if (!userLookupSnap.exists()) {
+             throw new Error("User lookup document not found. The user might not have a company assigned.");
           }
           
-          if (!userFound) {
-            console.warn("Authenticated user not found in any company. Logging out.");
-            await signOut(auth);
-            setUser(null);
+          const { companyId } = userLookupSnap.data() as { companyId: string };
+
+          if (!companyId) {
+            throw new Error(`Company ID not found for user ${firebaseUser.uid}.`);
           }
+
+          // 2. Fetch the user's full profile from the company's subcollection
+          const userDocRef = doc(db, "companies", companyId, "users", firebaseUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+
+          if (!userDocSnap.exists()) {
+             throw new Error(`User document not found in company ${companyId}.`);
+          }
+
+          const userData = userDocSnap.data() as User;
+          setUser({
+            ...firebaseUser,
+            ...userData,
+            companyId: companyId,
+            name: userData.name || firebaseUser.displayName,
+          });
 
         } catch (error) {
           console.error("Error fetching user data:", error);

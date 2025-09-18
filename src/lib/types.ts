@@ -1,3 +1,4 @@
+
 export type Product = {
   id: string;
   name: string;
@@ -46,13 +47,18 @@ export type InventoryData = {
   value: number;
 };
 
+// This represents the document in /companies/{companyId}/users/{userId}
 export type User = {
   uid: string;
   name: string;
   email: string;
   role: 'admin' | 'employee';
-  companyId: string;
   createdAt: any; 
+};
+
+// This represents the document in /users/{userId}
+export type UserLookup = {
+  companyId: string;
 };
 
 export type EmployeeData = {
