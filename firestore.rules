@@ -7,46 +7,38 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isUserInCompany(companyId, userId) {
-      return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(userId));
+    function isUserInCompany(companyId, uid) {
+      return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(uid));
     }
-    
-    // Allow users to read their own company lookup document
-    match /users/{userId} {
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+
+    function isCompanyAdmin(companyId, uid) {
+      let userRole = get(/databases/$(database)/documents/companies/$(companyId)/users/$(uid)).data.role;
+      return userRole == 'admin';
     }
 
     match /companies/{companyId} {
-      // Allow a user to create a company if they are authenticated and they set themselves as the admin
+      allow read: if isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
       allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
       
-      // Allow a user to read a company's data if they are an employee of that company
-      allow read: if isUserInCompany(companyId, request.auth.uid);
-      allow update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
-
       match /products/{productId} {
-        allow read: if isUserInCompany(companyId, request.auth.uid);
-        allow create, update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+        allow read: if isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
+        allow write: if isAuthenticated() && isCompanyAdmin(companyId, request.auth.uid);
       }
-
+      
       match /sales/{saleId} {
-        allow read: if isUserInCompany(companyId, request.auth.uid);
-        // Allow employees to create sales, but only admins can edit/delete
-        allow create: if isUserInCompany(companyId, request.auth.uid);
-        allow update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+        allow read: if isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
+        allow write: if isAuthenticated() && isCompanyAdmin(companyId, request.auth.uid);
       }
 
       match /users/{userId} {
-        // Allow an authenticated user to create their OWN user document with the 'admin' role
-        allow create: if isAuthenticated() && request.auth.uid == userId && request.resource.data.role == 'admin';
-        
-        // Allow admins to create other user documents (employees)
-        allow create: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
-
-        allow read: if isUserInCompany(companyId, request.auth.uid);
-        allow update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+        allow read, write: if isAuthenticated() && isCompanyAdmin(companyId, request.auth.uid);
+        allow create: if isAuthenticated() && request.auth.uid == userId && request.resource.data.role == 'employee';
       }
+    }
+
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
     }
   }
 }

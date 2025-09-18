@@ -46,44 +46,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       if (firebaseUser) {
         setLoading(true);
-        try {
-          // 1. Get the user's companyId from the root /users/{uid} lookup document
-          const userLookupRef = doc(db, "users", firebaseUser.uid);
-          const userLookupSnap = await getDoc(userLookupRef);
+        // 1. Get the user's companyId from the root /users/{uid} lookup document
+        const userLookupRef = doc(db, "users", firebaseUser.uid);
+        const userLookupSnap = await getDoc(userLookupRef);
 
-          if (!userLookupSnap.exists()) {
-             throw new Error("User lookup document not found. The user might not have a company assigned.");
-          }
-          
+        if (userLookupSnap.exists()) {
           const { companyId } = userLookupSnap.data() as { companyId: string };
-
-          if (!companyId) {
-            throw new Error(`Company ID not found for user ${firebaseUser.uid}.`);
-          }
 
           // 2. Fetch the user's full profile from the company's subcollection
           const userDocRef = doc(db, "companies", companyId, "users", firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
-          if (!userDocSnap.exists()) {
-             throw new Error(`User document not found in company ${companyId}.`);
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data() as User;
+            setUser({
+              ...firebaseUser,
+              ...userData,
+              companyId: companyId,
+              name: userData.name || firebaseUser.displayName,
+            });
+          } else {
+            console.error(`User document not found in company ${companyId}.`);
+            // Don't sign out, just set user to null so UI can react.
+            setUser(null);
           }
-
-          const userData = userDocSnap.data() as User;
-          setUser({
-            ...firebaseUser,
-            ...userData,
-            companyId: companyId,
-            name: userData.name || firebaseUser.displayName,
-          });
-
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-          await signOut(auth);
-          setUser(null);
-        } finally {
-          setLoading(false);
+        } else {
+          console.error("User lookup document not found. The user might not have a company assigned or rules are blocking access.");
+           // Don't sign out, just set user to null so UI can react.
+           setUser(null);
         }
+        setLoading(false);
 
       } else {
         setUser(null);
