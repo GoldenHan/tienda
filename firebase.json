@@ -1,10 +1,21 @@
 {
   "hosting": {
-    "source": ".",
+    "public": "out",
     "ignore": [
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
     ]
+  },
+  "firestore": {
+    "database": "tienda",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }

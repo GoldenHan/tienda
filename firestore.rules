@@ -1,6 +1,10 @@
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // --------------------------
+    // Helpers
+    // --------------------------
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -21,50 +25,51 @@ service cloud.firestore {
       return isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
     }
 
-    // =========================
-    // Companies
-    // =========================
+    // --------------------------
+    // Companies collection
+    // --------------------------
     match /companies/{companyId} {
 
-      // Allow creation of a company if the authenticated user is the admin
+      // Crear empresa solo usuario autenticado y define adminUid
       allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
 
-      // Allow reading the company if the user is part of the company OR this is the first read (setup)
-      allow read: if isEmployee(companyId) || (!exists(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)) && request.auth.uid == request.resource.data.adminUid);
+      // Leer empresa si eres empleado o eres el admin que la crea
+      allow read: if isEmployee(companyId) || request.auth.uid == resource.data.adminUid;
 
-      // Only admins can update company info
+      // Solo admin puede actualizar info de empresa
       allow update: if isAdmin(companyId);
 
+      // Nunca se puede eliminar
       allow delete: if false;
 
-      // =========================
+      // --------------------------
       // Users subcollection
-      // =========================
+      // --------------------------
       match /users/{userId} {
-        // Allow creation of the first admin user during setup
-        allow create: if isAuthenticated() && request.auth.uid == userId && request.resource.data.role == 'admin';
+        // Crear el primer admin en setup
+        allow create: if request.auth.uid == userId && request.resource.data.role == 'admin';
 
-        // Employees can read users in their company
+        // Leer usuario si eres empleado
         allow read: if isEmployee(companyId);
 
-        // Admin or the user itself can update
+        // Actualizar usuario: admin o el mismo usuario
         allow update: if isAdmin(companyId) || request.auth.uid == userId;
 
-        // Only admin can delete other users
+        // Borrar usuario: solo admin y no a sí mismo
         allow delete: if isAdmin(companyId) && request.auth.uid != userId;
       }
 
-      // =========================
-      // Products
-      // =========================
+      // --------------------------
+      // Products subcollection
+      // --------------------------
       match /products/{productId} {
         allow read: if isEmployee(companyId);
         allow create, update, delete: if isAdmin(companyId);
       }
 
-      // =========================
-      // Sales
-      // =========================
+      // --------------------------
+      // Sales subcollection
+      // --------------------------
       match /sales/{saleId} {
         allow read: if isEmployee(companyId);
         allow create: if isEmployee(companyId);
