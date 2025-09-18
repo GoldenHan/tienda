@@ -1,7 +1,7 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, where } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db } from "./firebase";
 import { Product, Sale, User, EmployeeData, Company } from "./types";
@@ -94,7 +94,8 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
 export const getProducts = async (companyId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  const q = query(productsCollectionRef, orderBy("name"));
+  // Exclude the placeholder document from the results
+  const q = query(productsCollectionRef, where("name", "!=", null), orderBy("name"));
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
     return [];
@@ -124,13 +125,17 @@ export const deleteProduct = async (companyId: string, id: string) => {
 export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
-  const q = query(salesCollectionRef, orderBy("date", "desc"));
+  // Exclude the placeholder document from the results
+  const q = query(salesCollectionRef, where("grandTotal", "!=", null), orderBy("grandTotal", "desc"));
   const snapshot = await getDocs(q);
-  if (snapshot.empty) {
+if (snapshot.empty) {
     return [];
   }
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+  return snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as Sale))
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
+
 
 export const addSale = async (companyId: string, saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
   const firestore = getDbOrThrow();
@@ -199,3 +204,5 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
     throw e;
   }
 };
+
+    

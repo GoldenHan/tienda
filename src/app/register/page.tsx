@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -90,9 +91,15 @@ export default function RegisterPage() {
       batch.set(userLookupDocRef, {
         companyId: companyDocRef.id
       });
+      
+      // 5. Initialize subcollections by adding a placeholder document
+      const productsCollectionRef = collection(db, "companies", companyDocRef.id, "products");
+      const salesCollectionRef = collection(db, "companies", companyDocRef.id, "sales");
+      batch.set(doc(productsCollectionRef, "_placeholder"), { initialized: true });
+      batch.set(doc(salesCollectionRef, "_placeholder"), { initialized: true });
 
 
-      // 5. Commit the batch transaction
+      // 6. Commit the batch transaction
       await batch.commit();
       
       toast({
@@ -203,3 +210,5 @@ export default function RegisterPage() {
     </div>
   );
 }
+
+    
