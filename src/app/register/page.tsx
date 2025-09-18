@@ -67,7 +67,7 @@ export default function RegisterPage() {
       
       const batch = writeBatch(db);
 
-      // 2. Create the new company document
+      // 2. Create the new company document with a unique ID
       const companyDocRef = doc(collection(db, "companies"));
       batch.set(companyDocRef, {
           name: values.companyName,
@@ -85,14 +85,14 @@ export default function RegisterPage() {
           createdAt: new Date(),
       });
 
-      // 4. Create the root user lookup document
+      // 4. Create the root user lookup document to find the company later
       const userLookupDocRef = doc(db, "users", adminUser.uid);
       batch.set(userLookupDocRef, {
         companyId: companyDocRef.id
       });
 
 
-      // 5. Commit the batch
+      // 5. Commit the batch transaction
       await batch.commit();
       
       toast({
@@ -104,7 +104,7 @@ export default function RegisterPage() {
 
     } catch (error: any) {
       console.error("Error en el registro:", error);
-      let errorMessage = "No se pudo completar el registro.";
+      let errorMessage = "No se pudo completar el registro. Inténtalo de nuevo.";
       if (error.code === 'auth/email-already-in-use') {
           errorMessage = 'Este correo electrónico ya está registrado. Por favor, inicia sesión.';
       } else if (error.code === 'permission-denied') {
