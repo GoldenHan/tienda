@@ -126,14 +126,12 @@ export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
   // Exclude the placeholder document from the results
-  const q = query(salesCollectionRef, where("grandTotal", "!=", null), orderBy("grandTotal", "desc"));
+  const q = query(salesCollectionRef, where("grandTotal", "!=", null), orderBy("date", "desc"));
   const snapshot = await getDocs(q);
-if (snapshot.empty) {
+  if (snapshot.empty) {
     return [];
   }
-  return snapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() } as Sale))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 
 
@@ -204,5 +202,3 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
     throw e;
   }
 };
-
-    
