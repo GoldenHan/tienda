@@ -1,10 +1,9 @@
-rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
 
-    // --------------------------
-    // Helpers
-    // --------------------------
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/tienda/documents {
+
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -12,68 +11,44 @@ service cloud.firestore {
     function isUserInCompany(companyId, userId) {
       return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(userId));
     }
-
-    function getUserData(companyId, userId) {
-      return get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId)).data;
+    
+    function isCompanyAdmin(companyId, userId) {
+        let userDoc = get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId));
+        return userDoc.data.role == 'admin';
     }
 
-    function isAdmin(companyId) {
-      return isAuthenticated() && isUserInCompany(companyId, request.auth.uid) && getUserData(companyId, request.auth.uid).role == 'admin';
-    }
-
-    function isEmployee(companyId) {
-      return isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
-    }
-
-    // --------------------------
-    // Companies collection
-    // --------------------------
     match /companies/{companyId} {
-
-      // Crear empresa solo usuario autenticado y define adminUid
+      // Allow a user to create a company document only if they set themselves as the admin.
       allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
+      
+      // Allow a user to read a company document if they are an employee of that company.
+      allow read: if isUserInCompany(companyId, request.auth.uid);
+      
+      allow update, delete: if isCompanyAdmin(companyId, request.auth.uid);
 
-      // Leer empresa si eres empleado o eres el admin que la crea
-      allow read: if isEmployee(companyId) || request.auth.uid == resource.data.adminUid;
-
-      // Solo admin puede actualizar info de empresa
-      allow update: if isAdmin(companyId);
-
-      // Nunca se puede eliminar
-      allow delete: if false;
-
-      // --------------------------
-      // Users subcollection
-      // --------------------------
       match /users/{userId} {
-        // Crear el primer admin en setup
-        allow create: if request.auth.uid == userId && request.resource.data.role == 'admin';
-
-        // Leer usuario si eres empleado
-        allow read: if isEmployee(companyId);
-
-        // Actualizar usuario: admin o el mismo usuario
-        allow update: if isAdmin(companyId) || request.auth.uid == userId;
-
-        // Borrar usuario: solo admin y no a sí mismo
-        allow delete: if isAdmin(companyId) && request.auth.uid != userId;
+        // Allow a user to create their own user document within a company.
+        allow create: if isAuthenticated() && request.auth.uid == userId;
+        
+        // Allow reading/deleting user docs only by admins of the company.
+        allow read, delete: if isCompanyAdmin(companyId, request.auth.uid);
+        
+        // Allow a user to update their own document, or an admin to update any user document.
+        allow update: if (isAuthenticated() && request.auth.uid == userId) || isCompanyAdmin(companyId, request.auth.uid);
       }
 
-      // --------------------------
-      // Products subcollection
-      // --------------------------
       match /products/{productId} {
-        allow read: if isEmployee(companyId);
-        allow create, update, delete: if isAdmin(companyId);
+        allow read, create, update, delete: if isCompanyAdmin(companyId, request.auth.uid);
+        // Employees can also read products for the POS
+        allow read: if isUserInCompany(companyId, request.auth.uid);
       }
 
-      // --------------------------
-      // Sales subcollection
-      // --------------------------
       match /sales/{saleId} {
-        allow read: if isEmployee(companyId);
-        allow create: if isEmployee(companyId);
-        allow update, delete: if isAdmin(companyId);
+         // Admins can do anything with sales
+        allow read, create, update, delete: if isCompanyAdmin(companyId, request.auth.uid);
+        
+        // Employees can create sales (from POS) and read them.
+        allow create, read: if isUserInCompany(companyId, request.auth.uid);
       }
     }
   }
