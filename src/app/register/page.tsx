@@ -6,6 +6,9 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, writeBatch, collection } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,7 +32,8 @@ import { Loader2 } from "lucide-react";
 import { Warehouse } from "@/components/icons";
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+  companyName: z.string().min(2, { message: "El nombre de la empresa debe tener al menos 2 caracteres." }),
+  adminName: z.string().min(2, { message: "Tu nombre debe tener al menos 2 caracteres." }),
   email: z.string().email({ message: "Por favor, introduce un email válido." }),
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
 });
@@ -37,33 +41,82 @@ const formSchema = z.object({
 export default function RegisterPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      companyName: "",
+      adminName: "",
       email: "",
       password: "",
     },
   });
 
-  function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof formSchema>) {
+     if (!auth || !db) {
+      toast({ variant: "destructive", title: "Error de configuración", description: "Firebase no está inicializado." });
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
-      // Store the registration data in sessionStorage to pass it to the next step
-      sessionStorage.setItem('registrationData', JSON.stringify(values));
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, values.email, values.password);
+      const adminUser = userCredential.user;
+      
+      const batch = writeBatch(db);
+
+      // 2. Create the new company document
+      const companyDocRef = doc(collection(db, "companies"));
+      batch.set(companyDocRef, {
+          name: values.companyName,
+          adminUid: adminUser.uid,
+          createdAt: new Date(),
+      });
+
+      // 3. Create the user document within the new company's subcollection
+      const userDocRef = doc(db, "companies", companyDocRef.id, "users", adminUser.uid);
+      batch.set(userDocRef, {
+          uid: adminUser.uid,
+          email: values.email,
+          name: values.adminName,
+          role: "admin",
+          createdAt: new Date(),
+      });
+
+      // 4. Create the root user lookup document
+      const userLookupDocRef = doc(db, "users", adminUser.uid);
+      batch.set(userLookupDocRef, {
+        companyId: companyDocRef.id
+      });
+
+
+      // 5. Commit the batch
+      await batch.commit();
       
       toast({
-        title: "Paso 1 Completo",
-        description: "Ahora, configura tu empresa.",
+        title: "¡Registro Completo!",
+        description: "Tu cuenta ha sido creada. Ahora puedes iniciar sesión.",
       });
-      router.push("/setup");
+      
+      router.push("/login");
+
     } catch (error: any) {
-      console.error("Error al guardar datos de registro:", error);
+      console.error("Error en el registro:", error);
+      let errorMessage = "No se pudo completar el registro.";
+      if (error.code === 'auth/email-already-in-use') {
+          errorMessage = 'Este correo electrónico ya está registrado. Por favor, inicia sesión.';
+      } else if (error.code === 'permission-denied') {
+          errorMessage = 'Error de permisos. Revisa las reglas de seguridad de Firestore.';
+      }
       toast({
         variant: "destructive",
-        title: "Error en el registro",
-        description: "No se pudieron guardar los datos para el siguiente paso. Revisa la configuración de tu navegador.",
+        title: "Error en el Registro",
+        description: errorMessage,
       });
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -74,9 +127,9 @@ export default function RegisterPage() {
            <div className="mb-4 flex justify-center">
             <Warehouse className="h-12 w-12 text-primary" />
           </div>
-          <CardTitle className="text-2xl font-headline">Crear tu Cuenta de Administrador</CardTitle>
+          <CardTitle className="text-2xl font-headline">Crear tu Cuenta</CardTitle>
           <CardDescription>
-            Este es el primer paso para configurar tu negocio.
+            Registra tu negocio y tu cuenta de administrador.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -84,7 +137,20 @@ export default function RegisterPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                <FormField
                 control={form.control}
-                name="name"
+                name="companyName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nombre de la Empresa</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Ej. Mi Tienda Increíble" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="adminName"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Tu Nombre (Administrador)</FormLabel>
@@ -102,7 +168,7 @@ export default function RegisterPage() {
                   <FormItem>
                     <FormLabel>Tu Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="admin@email.com" {...field} />
+                      <Input type="email" placeholder="admin@email.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -121,8 +187,8 @@ export default function RegisterPage() {
                   </FormItem>
                 )}
               />
-              <Button type="submit" className="w-full">
-                Siguiente: Configurar Empresa
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="animate-spin" /> : "Crear Cuenta"}
               </Button>
             </form>
           </Form>
