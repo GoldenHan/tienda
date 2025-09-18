@@ -1,3 +1,4 @@
+
 "use server";
 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
@@ -15,7 +16,6 @@ function getDbOrThrow() {
 }
 
 // --- Secondary App for User Creation ---
-// This is used so an admin can create a new employee account without being logged out themselves.
 const secondaryAppConfig = {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -41,7 +41,7 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
     return { id: docSnap.id, ...docSnap.data() } as Company;
   }
   return null;
-}
+};
 
 // --- User Management ---
 export const getUsers = async (companyId: string): Promise<User[]> => {
@@ -96,6 +96,9 @@ export const getProducts = async (companyId: string): Promise<Product[]> => {
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
   const q = query(productsCollectionRef, orderBy("name"));
   const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return [];
+  }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 };
 
@@ -123,6 +126,9 @@ export const getSales = async (companyId: string): Promise<Sale[]> => {
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
   const q = query(salesCollectionRef, orderBy("date", "desc"));
   const snapshot = await getDocs(q);
+  if (snapshot.empty) {
+    return [];
+  }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 

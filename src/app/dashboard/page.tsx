@@ -19,15 +19,14 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const fetchData = async () => {
-      // Don't fetch if there's no user or companyId
       if (!user?.companyId) {
+        // If there's no user or companyId, we stop loading and do nothing.
         setLoading(false);
         return;
       }
       
       setLoading(true);
       try {
-        // Pass companyId to both helpers
         const [productsData, salesData] = await Promise.all([
           getProducts(user.companyId), 
           getSales(user.companyId)
@@ -42,8 +41,14 @@ export default function DashboardPage() {
       }
     };
     
-    // Trigger fetch only when user object is available
-    fetchData();
+    // Trigger fetch only when user object with companyId is available
+    if (user?.companyId) {
+      fetchData();
+    } else {
+      // This handles the case where the user object is present but companyId isn't loaded yet.
+      // Or if the user is logged out.
+      setLoading(true);
+    }
 
   }, [user, toast]);
 
@@ -54,7 +59,6 @@ export default function DashboardPage() {
     const saleProfit = sale.items.reduce((itemAcc, item) => {
       const product = products.find(p => p.id === item.productId);
       if (product) {
-        // Ensure purchaseCost is a number before calculation
         const purchaseCost = typeof product.purchaseCost === 'number' ? product.purchaseCost : 0;
         return itemAcc + (item.total - purchaseCost * item.quantity);
       }

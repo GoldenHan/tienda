@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/lib/types';
 import { getUsers, addEmployee } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
@@ -22,7 +22,7 @@ export default function UsersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchUsers = async (companyId: string) => {
+  const fetchUsers = useCallback(async (companyId: string) => {
     setLoading(true);
     try {
       const usersData = await getUsers(companyId);
@@ -33,15 +33,15 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if (user?.companyId) {
       fetchUsers(user.companyId);
     } else {
-      setLoading(false);
+      setLoading(true);
     }
-  }, [user]);
+  }, [user, fetchUsers]);
 
   const handleAddEmployee = async (data: EmployeeData) => {
     if (!user?.companyId) return;

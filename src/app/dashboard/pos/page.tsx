@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Product, Sale, SaleItem } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
@@ -17,9 +17,10 @@ export default function POSPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isCompletingSale, setIsCompletingSale] = useState(false);
   const { toast } = useToast();
 
-  const fetchProducts = async (companyId: string) => {
+  const fetchProducts = useCallback(async (companyId: string) => {
     setLoading(true);
     try {
       const productsData = await getProducts(companyId);
@@ -30,15 +31,15 @@ export default function POSPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if(user?.companyId){
       fetchProducts(user.companyId);
     } else {
-      setLoading(false);
+      setLoading(true);
     }
-  }, [user]);
+  }, [user, fetchProducts]);
 
   const handleAddToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -111,7 +112,7 @@ export default function POSPage() {
       return;
     }
 
-    setLoading(true);
+    setIsCompletingSale(true);
     
     const newSaleItems: SaleItem[] = cart.map((cartItem) => ({
       productId: cartItem.id,
@@ -142,7 +143,7 @@ export default function POSPage() {
       console.error("Error al completar la venta:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudo completar la venta. Revisa los permisos de la base de datos." });
     } finally {
-      setLoading(false);
+      setIsCompletingSale(false);
     }
   };
 
@@ -172,7 +173,7 @@ export default function POSPage() {
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveFromCart}
             onCompleteSale={handleCompleteSale}
-            disabled={loading}
+            disabled={isCompletingSale}
           />
         </div>
       </main>

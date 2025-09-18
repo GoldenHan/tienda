@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { ProductsTable } from "@/components/inventory/products-table";
 import { Product } from "@/lib/types";
 import { getProducts, addProduct, updateProduct, deleteProduct } from "@/lib/firestore-helpers";
@@ -15,8 +15,7 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  // Memoized fetch function to prevent re-creation on re-renders
-  const fetchProducts = async (companyId: string) => {
+  const fetchProducts = useCallback(async (companyId: string) => {
     setLoading(true);
     try {
       const productsData = await getProducts(companyId);
@@ -27,23 +26,21 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
-    // Only fetch if we have a user and a companyId
     if (user?.companyId) {
       fetchProducts(user.companyId);
     } else {
-      // If there's no user, we're not loading anything.
-      setLoading(false);
+      setLoading(true); // Keep loading until user and companyId are available
     }
-  }, [user]);
+  }, [user, fetchProducts]);
 
   const handleAddProduct = async (newProductData: Omit<Product, 'id'>) => {
     if (!user?.companyId) return;
     try {
       await addProduct(user.companyId, newProductData);
-      await fetchProducts(user.companyId); // Re-fetch to get the new product with its ID
+      await fetchProducts(user.companyId); 
       toast({ title: "Éxito", description: "Producto añadido correctamente." });
     } catch (error) {
       console.error(error);

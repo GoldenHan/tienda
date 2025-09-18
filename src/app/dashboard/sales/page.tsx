@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { SalesHistoryAccordion } from "@/components/sales/sales-history-accordion";
 import { Product, Sale } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
@@ -14,9 +14,10 @@ export default function SalesPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
-  const fetchData = async (companyId: string) => {
+  const fetchData = useCallback(async (companyId: string) => {
     setLoading(true);
     try {
       const [salesData, productsData] = await Promise.all([
@@ -31,18 +32,19 @@ export default function SalesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     if(user?.companyId) {
       fetchData(user.companyId);
     } else {
-      setLoading(false);
+      setLoading(true);
     }
-  }, [user]);
+  }, [user, fetchData]);
 
   const handleUpdateSale = async (updatedSale: Sale, originalSale: Sale) => {
     if (!user?.companyId) return;
+    setIsUpdating(true);
     try {
       await updateSaleAndAdjustStock(user.companyId, updatedSale, originalSale);
       toast({
@@ -54,6 +56,8 @@ export default function SalesPage() {
       console.error("Error al actualizar la venta:", error);
       toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
       await fetchData(user.companyId); // Re-fetch data even on error to show original state
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -75,7 +79,12 @@ export default function SalesPage() {
             <Skeleton className="h-20 w-full" />
           </div>
         ) : (
-          <SalesHistoryAccordion sales={sales} products={products} onUpdateSale={handleUpdateSale} isLoading={loading} />
+          <SalesHistoryAccordion 
+            sales={sales} 
+            products={products} 
+            onUpdateSale={handleUpdateSale} 
+            isLoading={isUpdating} 
+          />
         )}
       </main>
     </div>
