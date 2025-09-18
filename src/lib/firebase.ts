@@ -21,7 +21,6 @@ let storage: FirebaseStorage | null = null;
 if (firebaseConfig.apiKey) {
   app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
   auth = getAuth(app);
-  // Connect to the 'tienda' database instead of the default one.
   db = getFirestore(app);
   storage = getStorage(app);
 } else {

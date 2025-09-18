@@ -1,3 +1,4 @@
+
 {
   "hosting": {
     "public": "out",
@@ -14,7 +15,6 @@
     ]
   },
   "firestore": {
-    "database": "tienda",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   }
