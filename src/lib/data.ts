@@ -1,7 +1,7 @@
 import type { Product, Sale } from './types';
 
-// These arrays are now empty as all data will be fetched from Firestore.
-// They can be removed, but are kept for structural reference.
+// These arrays are intentionally left empty.
+// All application data is fetched from and managed by Firestore.
 export const products: Product[] = [];
 
 export const sales: Sale[] = [];
