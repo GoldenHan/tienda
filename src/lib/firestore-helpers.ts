@@ -1,4 +1,3 @@
-
 "use server";
 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc } from "firebase/firestore";
@@ -14,7 +13,6 @@ function getDbOrThrow() {
   }
   return db;
 }
-
 
 // --- Secondary App for User Creation ---
 // This is used so an admin can create a new employee account without being logged out themselves.
@@ -60,17 +58,36 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
     throw new Error("Secondary Firebase app for employee creation is not initialized.");
   }
   
-  const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
-  const newUser = userCredential.user;
+  try {
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
+    const newUser = userCredential.user;
 
-  const userDocRef = doc(firestore, "companies", companyId, "users", newUser.uid);
-  await setDoc(userDocRef, {
-    uid: newUser.uid,
-    name: employeeData.name,
-    email: employeeData.email,
-    role: "employee",
-    createdAt: new Date(),
-  });
+    const batch = writeBatch(firestore);
+
+    // Create user profile in company subcollection
+    const userDocRef = doc(firestore, "companies", companyId, "users", newUser.uid);
+    batch.set(userDocRef, {
+      uid: newUser.uid,
+      name: employeeData.name,
+      email: employeeData.email,
+      role: "employee",
+      createdAt: new Date(),
+    });
+
+    // Create root lookup document
+    const userLookupDocRef = doc(firestore, "users", newUser.uid);
+    batch.set(userLookupDocRef, {
+      companyId: companyId
+    });
+
+    await batch.commit();
+
+  } catch(error: any) {
+     if (error.code === 'auth/email-already-in-use') {
+        throw new Error('Este correo electrónico ya está registrado.');
+    }
+    throw new Error('No se pudo crear el empleado. ' + error.message);
+  }
 };
 
 // --- Product Management ---

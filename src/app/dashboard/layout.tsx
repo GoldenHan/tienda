@@ -33,13 +33,17 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
 
     if (user.role !== "admin" && ADMIN_ONLY_ROUTES.includes(pathname)) {
       router.replace("/dashboard/pos");
+      return;
     }
 
     const fetchCompany = async () => {
+      setCompanyLoading(true);
       try {
         const companyData = await getCompany(user.companyId);
         if (companyData) {
           setCompanyName(companyData.name);
+        } else {
+           console.error("Company data could not be fetched.");
         }
       } catch (error) {
         console.error("Error fetching company data:", error);

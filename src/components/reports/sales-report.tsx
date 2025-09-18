@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { addDays, isWithinInterval, parseISO } from "date-fns";
+import { addDays, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import * as XLSX from "xlsx";
 
@@ -22,6 +22,21 @@ interface SalesReportProps {
   allSales: Sale[];
 }
 
+// Helper to flatten sales data for the report
+const flattenSales = (sales: Sale[]) => {
+  return sales.flatMap(sale => 
+    sale.items.map(item => ({
+      id: sale.id, // Transaction ID
+      productName: item.productName,
+      quantity: item.quantity,
+      salePrice: item.salePrice,
+      total: item.total,
+      date: sale.date,
+    }))
+  );
+};
+
+
 export function SalesReport({ allSales }: SalesReportProps) {
   const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
@@ -29,16 +44,22 @@ export function SalesReport({ allSales }: SalesReportProps) {
     to: new Date(),
   });
 
+  const flattenedSales = React.useMemo(() => flattenSales(allSales), [allSales]);
+
   const filteredSales = React.useMemo(() => {
     if (!date || !date.from) return [];
-    const toDate = date.to || date.from; // If no 'to' date, use 'from'
-    return allSales.filter((sale) =>
+    
+    // Ensure we cover the entire day for the start and end dates
+    const startDate = startOfDay(date.from);
+    const endDate = endOfDay(date.to || date.from);
+
+    return flattenedSales.filter((sale) =>
       isWithinInterval(parseISO(sale.date), {
-        start: date.from!,
-        end: toDate,
+        start: startDate,
+        end: endDate,
       })
     );
-  }, [allSales, date]);
+  }, [flattenedSales, date]);
 
   const handlePrint = () => {
     window.print();
@@ -85,7 +106,7 @@ export function SalesReport({ allSales }: SalesReportProps) {
           <table>
             <thead>
               <tr>
-                <th>ID</th>
+                <th>ID Venta</th>
                 <th>Producto</th>
                 <th>Cantidad</th>
                 <th>Precio Unitario</th>
@@ -103,7 +124,7 @@ export function SalesReport({ allSales }: SalesReportProps) {
                   <td>${sale.quantity}</td>
                   <td>${sale.salePrice}</td>
                   <td>${sale.total}</td>
-                  <td>${sale.date}</td>
+                  <td>${new Date(sale.date).toLocaleString('es-NI')}</td>
                 </tr>
               `
                 )

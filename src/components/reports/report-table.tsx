@@ -9,12 +9,21 @@ import {
   TableRow,
   TableFooter,
 } from "@/components/ui/table";
-import { Sale } from "@/lib/types";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
+// Define a type for the flattened sales data used in this component
+type ReportSaleItem = {
+  id: string; // Transaction ID
+  productName: string;
+  quantity: number;
+  salePrice: number;
+  total: number;
+  date: string;
+};
+
 interface ReportTableProps {
-  sales: Sale[];
+  sales: ReportSaleItem[];
 }
 
 export function ReportTable({ sales }: ReportTableProps) {
@@ -27,7 +36,7 @@ export function ReportTable({ sales }: ReportTableProps) {
     }).format(amount);
 
   const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "P", { locale: es });
+    return format(new Date(dateString), "Pp", { locale: es });
   };
 
   return (
@@ -44,8 +53,9 @@ export function ReportTable({ sales }: ReportTableProps) {
         </TableHeader>
         <TableBody>
           {sales.length > 0 ? (
-            sales.map((sale) => (
-              <TableRow key={sale.id}>
+            sales.map((sale, index) => (
+              // Use a combination of sale ID and index for a more unique key in case of multiple items in one sale
+              <TableRow key={`${sale.id}-${index}`}>
                 <TableCell className="font-medium">{sale.productName}</TableCell>
                 <TableCell className="text-center">{sale.quantity}</TableCell>
                 <TableCell className="text-right">

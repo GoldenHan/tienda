@@ -16,9 +16,13 @@ export default function ReportsPage() {
 
   useEffect(() => {
     const fetchSales = async () => {
-      if (!user?.companyId) return;
+      if (!user?.companyId) {
+        setLoading(false);
+        return;
+      };
+      
+      setLoading(true);
       try {
-        setLoading(true);
         const salesData = await getSales(user.companyId);
         setSales(salesData);
       } catch (error) {
@@ -32,9 +36,9 @@ export default function ReportsPage() {
         setLoading(false);
       }
     };
-    if (user?.companyId) {
-      fetchSales();
-    }
+    
+    fetchSales();
+    
   }, [user, toast]);
 
   if (loading) {
