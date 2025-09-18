@@ -1,4 +1,3 @@
-
 rules_version = '2';
 
 service cloud.firestore {
@@ -12,43 +11,41 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(userId));
     }
     
-    function isCompanyAdmin(companyId, userId) {
-        let userDoc = get(/databases/$(database)/documents/companies/$(companyId)/users/$(userId));
-        return userDoc.data.role == 'admin';
+    // Allow users to read their own company lookup document
+    match /users/{userId} {
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+      allow create: if isAuthenticated() && request.auth.uid == userId;
     }
 
     match /companies/{companyId} {
-      // Allow a user to create a company document only if they set themselves as the admin.
+      // Allow a user to create a company if they are authenticated and they set themselves as the admin
       allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
       
-      // Allow a user to read a company document if they are an employee of that company.
+      // Allow a user to read a company's data if they are an employee of that company
       allow read: if isUserInCompany(companyId, request.auth.uid);
-      
-      allow update, delete: if isCompanyAdmin(companyId, request.auth.uid);
-
-      match /users/{userId} {
-        // Allow a user to create their own user document within a company.
-        allow create: if isAuthenticated() && request.auth.uid == userId;
-        
-        // Allow reading/deleting user docs only by admins of the company.
-        allow read, delete: if isCompanyAdmin(companyId, request.auth.uid);
-        
-        // Allow a user to update their own document, or an admin to update any user document.
-        allow update: if (isAuthenticated() && request.auth.uid == userId) || isCompanyAdmin(companyId, request.auth.uid);
-      }
+      allow update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
 
       match /products/{productId} {
-        allow read, create, update, delete: if isCompanyAdmin(companyId, request.auth.uid);
-        // Employees can also read products for the POS
         allow read: if isUserInCompany(companyId, request.auth.uid);
+        allow create, update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
       }
 
       match /sales/{saleId} {
-         // Admins can do anything with sales
-        allow read, create, update, delete: if isCompanyAdmin(companyId, request.auth.uid);
+        allow read: if isUserInCompany(companyId, request.auth.uid);
+        // Allow employees to create sales, but only admins can edit/delete
+        allow create: if isUserInCompany(companyId, request.auth.uid);
+        allow update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+      }
+
+      match /users/{userId} {
+        // Allow an authenticated user to create their OWN user document with the 'admin' role
+        allow create: if isAuthenticated() && request.auth.uid == userId && request.resource.data.role == 'admin';
         
-        // Employees can create sales (from POS) and read them.
-        allow create, read: if isUserInCompany(companyId, request.auth.uid);
+        // Allow admins to create other user documents (employees)
+        allow create: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+
+        allow read: if isUserInCompany(companyId, request.auth.uid);
+        allow update, delete: if isUserInCompany(companyId, request.auth.uid) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
       }
     }
   }
