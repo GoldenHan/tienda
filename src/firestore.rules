@@ -1,69 +1,74 @@
 rules_version = '2';
 
 service cloud.firestore {
-  match /databases/database/documents {
+  match /databases/{database}/documents {
 
+    // ----------------------
+    // Helper Functions
+    // ----------------------
     function isAuthenticated() {
       return request.auth != null;
     }
 
-    // Checks if a user document exists for the given UID within a company
     function isUserInCompany(companyId, uid) {
-      return exists(/databases/$(database)/documents/companies/$(companyId)/users/$(uid));
+      return exists(/databases/{database}/documents/companies/$(companyId)/users/$(uid));
     }
 
-    // Checks if the requesting user is a member of the company (admin or employee)
     function isEmployee(companyId) {
       return isAuthenticated() && isUserInCompany(companyId, request.auth.uid);
     }
-    
-    // Checks if the requesting user is an admin of the company
+
     function isAdmin(companyId) {
-      return isEmployee(companyId) && get(/databases/$(database)/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
+      return isEmployee(companyId) &&
+        get(/databases/{database}/documents/companies/$(companyId)/users/$(request.auth.uid)).data.role == 'admin';
     }
 
+    // ----------------------
+    // Companies Collection
+    // ----------------------
     match /companies/{companyId} {
-      // Allow user to create a company if they are authenticated and are the designated admin
+      // Crear empresa: solo usuario autenticado y designado admin
       allow create: if isAuthenticated() && request.resource.data.adminUid == request.auth.uid;
-      // Allow employees and admins to read company data
-      allow read: if isEmployee(companyId);
-      // Only admins can update company data
-      allow update: if isAdmin(companyId);
-      
-      // -- Subcollections --
 
-      // Products
+      // Leer empresa: empleados o admin
+      allow read: if isEmployee(companyId);
+
+      // Actualizar empresa: solo admin
+      allow update: if isAdmin(companyId);
+
+      // ----------------------
+      // Subcollection: Products
+      // ----------------------
       match /products/{productId} {
         allow read: if isEmployee(companyId);
         allow create, update, delete: if isAdmin(companyId);
       }
 
-      // Sales
+      // ----------------------
+      // Subcollection: Sales
+      // ----------------------
       match /sales/{saleId} {
-        // Admins can see and edit sales history
-        allow read, update: if isAdmin(companyId);
-        // Any employee can create a sale (e.g., from the POS)
         allow create: if isEmployee(companyId);
+        allow read, update, delete: if isAdmin(companyId);
       }
-      
-      // Users within a company
+
+      // ----------------------
+      // Subcollection: Users
+      // ----------------------
       match /users/{userId} {
-        // Admins can read the list of users
         allow read: if isAdmin(companyId);
-        // Allow creation of a user if:
-        // 1. The request is from an admin of that company (adding an employee).
-        // 2. The user is creating their own user document as the first admin.
-        allow create: if isAdmin(companyId) || 
+        allow create: if isAdmin(companyId) ||
                       (request.auth.uid == userId && request.resource.data.role == 'admin');
+        allow update, delete: if isAdmin(companyId);
       }
     }
 
-    // Root collection for user-to-company lookup
+    // ----------------------
+    // Root Users Collection
+    // ----------------------
     match /users/{userId} {
-      // Allow a user to read their own lookup document to find their companyId
-      allow read: if isAuthenticated() && request.auth.uid == userId;
-       // Allow a user to create their own lookup document during setup
-      allow create: if isAuthenticated() && request.auth.uid == userId;
+      allow read, create, update: if isAuthenticated() && request.auth.uid == userId;
     }
+
   }
 }
