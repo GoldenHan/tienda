@@ -1,3 +1,4 @@
+
 import { Product } from "@/lib/types";
 import { ProductCard } from "./product-card";
 
@@ -9,8 +10,8 @@ interface ProductGridProps {
 export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
   if (products.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
-        No hay productos en el inventario. Agrega algunos en la sección de Inventario.
+      <div className="flex items-center justify-center h-full text-muted-foreground p-8 text-center rounded-lg border">
+        No hay productos en el inventario. Agrega algunos en la sección de Inventario para empezar a vender.
       </div>
     )
   }

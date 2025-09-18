@@ -38,7 +38,7 @@ export default function SalesPage() {
     if(user?.companyId) {
       fetchData(user.companyId);
     } else {
-      setLoading(true);
+      setLoading(false);
     }
   }, [user, fetchData]);
 

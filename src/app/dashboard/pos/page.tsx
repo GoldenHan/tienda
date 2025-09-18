@@ -37,7 +37,7 @@ export default function POSPage() {
     if(user?.companyId){
       fetchProducts(user.companyId);
     } else {
-      setLoading(true);
+      setLoading(false);
     }
   }, [user, fetchProducts]);
 

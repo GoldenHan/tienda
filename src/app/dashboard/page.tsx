@@ -20,7 +20,6 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchData = async () => {
       if (!user?.companyId) {
-        // If there's no user or companyId, we stop loading and do nothing.
         setLoading(false);
         return;
       }
@@ -45,9 +44,7 @@ export default function DashboardPage() {
     if (user?.companyId) {
       fetchData();
     } else {
-      // This handles the case where the user object is present but companyId isn't loaded yet.
-      // Or if the user is logged out.
-      setLoading(true);
+      setLoading(false);
     }
 
   }, [user, toast]);

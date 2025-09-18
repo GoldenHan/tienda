@@ -32,7 +32,7 @@ export default function InventoryPage() {
     if (user?.companyId) {
       fetchProducts(user.companyId);
     } else {
-      setLoading(true); // Keep loading until user and companyId are available
+      setLoading(false); // If no user/companyId, stop loading, table will show empty state
     }
   }, [user, fetchProducts]);
 

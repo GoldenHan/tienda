@@ -39,7 +39,7 @@ export default function UsersPage() {
     if (user?.companyId) {
       fetchUsers(user.companyId);
     } else {
-      setLoading(true);
+      setLoading(false);
     }
   }, [user, fetchUsers]);
 
@@ -125,7 +125,7 @@ export default function UsersPage() {
             <div className="flex flex-col items-center justify-center text-center p-8 border rounded-lg h-64">
                 <h3 className="text-xl font-semibold">No hay usuarios registrados</h3>
                 <p className="text-muted-foreground mt-2">
-                Añade un empleado para empezar.
+                Añade tu primer empleado para empezar.
                 </p>
             </div>
         ) : (

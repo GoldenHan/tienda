@@ -1,4 +1,5 @@
-"use client"
+
+"use client";
 
 import { useState } from "react";
 import {
@@ -37,7 +38,7 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
       <div className="flex flex-col items-center justify-center text-center p-8 border rounded-lg h-64">
         <h3 className="text-xl font-semibold">No hay ventas registradas</h3>
         <p className="text-muted-foreground mt-2">
-          Realiza una venta desde la sección "Venta" para verla aquí.
+          Realiza una venta desde la sección "Punto de Venta" para verla aquí.
         </p>
       </div>
     );
