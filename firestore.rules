@@ -2,38 +2,48 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Helpers ---
+
+    // Helper Functions
+    function isAuth() {
+      return request.auth != null;
+    }
+
     function isRole(role) {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && userDoc.data.role == role;
+      // Safely access role from the user's custom claims, if they exist
+      return isAuth() && request.auth.token.role == role;
+    }
+
+    function isEmployee() {
+      return isAuth() && (request.auth.token.role == 'admin' || request.auth.token.role == 'employee');
     }
     
-    // --- Rules ---
+    // Allow anyone to check if users exist for initial setup
     match /users/{userId} {
-      // Allow list for initial setup check
-      allow list: if true; 
-      allow read, update, delete: if request.auth != null && request.auth.uid == userId;
-      // create is handled by server-side admin logic
-      allow create: if true;
+      allow list: if true;
+      allow read, write: if isAuth() && request.auth.uid == userId;
     }
     
-    match /company/{docId} {
-        allow read: if request.auth != null;
-        // create, update, delete handled by server-side admin logic
-        allow write: if true;
+    match /company/main {
+      allow read: if isAuth();
+      allow create, write: if isRole('admin');
     }
 
     match /products/{productId} {
-      allow read: if request.auth != null;
+      // Any authenticated employee can read products
+      allow read: if isEmployee();
+      // Only admins can write products
       allow write: if isRole('admin');
     }
 
     match /sales/{saleId} {
-      allow read: if request.auth != null;
-      allow create: if isRole('admin') || isRole('employee');
+      // Any authenticated employee can read sales
+      allow read: if isEmployee();
+      // Any authenticated employee can create a sale
+      allow create: if isEmployee();
+      // Only admins can update a sale
       allow update: if isRole('admin');
-      allow delete: if false; // Deletes are not allowed from client
+      // No one can delete a sale from the client
+      allow delete: if false;
     }
   }
 }
