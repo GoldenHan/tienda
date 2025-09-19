@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -20,7 +21,7 @@ export default function StatCard({ title, value, icon: Icon, description, varian
     "transition-transform hover:-translate-y-1",
     {
       "bg-card text-card-foreground": variant === "default",
-      "bg-destructive/10 border-destructive/50 text-destructive-foreground": variant === "destructive",
+      "bg-destructive/10 border-destructive/50": variant === "destructive",
       "bg-secondary/50": variant === "secondary",
     }
   );
@@ -38,7 +39,7 @@ export default function StatCard({ title, value, icon: Icon, description, varian
     <Card className={cardClasses}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className={iconClasses} />
+        <Icon className="h-4 w-4 text-muted-foreground" />
       </CardHeader>
       <CardContent>
         <div className={valueClasses}>{value}</div>

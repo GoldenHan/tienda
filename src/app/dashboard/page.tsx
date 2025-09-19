@@ -9,6 +9,11 @@ import { useAuth } from '@/context/auth-context';
 import { DollarSign, Package, AlertTriangle, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
+import { SalesChart } from '@/components/dashboard/sales-chart';
+import { subDays, format, isAfter, startOfDay } from 'date-fns';
+import { es } from 'date-fns/locale';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -62,20 +67,46 @@ export default function DashboardPage() {
   }, [sales, products]);
 
   const lowStockItems = useMemo(() => products.filter(p => p.quantity <= p.lowStockThreshold).length, [products]);
+
+  const last7DaysSalesData = useMemo(() => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), i));
+    const salesData = last7Days.map(day => ({
+        name: format(day, 'EEE', { locale: es }),
+        total: 0,
+    })).reverse(); // Reverse to have the oldest day first
+
+    const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
+
+    sales.forEach(sale => {
+        const saleDate = new Date(sale.date);
+        if (isAfter(saleDate, sevenDaysAgo)) {
+            const dayName = format(saleDate, 'EEE', { locale: es });
+            const dayData = salesData.find(d => d.name.toLowerCase() === dayName.toLowerCase());
+            if (dayData) {
+                dayData.total += sale.grandTotal;
+            }
+        }
+    });
+
+    return salesData;
+  }, [sales]);
   
   if (loading) {
     return (
-      <div className="flex flex-col">
-        <header className="p-4 sm:p-6">
+      <div className="flex flex-col p-4 sm:p-6 space-y-6">
+        <header>
            <h1 className="text-2xl font-bold tracking-tight font-headline">
             Panel de Control
           </h1>
         </header>
-        <main className="grid flex-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
-          <Skeleton className="h-32" />
+        <main className="flex-1 space-y-6">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+                <Skeleton className="h-32" />
+            </div>
+            <Skeleton className="h-80" />
         </main>
       </div>
     );
@@ -93,43 +124,53 @@ export default function DashboardPage() {
           Aquí tienes un resumen de la actividad de tu negocio.
         </p>
       </header>
-      <main className="grid flex-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
-        <StatCard
-          title="Ingresos Totales"
-          value={totalRevenue.toLocaleString('es-NI', {
-            style: 'currency',
-            currency: 'NIO',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-          icon={DollarSign}
-          description="Ingresos totales de todas las ventas"
-        />
-        <StatCard
-          title="Beneficio Total"
-          value={totalProfit.toLocaleString('es-NI', {
-            style: 'currency',
-            currency: 'NIO',
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })}
-          icon={DollarSign}
-          description="Beneficio total de todas las ventas"
-          variant="secondary"
-        />
-        <StatCard
-          title="Ventas Totales"
-          value={totalSalesCount.toString()}
-          icon={ShoppingCart}
-          description="Número total de transacciones de venta"
-        />
-        <StatCard
-          title="Artículos con Poco Stock"
-          value={lowStockItems.toString()}
-          icon={AlertTriangle}
-          description="Artículos que necesitan ser reabastecidos pronto"
-          variant={lowStockItems > 0 ? 'destructive' : 'default'}
-        />
+      <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0 space-y-6">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard
+            title="Ingresos Totales"
+            value={totalRevenue.toLocaleString('es-NI', {
+                style: 'currency',
+                currency: 'NIO',
+            })}
+            icon={DollarSign}
+            description="Ingresos totales de todas las ventas"
+            />
+            <StatCard
+            title="Beneficio Total"
+            value={totalProfit.toLocaleString('es-NI', {
+                style: 'currency',
+                currency: 'NIO',
+            })}
+            icon={DollarSign}
+            description="Beneficio total de todas las ventas"
+            variant="secondary"
+            />
+            <StatCard
+            title="Ventas Totales"
+            value={totalSalesCount.toString()}
+            icon={ShoppingCart}
+            description="Número total de transacciones de venta"
+            />
+            <StatCard
+            title="Artículos con Poco Stock"
+            value={lowStockItems.toString()}
+            icon={AlertTriangle}
+            description="Artículos que necesitan ser reabastecidos pronto"
+            variant={lowStockItems > 0 ? 'destructive' : 'default'}
+            />
+        </div>
+
+        <Card>
+            <CardHeader>
+                <CardTitle>Ventas de la Última Semana</CardTitle>
+                <CardDescription>
+                    Un resumen de los ingresos por ventas de los últimos 7 días.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <SalesChart data={last7DaysSalesData} />
+            </CardContent>
+        </Card>
       </main>
     </div>
   );
