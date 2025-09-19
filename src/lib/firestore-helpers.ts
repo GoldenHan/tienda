@@ -35,7 +35,6 @@ const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : null;
 // --- Company Info ---
 export const getCompany = async (companyId: string): Promise<Company | null> => {
   const firestore = getDbOrThrow();
-  console.log("Fetching company data for ID:", companyId);
   const companyDocRef = doc(firestore, "companies", companyId);
   try {
     const docSnap = await getDoc(companyDocRef);
@@ -91,7 +90,6 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
 export const getProducts = async (companyId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  // Filter out placeholder documents used to initialize collections
   const q = query(productsCollectionRef, where("name", "!=", null));
   try {
     const snapshot = await getDocs(q);
@@ -124,7 +122,6 @@ export const deleteProduct = async (companyId: string, id: string) => {
 export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
-  // Filter out placeholder documents and order by date
   const q = query(salesCollectionRef, where("date", "!=", null), orderBy("date", "desc"));
   try {
     const snapshot = await getDocs(q);
@@ -198,3 +195,5 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
     throw e;
   }
 };
+
+    
