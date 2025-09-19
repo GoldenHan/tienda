@@ -43,6 +43,7 @@ export default function SettingsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isCategoryLoading, setIsCategoryLoading] = useState(true);
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
+  const [isDeletingCategory, setIsDeletingCategory] = useState<string|null>(null);
 
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema),
@@ -150,6 +151,7 @@ export default function SettingsPage() {
   }
 
   const handleDeleteCategory = async (category: Category) => {
+    setIsDeletingCategory(category.id);
     try {
       await deleteCategory(category.id);
       toast({
@@ -159,7 +161,9 @@ export default function SettingsPage() {
       await fetchPageData();
     } catch (error) {
       console.error("Error deleting category:", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la categoría." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la categoría. Asegúrate de que no haya productos usándola." });
+    } finally {
+      setIsDeletingCategory(null);
     }
   };
 
@@ -327,8 +331,8 @@ export default function SettingsPage() {
                                         <span className="font-medium">{cat.name}</span>
                                           <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
-                                                    <Trash2 className="h-4 w-4" />
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDeletingCategory === cat.id}>
+                                                     {isDeletingCategory === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>

@@ -162,28 +162,39 @@ export const getCategories = async (): Promise<Category[]> => {
 export const addCategory = async (categoryName: string) => {
   const firestore = getDbOrThrow();
   const categoriesCollectionRef = collection(firestore, "categories");
-  const docRef = await addDoc(categoriesCollectionRef, { name: categoryName, createdAt: FieldValue.serverTimestamp() });
+  // Add the document first to get an auto-generated ID
+  const docRef = await addDoc(categoriesCollectionRef, { 
+    name: categoryName, 
+    createdAt: new Date().toISOString() 
+  });
+  // Now, update the document to include its own ID
   await updateDoc(docRef, { id: docRef.id });
 };
+
 
 export const deleteCategory = async (categoryId: string) => {
   const firestore = getDbOrThrow();
   await runTransaction(firestore, async (transaction) => {
-    // 1. Delete the category document
+    // 1. Get a reference to the category document to be deleted
     const categoryDocRef = doc(firestore, "categories", categoryId);
-    transaction.delete(categoryDocRef);
     
-    // 2. Find all products with this categoryId
+    // 2. Find all products that have this categoryId
     const productsCollectionRef = collection(firestore, "products");
     const q = query(productsCollectionRef, where("categoryId", "==", categoryId));
+    
+    // We need to execute the query outside the transaction to get the documents
     const productsSnapshot = await getDocs(q);
 
-    // 3. Update all found products to have an empty categoryId
+    // 3. Inside the transaction, update all found products to have an empty categoryId
     productsSnapshot.forEach(productDoc => {
       transaction.update(productDoc.ref, { categoryId: "" });
     });
+    
+    // 4. Finally, delete the category document
+    transaction.delete(categoryDocRef);
   });
 };
+
 
 
 // --- Product Management ---
@@ -203,9 +214,11 @@ export const getProducts = async (): Promise<Product[]> => {
 export const addProduct = async (productData: Omit<Product, 'id'>) => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "products");
-  const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: FieldValue.serverTimestamp() });
+  const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: new Date().toISOString() });
+  // Update the document to include its own ID, ensuring data consistency
   await updateDoc(docRef, { id: docRef.id });
 };
+
 
 export const updateProduct = async (id: string, updates: Partial<Product>) => {
   const firestore = getDbOrThrow();
@@ -242,6 +255,7 @@ export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & 
     const salesCollectionRef = collection(firestore, "sales");
     const newSaleRef = doc(salesCollectionRef);
     
+    // Set the sale data, including its own ID for consistency
     transaction.set(newSaleRef, { ...saleData, id: newSaleRef.id });
 
     for (const item of cartItems) {
@@ -262,6 +276,7 @@ export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & 
     }
   });
 };
+
 
 export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale) => {
   const firestore = getDbOrThrow();
@@ -373,7 +388,7 @@ export const getReconciliationStatus = async (dateId: string): Promise<Reconcili
 export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status']) => {
   const firestore = getDbOrThrow();
   const reconDocRef = doc(firestore, "reconciliations", dateId);
-  await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+  await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: new Date().toISOString() }, { merge: true });
 };
 
 export const getClosedReconciliations = async (): Promise<Reconciliation[]> => {
