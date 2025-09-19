@@ -7,18 +7,16 @@ service cloud.firestore {
     // Helpers
     // =========================
 
-    // Devuelve los datos del usuario autenticado. Si no existe, retorna un objeto vacío.
     function getUserData() {
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return userDoc.exists() ? userDoc.data : {};
+      return (request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
+             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+             : { role: null, companyId: null };
     }
 
-    // Verifica el rol del usuario
     function isRole(role) {
       return getUserData().role == role;
     }
 
-    // Verifica si el usuario pertenece a la empresa
     function isCompanyMember(companyId) {
       return getUserData().companyId == companyId;
     }
@@ -27,26 +25,16 @@ service cloud.firestore {
     // Users
     // =========================
     match /users/{userId} {
-      // Cada usuario solo puede leer/escribir su propio documento
-      allow read, write: if request.auth.uid == userId;
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
     // =========================
-    // Companies
+    // Company única
     // =========================
     match /companies/{companyId} {
-      // Crear empresa: cualquier usuario autenticado
       allow create: if request.auth != null;
-
-      // Lectura: solo miembros
       allow read: if isCompanyMember(companyId);
-
-      // Actualización: solo admins
       allow update: if isCompanyMember(companyId) && isRole('admin');
-
-      // =========================
-      // Subcollections
-      // =========================
 
       // Products
       match /products/{productId} {
@@ -59,10 +47,8 @@ service cloud.firestore {
         allow list, get: if isCompanyMember(companyId);
         allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
         allow update: if isCompanyMember(companyId) && isRole('admin');
-        allow delete: if false; // no se puede eliminar desde cliente
+        allow delete: if false;
       }
-
-      // Aquí puedes agregar más subcolecciones según tu modelo de datos
     }
   }
 }
