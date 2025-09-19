@@ -47,6 +47,7 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
 export const getUsers = async (companyId: string): Promise<User[]> => {
   const firestore = getDbOrThrow();
   const usersCollectionRef = collection(firestore, "users");
+  // Query the root /users collection for all users belonging to the specified companyId
   const q = query(usersCollectionRef, where("companyId", "==", companyId), orderBy("name"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => doc.data() as User);
@@ -91,10 +92,7 @@ export const getProducts = async (companyId: string): Promise<Product[]> => {
   if (snapshot.empty) {
     return [];
   }
-  // Filter out the placeholder document on the client-side
-  return snapshot.docs
-    .filter(doc => doc.id !== '_placeholder')
-    .map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 };
 
 export const addProduct = async (companyId: string, productData: Omit<Product, 'id'>) => {
@@ -124,10 +122,7 @@ export const getSales = async (companyId: string): Promise<Sale[]> => {
   if (snapshot.empty) {
     return [];
   }
-  // Filter out the placeholder document on the client-side
-  return snapshot.docs
-    .filter(doc => doc.id !== '_placeholder')
-    .map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 
 

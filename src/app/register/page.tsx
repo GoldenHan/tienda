@@ -8,7 +8,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, writeBatch, collection } from "firebase/firestore";
+import { doc, writeBatch, collection, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 
 import { Button } from "@/components/ui/button";
@@ -73,29 +73,22 @@ export default function RegisterPage() {
       batch.set(companyDocRef, {
           name: values.companyName,
           adminUid: adminUser.uid,
-          createdAt: new Date(),
+          createdAt: serverTimestamp(),
       });
 
       // 3. Create the user document in the root /users collection
-      // This is the source of truth for roles and company association
+      // This is the source of truth for roles and company association, used by security rules.
       const userDocRef = doc(db, "users", adminUser.uid);
       batch.set(userDocRef, {
           uid: adminUser.uid,
           email: values.email,
           name: values.adminName,
-          role: "admin",
+          role: "admin", // The first user is always an admin
           companyId: companyDocRef.id,
-          createdAt: new Date(),
+          createdAt: serverTimestamp(),
       });
       
-      // 4. Initialize subcollections by adding a placeholder document
-      const productsCollectionRef = collection(db, "companies", companyDocRef.id, "products");
-      const salesCollectionRef = collection(db, "companies", companyDocRef.id, "sales");
-      batch.set(doc(productsCollectionRef, "_placeholder"), { initialized: true });
-      batch.set(doc(salesCollectionRef, "_placeholder"), { initialized: true });
-
-
-      // 5. Commit the batch transaction
+      // Commit the batch transaction
       await batch.commit();
       
       toast({
