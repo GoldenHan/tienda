@@ -1,10 +1,9 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch, FieldValue } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
-import { FieldValue } from "firebase-admin/firestore";
 import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
 
 // --- Prerequisite Check ---
@@ -161,10 +160,7 @@ export const getCategories = async (): Promise<Category[]> => {
 
 export const addCategory = async (categoryName: string) => {
   const firestore = getDbOrThrow();
-  // Create a reference to a new document with an auto-generated ID
   const newCategoryRef = doc(collection(firestore, "categories"));
-  
-  // Now, set the document data, including the ID itself
   await setDoc(newCategoryRef, { 
     id: newCategoryRef.id,
     name: categoryName, 
@@ -174,25 +170,21 @@ export const addCategory = async (categoryName: string) => {
 
 export const deleteCategory = async (categoryId: string) => {
   const firestore = getDbOrThrow();
-  
-  // Find all products that have this categoryId
-  const productsCollectionRef = collection(firestore, "products");
-  const q = query(productsCollectionRef, where("categoryId", "==", categoryId));
-  const productsSnapshot = await getDocs(q);
-
-  // Create a batch to perform multiple writes as a single atomic operation
   const batch = writeBatch(firestore);
 
-  // For each product found, update its categoryId to an empty string
+  // 1. Un-categorize products using this category
+  const productsToUpdateQuery = query(collection(firestore, "products"), where("categoryId", "==", categoryId));
+  const productsSnapshot = await getDocs(productsToUpdateQuery);
   productsSnapshot.forEach(productDoc => {
-    batch.update(productDoc.ref, { categoryId: "" });
+    const productRef = doc(firestore, "products", productDoc.id);
+    batch.update(productRef, { categoryId: "" });
   });
 
-  // Get a reference to the category document to be deleted
+  // 2. Delete the category itself
   const categoryDocRef = doc(firestore, "categories", categoryId);
   batch.delete(categoryDocRef);
   
-  // Commit the batch
+  // 3. Commit all writes at once
   await batch.commit();
 };
 

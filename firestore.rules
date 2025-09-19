@@ -1,48 +1,42 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Regla general: por defecto, nadie tiene acceso.
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // La página de registro necesita comprobar si la empresa ya existe.
-    // Es seguro permitir la lectura (get) sin autenticación para este único documento.
+    // Allow unauthenticated reads only for the main company document.
+    // This is required for the initial setup check on the registration page.
     match /company/main {
       allow get: if true;
-      allow write: if request.auth != null;
+      allow write: if request.auth != null; // Only authenticated users can modify.
     }
-    
-    // Todos los usuarios autenticados pueden leer y escribir en estas colecciones.
-    // Esto es apropiado para un sistema interno de gestión.
+
+    // All other collections require authentication for any access.
     match /users/{userId} {
       allow read, write: if request.auth != null;
     }
-    
+
     match /products/{productId} {
-      allow read, write: if request.auth != null;
+       allow read, write: if request.auth != null;
     }
 
     match /categories/{categoryId} {
-      allow read, write: if request.auth != null;
+       allow read, write: if request.auth != null;
     }
 
     match /sales/{saleId} {
-      allow read, write: if request.auth != null;
+       allow read, write: if request.auth != null;
     }
 
     match /cash_outflows/{outflowId} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
 
     match /inflows/{inflowId} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
-
+    
     match /reconciliations/{reconId} {
-      allow read, write: if request.auth != null;
+        allow read, write: if request.auth != null;
     }
   }
 }
