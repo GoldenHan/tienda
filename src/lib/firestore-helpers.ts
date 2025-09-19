@@ -30,7 +30,7 @@ export const isInitialSetupRequired = async (): Promise<boolean> => {
         return !docSnap.exists();
     } catch (error) {
         console.error("Error checking for company doc. Assuming setup is required.", error);
-        // If rules prevent reading, we must assume setup is needed.
+        // If rules prevent reading, we must assume setup IS required.
         return true;
     }
 };
@@ -161,40 +161,40 @@ export const getCategories = async (): Promise<Category[]> => {
 
 export const addCategory = async (categoryName: string) => {
   const firestore = getDbOrThrow();
-  const categoriesCollectionRef = collection(firestore, "categories");
-  // Add the document first to get an auto-generated ID
-  const docRef = await addDoc(categoriesCollectionRef, { 
+  // Create a reference to a new document with an auto-generated ID
+  const newCategoryRef = doc(collection(firestore, "categories"));
+  
+  // Now, set the document data, including the ID itself
+  await setDoc(newCategoryRef, { 
+    id: newCategoryRef.id,
     name: categoryName, 
     createdAt: new Date().toISOString() 
   });
-  // Now, update the document to include its own ID
-  await updateDoc(docRef, { id: docRef.id });
 };
-
 
 export const deleteCategory = async (categoryId: string) => {
   const firestore = getDbOrThrow();
-  await runTransaction(firestore, async (transaction) => {
-    // 1. Get a reference to the category document to be deleted
-    const categoryDocRef = doc(firestore, "categories", categoryId);
-    
-    // 2. Find all products that have this categoryId
-    const productsCollectionRef = collection(firestore, "products");
-    const q = query(productsCollectionRef, where("categoryId", "==", categoryId));
-    
-    // We need to execute the query outside the transaction to get the documents
-    const productsSnapshot = await getDocs(q);
+  
+  // Find all products that have this categoryId
+  const productsCollectionRef = collection(firestore, "products");
+  const q = query(productsCollectionRef, where("categoryId", "==", categoryId));
+  const productsSnapshot = await getDocs(q);
 
-    // 3. Inside the transaction, update all found products to have an empty categoryId
-    productsSnapshot.forEach(productDoc => {
-      transaction.update(productDoc.ref, { categoryId: "" });
-    });
-    
-    // 4. Finally, delete the category document
-    transaction.delete(categoryDocRef);
+  // Create a batch to perform multiple writes as a single atomic operation
+  const batch = writeBatch(firestore);
+
+  // For each product found, update its categoryId to an empty string
+  productsSnapshot.forEach(productDoc => {
+    batch.update(productDoc.ref, { categoryId: "" });
   });
-};
 
+  // Get a reference to the category document to be deleted
+  const categoryDocRef = doc(firestore, "categories", categoryId);
+  batch.delete(categoryDocRef);
+  
+  // Commit the batch
+  await batch.commit();
+};
 
 
 // --- Product Management ---
@@ -213,10 +213,12 @@ export const getProducts = async (): Promise<Product[]> => {
 
 export const addProduct = async (productData: Omit<Product, 'id'>) => {
   const firestore = getDbOrThrow();
-  const productsCollectionRef = collection(firestore, "products");
-  const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: new Date().toISOString() });
-  // Update the document to include its own ID, ensuring data consistency
-  await updateDoc(docRef, { id: docRef.id });
+  const newProductRef = doc(collection(firestore, "products"));
+  await setDoc(newProductRef, { 
+      ...productData, 
+      id: newProductRef.id,
+      createdAt: new Date().toISOString() 
+  });
 };
 
 
@@ -341,10 +343,12 @@ export const getCashOutflows = async (): Promise<CashOutflow[]> => {
 };
 
 export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
-  const firestore = getDbOrThrow();
-  const outflowsCollectionRef = collection(firestore, "cash_outflows");
-  const docRef = await addDoc(outflowsCollectionRef, { ...outflowData });
-  await updateDoc(docRef, { id: docRef.id });
+    const firestore = getDbOrThrow();
+    const newOutflowRef = doc(collection(firestore, "cash_outflows"));
+    await setDoc(newOutflowRef, { 
+        ...outflowData, 
+        id: newOutflowRef.id 
+    });
 };
 
 export const getInflows = async (): Promise<Inflow[]> => {
@@ -361,10 +365,12 @@ export const getInflows = async (): Promise<Inflow[]> => {
 };
 
 export const addInflow = async (inflowData: Omit<Inflow, 'id'>) => {
-  const firestore = getDbOrThrow();
-  const inflowsCollectionRef = collection(firestore, "inflows");
-  const docRef = await addDoc(inflowsCollectionRef, { ...inflowData });
-  await updateDoc(docRef, { id: docRef.id });
+    const firestore = getDbOrThrow();
+    const newInflowRef = doc(collection(firestore, "inflows"));
+    await setDoc(newInflowRef, { 
+        ...inflowData, 
+        id: newInflowRef.id 
+    });
 };
 
 
