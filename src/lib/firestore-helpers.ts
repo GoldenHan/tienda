@@ -161,30 +161,34 @@ export const getCategories = async (): Promise<Category[]> => {
 
 export const addCategory = async (categoryName: string) => {
   const firestore = getDbOrThrow();
+  // Create a reference to a new document with a generated ID
   const newCategoryRef = doc(collection(firestore, "categories"));
+  // Use setDoc to create the document with its own ID as a field
   await setDoc(newCategoryRef, { 
     id: newCategoryRef.id,
-    name: categoryName, 
+    name: categoryName,
   });
 };
 
 export const deleteCategory = async (categoryId: string) => {
   const firestore = getDbOrThrow();
-  const batch = writeBatch(firestore);
-
-  // 1. Un-categorize products using this category
+  const categoryDocRef = doc(firestore, "categories", categoryId);
+  
+  // Before deleting, you might want to handle products that belong to this category.
+  // A simple approach is to un-categorize them. A more complex one would be to prevent deletion if products exist.
+  // For simplicity now, we will just delete the category. A batch write to update products would be the next step.
   const productsToUpdateQuery = query(collection(firestore, "products"), where("categoryId", "==", categoryId));
   const productsSnapshot = await getDocs(productsToUpdateQuery);
+  const batch = writeBatch(firestore);
   productsSnapshot.forEach(productDoc => {
     const productRef = doc(firestore, "products", productDoc.id);
-    batch.update(productRef, { categoryId: "" });
+    batch.update(productRef, { categoryId: "" }); // or set to a default categoryId
   });
-
-  // 2. Delete the category itself
-  const categoryDocRef = doc(firestore, "categories", categoryId);
+  
+  // Also delete the category document itself
   batch.delete(categoryDocRef);
   
-  // 3. Commit all writes at once
+  // Commit the batch
   await batch.commit();
 };
 
