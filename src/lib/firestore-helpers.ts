@@ -1,7 +1,7 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
@@ -12,13 +12,13 @@ const getDbOrThrow = () => {
   if (!db || !adminDb || !adminAuth) {
     throw new Error("Firebase is not configured. Please check your .env file and service account key.");
   }
-  return db;
+  return { db, adminDb, adminAuth };
 };
 
 
 const getCompanyIdForUser = async (userId: string): Promise<string> => {
-    const firestore = getDbOrThrow();
-    const userDocRef = doc(firestore, "users", userId);
+    const { db } = getDbOrThrow();
+    const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
     if (!userDoc.exists() || !userDoc.data().companyId) {
         throw new Error("User is not associated with a company.");
@@ -29,8 +29,8 @@ const getCompanyIdForUser = async (userId: string): Promise<string> => {
 
 // --- Initial Setup and Company Info ---
 export const isInitialSetupRequired = async (): Promise<boolean> => {
-    const firestore = getDbOrThrow();
-    const companiesCollectionRef = collection(firestore, "companies");
+    const { db } = getDbOrThrow();
+    const companiesCollectionRef = collection(db, "companies");
     try {
         const snapshot = await getDocs(query(companiesCollectionRef));
         return snapshot.empty;
@@ -46,9 +46,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
         throw new Error("Setup is not required. A company already exists.");
     }
     
-    if (!adminAuth || !adminDb) {
-      throw new Error("Firebase Admin SDK is not initialized.");
-    }
+    const { adminAuth, adminDb } = getDbOrThrow();
 
     // Create Company document first
     const companyDocRef = adminDb.collection("companies").doc();
@@ -87,10 +85,10 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
 };
 
 export const getCompanyName = async (userId: string): Promise<string> => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
    try {
     const companyId = await getCompanyIdForUser(userId);
-    const companyDocRef = doc(firestore, "companies", companyId);
+    const companyDocRef = doc(db, "companies", companyId);
     const docSnap = await getDoc(companyDocRef);
     if (docSnap.exists()) {
       return docSnap.data().name || "Mi Empresa";
@@ -105,9 +103,9 @@ export const getCompanyName = async (userId: string): Promise<string> => {
 
 // --- User Management ---
 export const getUsers = async (userId: string): Promise<User[]> => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const usersCollectionRef = collection(firestore, "users");
+  const usersCollectionRef = collection(db, "users");
   const q = query(usersCollectionRef, where("companyId", "==", companyId), orderBy("name"));
   try {
     const snapshot = await getDocs(q);
@@ -123,9 +121,7 @@ export const getUsers = async (userId: string): Promise<User[]> => {
 };
 
 export const addEmployee = async (employeeData: EmployeeData, adminUserId: string) => {
-    if (!adminAuth || !adminDb) {
-      throw new Error("Firebase Admin SDK is not initialized.");
-    }
+    const { adminAuth, adminDb } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(adminUserId);
 
     try {
@@ -159,9 +155,9 @@ export const addEmployee = async (employeeData: EmployeeData, adminUserId: strin
 // --- Category Management ---
 export const getCategories = async (userId: string): Promise<Category[]> => {
   try {
-    const firestore = getDbOrThrow();
+    const { db } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const categoriesCollectionRef = collection(firestore, `companies/${companyId}/categories`);
+    const categoriesCollectionRef = collection(db, `companies/${companyId}/categories`);
     const q = query(categoriesCollectionRef, orderBy("name"));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Category));
@@ -172,9 +168,9 @@ export const getCategories = async (userId: string): Promise<Category[]> => {
 };
 
 export const addCategory = async (categoryName: string, userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const newCategoryRef = doc(collection(firestore, `companies/${companyId}/categories`));
+  const newCategoryRef = doc(collection(db, `companies/${companyId}/categories`));
   await setDoc(newCategoryRef, { 
     id: newCategoryRef.id,
     name: categoryName,
@@ -182,29 +178,29 @@ export const addCategory = async (categoryName: string, userId: string) => {
 };
 
 export const deleteCategory = async (categoryId: string, userId: string) => {
-    const firestore = getDbOrThrow();
+    const { db } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const categoryDocRef = doc(firestore, `companies/${companyId}/categories`, categoryId);
+    const categoryDocRef = doc(db, `companies/${companyId}/categories`, categoryId);
 
-    const productsToUpdateQuery = query(collection(firestore, `companies/${companyId}/products`), where("categoryId", "==", categoryId));
-    const productsSnapshot = await getDocs(productsToUpdateQuery);
-    
-    const batch = writeBatch(firestore);
-    productsSnapshot.forEach(productDoc => {
-        const productRef = doc(firestore, `companies/${companyId}/products`, productDoc.id);
-        batch.update(productRef, { categoryId: "" });
+    await runTransaction(db, async (transaction) => {
+        const productsToUpdateQuery = query(collection(db, `companies/${companyId}/products`), where("categoryId", "==", categoryId));
+        const productsSnapshot = await getDocs(productsToUpdateQuery);
+        
+        productsSnapshot.forEach(productDoc => {
+            const productRef = doc(db, `companies/${companyId}/products`, productDoc.id);
+            transaction.update(productRef, { categoryId: "" });
+        });
+        
+        transaction.delete(categoryDocRef);
     });
-    
-    batch.delete(categoryDocRef);
-    await batch.commit();
 };
 
 
 // --- Product Management ---
 export const getProducts = async (userId: string): Promise<Product[]> => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const productsCollectionRef = collection(firestore, `companies/${companyId}/products`);
+  const productsCollectionRef = collection(db, `companies/${companyId}/products`);
   const q = query(productsCollectionRef, orderBy("name"));
   try {
     const snapshot = await getDocs(q);
@@ -216,9 +212,9 @@ export const getProducts = async (userId: string): Promise<Product[]> => {
 };
 
 export const addProduct = async (productData: Omit<Product, 'id'>, userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const newProductRef = doc(collection(firestore, `companies/${companyId}/products`));
+  const newProductRef = doc(collection(db, `companies/${companyId}/products`));
   await setDoc(newProductRef, { 
       ...productData, 
       id: newProductRef.id,
@@ -227,24 +223,24 @@ export const addProduct = async (productData: Omit<Product, 'id'>, userId: strin
 };
 
 export const updateProduct = async (id: string, updates: Partial<Product>, userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const productDocRef = doc(firestore, `companies/${companyId}/products`, id);
+  const productDocRef = doc(db, `companies/${companyId}/products`, id);
   await updateDoc(productDocRef, updates);
 };
 
 export const deleteProduct = async (id: string, userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const productDocRef = doc(firestore, `companies/${companyId}/products`, id);
+  const productDocRef = doc(db, `companies/${companyId}/products`, id);
   await deleteDoc(productDocRef);
 };
 
 // --- Sales Management ---
 export const getSales = async (userId: string): Promise<Sale[]> => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const salesCollectionRef = collection(firestore, `companies/${companyId}/sales`);
+  const salesCollectionRef = collection(db, `companies/${companyId}/sales`);
   const q = query(salesCollectionRef, orderBy("date", "desc"));
   try {
     const snapshot = await getDocs(q);
@@ -256,15 +252,15 @@ export const getSales = async (userId: string): Promise<Sale[]> => {
 };
 
 export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[], userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
   
-  await runTransaction(firestore, async (transaction) => {
-    const newSaleRef = doc(collection(firestore, `companies/${companyId}/sales`));
+  await runTransaction(db, async (transaction) => {
+    const newSaleRef = doc(collection(db, `companies/${companyId}/sales`));
     transaction.set(newSaleRef, { ...saleData, id: newSaleRef.id });
 
     for (const item of cartItems) {
-      const productRef = doc(firestore, `companies/${companyId}/products`, item.id);
+      const productRef = doc(db, `companies/${companyId}/products`, item.id);
       const productDoc = await transaction.get(productRef);
 
       if (!productDoc.exists()) throw new Error(`Producto ${item.name} no encontrado.`);
@@ -278,10 +274,10 @@ export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & 
 };
 
 export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale, userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
   try {
-    await runTransaction(firestore, async (transaction) => {
+    await runTransaction(db, async (transaction) => {
       const stockAdjustments: { [productId: string]: number } = {};
 
       originalSale.items.forEach(item => {
@@ -296,7 +292,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
         const adjustment = stockAdjustments[productId];
         if (adjustment === 0) continue;
 
-        const productRef = doc(firestore, `companies/${companyId}/products`, productId);
+        const productRef = doc(db, `companies/${companyId}/products`, productId);
         const productDoc = await transaction.get(productRef);
 
         if (!productDoc.exists()) throw new Error(`Producto no encontrado.`);
@@ -306,7 +302,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
         transaction.update(productRef, { quantity: newQuantity });
       }
 
-      const saleDocRef = doc(firestore, `companies/${companyId}/sales`, updatedSale.id);
+      const saleDocRef = doc(db, `companies/${companyId}/sales`, updatedSale.id);
       transaction.update(saleDocRef, { items: updatedSale.items, grandTotal: updatedSale.grandTotal });
     });
   } catch (e: any) {
@@ -317,9 +313,9 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
 
 // --- Cash Flow & Reconciliation Management ---
 const getSubcollection = async <T>(userId: string, subcollectionName: string): Promise<T[]> => {
-    const firestore = getDbOrThrow();
+    const { db } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const collectionRef = collection(firestore, `companies/${companyId}/${subcollectionName}`);
+    const collectionRef = collection(db, `companies/${companyId}/${subcollectionName}`);
     const q = query(collectionRef, orderBy("date", "desc"));
     try {
         const snapshot = await getDocs(q);
@@ -331,9 +327,9 @@ const getSubcollection = async <T>(userId: string, subcollectionName: string): P
 }
 
 const addSubcollectionDoc = async (userId: string, subcollectionName: string, data: any) => {
-    const firestore = getDbOrThrow();
+    const { db } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const newDocRef = doc(collection(firestore, `companies/${companyId}/${subcollectionName}`));
+    const newDocRef = doc(collection(db, `companies/${companyId}/${subcollectionName}`));
     await setDoc(newDocRef, { ...data, id: newDocRef.id });
 }
 
@@ -344,9 +340,9 @@ export const getInflows = (userId: string): Promise<Inflow[]> => getSubcollectio
 export const addInflow = (inflowData: Omit<Inflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "inflows", inflowData);
 
 export const getReconciliationStatus = async (dateId: string, userId: string): Promise<Reconciliation['status']> => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const reconDocRef = doc(firestore, `companies/${companyId}/reconciliations`, dateId);
+  const reconDocRef = doc(db, `companies/${companyId}/reconciliations`, dateId);
   try {
     const docSnap = await getDoc(reconDocRef);
     return docSnap.exists() ? docSnap.data().status || 'open' : 'open';
@@ -357,16 +353,16 @@ export const getReconciliationStatus = async (dateId: string, userId: string): P
 };
 
 export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status'], userId: string) => {
-  const firestore = getDbOrThrow();
+  const { db } = getDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const reconDocRef = doc(firestore, `companies/${companyId}/reconciliations`, dateId);
+  const reconDocRef = doc(db, `companies/${companyId}/reconciliations`, dateId);
   await setDoc(reconDocRef, { id: dateId, status, updatedAt: new Date().toISOString() }, { merge: true });
 };
 
 export const getClosedReconciliations = async (userId: string): Promise<Reconciliation[]> => {
-    const firestore = getDbOrThrow();
+    const { db } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const reconCollectionRef = collection(firestore, `companies/${companyId}/reconciliations`);
+    const reconCollectionRef = collection(db, `companies/${companyId}/reconciliations`);
     const q = query(reconCollectionRef, where("status", "==", "closed"), orderBy("updatedAt", "desc"));
      try {
         const snapshot = await getDocs(q);
