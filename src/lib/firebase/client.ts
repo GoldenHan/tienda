@@ -16,13 +16,10 @@ const firebaseConfig = {
 // Function to initialize Firebase app, ensures it's a singleton.
 function getFirebaseApp(): FirebaseApp {
   // Check if all required client-side environment variables are present.
-  if (
-    !firebaseConfig.apiKey ||
-    !firebaseConfig.authDomain ||
-    !firebaseConfig.projectId
-  ) {
+  const missingVars = Object.entries(firebaseConfig).filter(([, value]) => !value).map(([key]) => key);
+  if (missingVars.length > 0) {
     throw new Error(
-      "Firebase client credentials are not set. Please check your NEXT_PUBLIC_* variables in the .env file."
+      `Faltan las siguientes credenciales de cliente de Firebase. Revisa tus variables NEXT_PUBLIC_* en el archivo .env: ${missingVars.join(", ")}`
     );
   }
   
@@ -33,10 +30,21 @@ function getFirebaseApp(): FirebaseApp {
   }
 }
 
-const app: FirebaseApp = getFirebaseApp();
-const auth: Auth = getAuth(app);
-const db: Firestore = getFirestore(app);
-const storage: FirebaseStorage = getStorage(app);
+let app: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+let storage: FirebaseStorage | null = null;
+
+try {
+    app = getFirebaseApp();
+    auth = getAuth(app);
+    db = getFirestore(app);
+    storage = getStorage(app);
+} catch (error: any) {
+    console.error("Error de inicialización de Firebase Client:", error.message);
+    // Dejamos las variables como null, el AuthProvider se encargará de mostrar un error.
+}
+
 
 // @ts-ignore - Using db as firestore for compatibility
 export { app, auth, db, storage, db as firestore };

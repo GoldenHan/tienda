@@ -21,9 +21,14 @@ if (!getApps().length) {
       credential: cert(serviceAccount),
     });
   } catch (error: any) {
-    console.error("Error de Inicialización de Firebase Admin:", error.message);
-    // Lanzamos el error para que el problema sea visible durante el desarrollo.
-    throw new Error("No se pudo inicializar Firebase Admin. Revisa tus credenciales en FIREBASE_SERVICE_ACCOUNT_JSON en el archivo .env. El error fue: " + error.message);
+    let errorMessage = "No se pudo inicializar Firebase Admin. Revisa tus credenciales en el archivo .env.";
+    if (error.message.includes("Unexpected token")) {
+        errorMessage += " El valor de FIREBASE_SERVICE_ACCOUNT_JSON parece no ser un JSON válido.";
+    } else {
+        errorMessage += " El error fue: " + error.message;
+    }
+    console.error("Error de Inicialización de Firebase Admin:", errorMessage);
+    throw new Error(errorMessage);
   }
 } else {
   app = getApps()[0]!;

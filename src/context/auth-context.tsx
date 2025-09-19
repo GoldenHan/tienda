@@ -24,15 +24,17 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const missingFirebaseError = "Firebase is not configured. Please add your Firebase credentials to the .env file.";
+const missingFirebaseError = "Firebase no está configurado. Por favor, añade tus credenciales de Firebase al archivo .env y reinicia el servidor.";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [initializationError, setInitializationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!auth || !db) {
       console.error(missingFirebaseError);
+      setInitializationError(missingFirebaseError);
       setLoading(false);
       return;
     }
@@ -51,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!userDocSnap.exists()) {
             // This can happen if the user was deleted from Firestore but not Auth.
             // Treat this as a logout.
-            throw new Error("User document not found in /users collection.");
+            throw new Error(`El perfil del usuario no fue encontrado en la base de datos. Por favor, contacta al administrador.`);
           }
 
           const userData = userDocSnap.data() as AppUser;
@@ -62,10 +64,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...userData
           });
 
-        } catch (error) {
-          console.error("Auth context error:", error);
-          // If there's any error (e.g., fetching profile fails due to permissions or missing doc),
-          // sign out to prevent an inconsistent state.
+        } catch (error: any) {
+          console.error("Error en el contexto de autenticación:", error.message);
+          // If there's any error, sign out to prevent an inconsistent state.
           await signOut(auth);
           setUser(null);
         } finally {
@@ -80,6 +81,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => unsubscribe();
   }, []);
+
+  if (initializationError) {
+    return (
+        <div className="flex h-screen w-full items-center justify-center bg-background text-foreground">
+            <div className="max-w-md rounded-lg border border-destructive bg-destructive/10 p-6 text-center text-destructive">
+                <h1 className="text-xl font-bold">Error de Configuración de Firebase</h1>
+                <p className="mt-2 text-sm">{initializationError}</p>
+            </div>
+        </div>
+    );
+  }
 
   const login = async (email: string, password: string) => {
     if (!auth) throw new Error(missingFirebaseError);
