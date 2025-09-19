@@ -13,24 +13,9 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Singleton pattern to initialize Firebase app
-const getFirebaseApp = (): FirebaseApp => {
-  if (getApps().length === 0) {
-    try {
-      if (!firebaseConfig.apiKey) {
-        throw new Error("Missing Firebase API Key. Check your .env.local file.");
-      }
-      return initializeApp(firebaseConfig);
-    } catch (error) {
-      console.error("Firebase initialization error", error);
-      // In a real app, you might want to throw an error or handle this differently
-      throw new Error("Failed to initialize Firebase app.");
-    }
-  }
-  return getApp();
-};
+// Singleton pattern to initialize Firebase app safely
+const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-const app: FirebaseApp = getFirebaseApp();
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 const storage: FirebaseStorage = getStorage(app);

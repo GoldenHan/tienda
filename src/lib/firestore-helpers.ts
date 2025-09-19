@@ -261,11 +261,19 @@ const addSubcollectionDoc = async (userId: string, subcollectionName: string, da
     await setDoc(newDocRef, { ...data, id: newDocRef.id });
 }
 
-export const getCashOutflows = (userId: string): Promise<CashOutflow[]> => getSubcollection<CashOutflow>(userId, "cash_outflows");
-export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "cash_outflows", outflowData);
+export const getCashOutflows = async (userId: string): Promise<CashOutflow[]> => {
+    return await getSubcollection<CashOutflow>(userId, "cash_outflows");
+}
+export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>, userId: string) => {
+    await addSubcollectionDoc(userId, "cash_outflows", outflowData);
+}
 
-export const getInflows = (userId: string): Promise<Inflow[]> => getSubcollection<Inflow>(userId, "inflows");
-export const addInflow = async (inflowData: Omit<Inflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "inflows", inflowData);
+export const getInflows = async (userId: string): Promise<Inflow[]> => {
+    return await getSubcollection<Inflow>(userId, "inflows");
+}
+export const addInflow = async (inflowData: Omit<Inflow, 'id'>, userId: string) => {
+    await addSubcollectionDoc(userId, "inflows", inflowData);
+}
 
 export const getReconciliationStatus = async (dateId: string, userId: string): Promise<Reconciliation['status']> => {
   const { db } = getDbOrThrow();
