@@ -35,19 +35,25 @@ const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : null;
 // --- Company Info ---
 export const getCompany = async (companyId: string): Promise<Company | null> => {
   const firestore = getDbOrThrow();
+  console.log("Fetching company data for ID:", companyId);
   const companyDocRef = doc(firestore, "companies", companyId);
-  const docSnap = await getDoc(companyDocRef);
-  if (docSnap.exists()) {
-    return { id: docSnap.id, ...docSnap.data() } as Company;
+  try {
+    const docSnap = await getDoc(companyDocRef);
+    if (docSnap.exists()) {
+      return { id: docSnap.id, ...docSnap.data() } as Company;
+    }
+    console.warn("No company document found for ID:", companyId);
+    return null;
+  } catch (error) {
+    console.error(`Error fetching company ${companyId}:`, error);
+    throw error;
   }
-  return null;
 };
 
 // --- User Management ---
 export const getUsers = async (companyId: string): Promise<User[]> => {
   const firestore = getDbOrThrow();
   const usersCollectionRef = collection(firestore, "users");
-  // Query the root /users collection for all users belonging to the specified companyId
   const q = query(usersCollectionRef, where("companyId", "==", companyId), orderBy("name"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => doc.data() as User);
@@ -60,11 +66,9 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
   }
   
   try {
-    // Create user in Auth
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
     const newUser = userCredential.user;
 
-    // Create user document in the root /users collection
     const userDocRef = doc(firestore, "users", newUser.uid);
     await setDoc(userDocRef, {
       uid: newUser.uid,
@@ -87,10 +91,14 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
 export const getProducts = async (companyId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  // Filter out placeholder documents
   const q = query(productsCollectionRef, where("name", "!=", null));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  } catch (error) {
+    console.error(`Error fetching products for company ${companyId}:`, error);
+    throw error;
+  }
 };
 
 export const addProduct = async (companyId: string, productData: Omit<Product, 'id'>) => {
@@ -115,10 +123,14 @@ export const deleteProduct = async (companyId: string, id: string) => {
 export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
-  // Filter out placeholder documents and order
   const q = query(salesCollectionRef, where("date", "!=", null), orderBy("date", "desc"));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+  } catch (error) {
+    console.error(`Error fetching sales for company ${companyId}:`, error);
+    throw error;
+  }
 };
 
 
@@ -153,7 +165,6 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
         stockAdjustments[updatedItem.productId] = (stockAdjustments[updatedItem.productId] || 0) - updatedItem.quantity;
       });
 
-      const productUpdates: { ref: any, newQuantity: number, name: string }[] = [];
       for (const productId in stockAdjustments) {
         const adjustment = stockAdjustments[productId];
         if (adjustment === 0) continue;
@@ -171,11 +182,7 @@ export const updateSaleAndAdjustStock = async (companyId: string, updatedSale: S
         if (newQuantity < 0) {
           throw new Error(`Stock insuficiente para "${productDoc.data().name}".`);
         }
-        productUpdates.push({ ref: productRef, newQuantity, name: productDoc.data().name });
-      }
-
-      for (const { ref, newQuantity } of productUpdates) {
-        transaction.update(ref, { quantity: newQuantity });
+        transaction.update(productRef, { quantity: newQuantity });
       }
 
       const saleDocRef = doc(firestore, "companies", companyId, "sales", updatedSale.id);
