@@ -45,7 +45,7 @@ export default function SettingsPage() {
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
   const [isDeletingCategory, setIsDeletingCategory] = useState<string|null>(null);
 
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'primary-admin';
 
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema),
@@ -191,7 +191,7 @@ export default function SettingsPage() {
         <Card className={isAdmin ? '' : 'md:col-span-2'}>
           <CardHeader>
             <CardTitle>Mi Cuenta</CardTitle>
-            <CardDescription>Actualiza tu contraseña.</CardDescription>
+            <CardDescription>Actualiza tu contraseña. Se recomienda cambiar la contraseña temporal asignada.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...passwordForm}>
@@ -377,3 +377,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
