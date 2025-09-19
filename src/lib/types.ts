@@ -61,3 +61,10 @@ export type EmployeeData = {
   email: string;
   password: string;
 };
+
+export type InitialAdminData = {
+  companyName: string;
+  adminName: string;
+  email: string;
+  password: string;
+};

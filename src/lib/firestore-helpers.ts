@@ -1,10 +1,10 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db } from "./firebase";
-import { Product, Sale, User, EmployeeData } from "./types";
+import { Product, Sale, User, EmployeeData, InitialAdminData } from "./types";
 import { initializeApp, getApps, getApp } from "firebase/app";
 
 // --- Prerequisite Check ---
@@ -15,18 +15,6 @@ function getDbOrThrow() {
   return db;
 }
 
-const getUserDoc = async (uid: string): Promise<User | null> => {
-  const firestore = getDbOrThrow();
-  const userDocRef = doc(firestore, "users", uid);
-  const userDocSnap = await getDoc(userDocRef);
-  if (userDocSnap.exists()) {
-    return userDocSnap.data() as User;
-  }
-  return null;
-}
-
-
-// --- Secondary App for User Creation ---
 const secondaryAppConfig = {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
       authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -42,11 +30,68 @@ const secondaryApp = secondaryAppConfig.apiKey ? (!getApps().find(app => app.nam
 
 const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : null;
 
-// --- Company Info ---
-// For a single-company app, we can hardcode the company name or fetch it from a specific document.
+
+// --- Initial Setup and Company Info ---
+
+/**
+ * Checks if the initial setup (admin user creation) is required.
+ * @returns {Promise<boolean>} True if the 'users' collection is empty.
+ */
+export const isInitialSetupRequired = async (): Promise<boolean> => {
+    const firestore = getDbOrThrow();
+    const usersCollectionRef = collection(firestore, "users");
+    const q = query(usersCollectionRef, limit(1));
+    const snapshot = await getDocs(q);
+    return snapshot.empty;
+};
+
+export const createInitialAdminUser = async (data: InitialAdminData) => {
+    const firestore = getDbOrThrow();
+    const auth = getAuth();
+
+    // Double-check to prevent race conditions
+    const isSetupNeeded = await isInitialSetupRequired();
+    if (!isSetupNeeded) {
+        throw new Error("Setup is not required. An admin user already exists.");
+    }
+    
+    // Create Auth user
+    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+    const newUser = userCredential.user;
+
+    // Create user document in Firestore
+    const userDocRef = doc(firestore, "users", newUser.uid);
+    await setDoc(userDocRef, {
+        uid: newUser.uid,
+        name: data.adminName,
+        email: data.email,
+        role: "admin",
+        createdAt: serverTimestamp(),
+    });
+    
+    // Create company document in Firestore
+    const companyDocRef = doc(firestore, "company", "main");
+    await setDoc(companyDocRef, {
+        name: data.companyName,
+        ownerUid: newUser.uid,
+        createdAt: serverTimestamp(),
+    });
+};
+
+
 export const getCompanyName = async (): Promise<string> => {
-  // In a real single-company app, this might be a fixed name or stored in a specific config doc.
-  return "Mi Empresa"; 
+  const firestore = getDbOrThrow();
+  const companyDocRef = doc(firestore, "company", "main");
+  try {
+    const docSnap = await getDoc(companyDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data().name || "Mi Empresa";
+    }
+    return "Mi Empresa";
+  } catch (error) {
+     console.error("Error fetching company name, returning default. Error: ", error);
+     return "Mi Empresa";
+  }
 };
 
 
@@ -70,16 +115,18 @@ export const addEmployee = async (employeeData: EmployeeData) => {
     if (!adminAuth.currentUser) {
         throw new Error("Authentication required to add an employee.");
     }
-    const adminUserDoc = await getUserDoc(adminAuth.currentUser.uid);
-    if (!adminUserDoc || adminUserDoc.role !== 'admin') {
+    const userDocRef = doc(firestore, "users", adminAuth.currentUser.uid);
+    const adminUserDoc = await getDoc(userDocRef);
+    
+    if (!adminUserDoc.exists() || adminUserDoc.data().role !== 'admin') {
         throw new Error("Only admins can add new employees.");
     }
 
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
     const newUser = userCredential.user;
 
-    const userDocRef = doc(firestore, "users", newUser.uid);
-    await setDoc(userDocRef, {
+    const newEmployeeDocRef = doc(firestore, "users", newUser.uid);
+    await setDoc(newEmployeeDocRef, {
       uid: newUser.uid,
       name: employeeData.name,
       email: employeeData.email,
@@ -91,6 +138,7 @@ export const addEmployee = async (employeeData: EmployeeData) => {
      if (error.code === 'auth/email-already-in-use') {
         throw new Error('Este correo electrónico ya está registrado.');
     }
+    console.error("Error creating employee:", error);
     throw new Error('No se pudo crear el empleado. ' + error.message);
   }
 };

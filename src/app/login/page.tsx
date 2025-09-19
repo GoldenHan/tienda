@@ -62,7 +62,7 @@ export default function LoginPage() {
       toast({
         variant: "destructive",
         title: "Error al iniciar sesión",
-        description: error.message || "Ha ocurrido un error. Por favor, inténtalo de nuevo.",
+        description: "Credenciales incorrectas o el usuario no existe. Si es la primera vez, intenta registrar tu empresa.",
       });
     } finally {
       setIsLoading(false);
@@ -91,7 +91,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Email</FormLabel>
                     <FormControl>
-                      <Input placeholder="admin@sanjose.com" {...field} />
+                      <Input placeholder="admin@miempresa.com" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -116,9 +116,9 @@ export default function LoginPage() {
             </form>
           </Form>
           <div className="mt-4 text-center text-sm">
-            ¿No tienes una cuenta?{" "}
+            ¿Es la primera vez?{" "}
             <Link href="/register" className="underline">
-              Regístrate
+              Registra tu empresa
             </Link>
           </div>
         </CardContent>
