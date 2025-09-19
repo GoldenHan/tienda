@@ -30,6 +30,7 @@ export const isInitialSetupRequired = async (): Promise<boolean> => {
         return !docSnap.exists();
     } catch (error) {
         console.error("Error checking for company doc. Assuming setup is required.", error);
+        // If rules prevent reading, we must assume setup is needed.
         return true;
     }
 };
