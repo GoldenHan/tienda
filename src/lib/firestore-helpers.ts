@@ -86,13 +86,15 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
 export const getProducts = async (companyId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  // Exclude the placeholder document from the results
-  const q = query(productsCollectionRef, where("name", "!=", null), orderBy("name"));
+  const q = query(productsCollectionRef, orderBy("name"));
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
     return [];
   }
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+  // Filter out the placeholder document on the client-side
+  return snapshot.docs
+    .filter(doc => doc.id !== '_placeholder')
+    .map(doc => ({ id: doc.id, ...doc.data() } as Product));
 };
 
 export const addProduct = async (companyId: string, productData: Omit<Product, 'id'>) => {
@@ -117,13 +119,15 @@ export const deleteProduct = async (companyId: string, id: string) => {
 export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
-  // Exclude the placeholder document from the results
-  const q = query(salesCollectionRef, where("grandTotal", "!=", null), orderBy("date", "desc"));
+  const q = query(salesCollectionRef, orderBy("date", "desc"));
   const snapshot = await getDocs(q);
   if (snapshot.empty) {
     return [];
   }
-  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+  // Filter out the placeholder document on the client-side
+  return snapshot.docs
+    .filter(doc => doc.id !== '_placeholder')
+    .map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 
 

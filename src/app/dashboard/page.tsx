@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale } from '@/lib/types';
 import { getProducts, getSales } from '@/lib/firestore-helpers';
@@ -11,43 +11,54 @@ import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      if (!user?.companyId) {
-        setLoading(false);
-        return;
-      }
-      
-      setLoading(true);
-      try {
-        const [productsData, salesData] = await Promise.all([
-          getProducts(user.companyId), 
-          getSales(user.companyId)
-        ]);
+  const fetchData = useCallback(async (companyId: string) => {
+    setLoading(true);
+    let productsData: Product[] = [];
+    let salesData: Sale[] = [];
+    let fetchError = false;
+
+    try {
+        productsData = await getProducts(companyId);
         setProducts(productsData);
-        setSales(salesData);
-      } catch (error) {
-        console.error("Dashboard fetch error:", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos del panel.' });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    // Trigger fetch only when user object with companyId is available
-    if (user?.companyId) {
-      fetchData();
-    } else {
-      setLoading(false);
+    } catch (error) {
+        console.error("Dashboard fetch error (Products):", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los productos.' });
+        fetchError = true;
     }
 
-  }, [user, toast]);
+    try {
+        salesData = await getSales(companyId);
+        setSales(salesData);
+    } catch (error) {
+        console.error("Dashboard fetch error (Sales):", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las ventas.' });
+        fetchError = true;
+    }
+    
+    if(!fetchError) {
+        setProducts(productsData);
+        setSales(salesData);
+    }
+
+    setLoading(false);
+
+  }, [toast]);
+
+  useEffect(() => {
+    // We wait until auth is done and we have a user with a companyId
+    if (!authLoading && user?.companyId) {
+      fetchData(user.companyId);
+    } else if (!authLoading && !user) {
+       // If auth is done and there's no user, stop loading.
+      setLoading(false);
+    }
+  }, [user, authLoading, fetchData]);
 
   const totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
   const totalSalesCount = sales.length;
