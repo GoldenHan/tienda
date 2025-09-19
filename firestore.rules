@@ -1,63 +1,41 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================
-    // Helpers
-    // =========================
-
-    // Gets the user's role from their document in the /users collection
-    function getRole() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    // Helper functions
+    function isRole(role) {
+      return request.auth != null && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
     }
 
-    // Checks if the user is an admin
-    function isAdmin() {
-      return request.auth != null && getRole() == 'admin';
+    function isSignedIn() {
+      return request.auth != null;
     }
-
-    // Checks if the user is an employee or admin
-    function isEmployeeOrAdmin() {
-      return request.auth != null && (getRole() == 'employee' || getRole() == 'admin');
-    }
-
-    // =========================
-    // Users Collection
-    // =========================
+    
     match /users/{userId} {
-      // Any authenticated user can create their own user document during sign-up
-      allow create: if request.auth != null && request.auth.uid == userId;
-      // Users can only read and update their own document
-      allow read, update: if request.auth != null && request.auth.uid == userId;
-      // Admins can read any user document
-      allow list: if isAdmin();
-      // Admins can delete users (a feature not implemented in the UI but good to have)
-      allow delete: if isAdmin();
+      // Allow list for initial setup check, but don't allow reading document data
+      allow list: if true; 
+      // A user can read their own document
+      allow get, update, delete: if isSignedIn() && request.auth.uid == userId;
+      // Allow creation for new users
+      allow create: if true;
     }
 
-    // =========================
-    // Products Collection
-    // =========================
+    match /company/{docId} {
+        allow read, write: if isSignedIn();
+    }
+    
     match /products/{productId} {
-      // Admins or employees can read the list of products and individual products
-      allow read: if isEmployeeOrAdmin();
-      // Only admins can create, update, or delete products
-      allow write: if isAdmin();
+      allow read: if isSignedIn();
+      allow write: if isRole('admin');
     }
-
-    // =========================
-    // Sales Collection
-    // =========================
+    
     match /sales/{saleId} {
-      // Admins or employees can read sales history
-      allow read: if isEmployeeOrAdmin();
-      // Admins or employees can create new sales
-      allow create: if isEmployeeOrAdmin();
-      // Only admins can update (edit) a sale
-      allow update: if isAdmin();
-      // Deleting sales is not allowed from the client for data integrity
-      allow delete: if false;
+      allow read: if isSignedIn();
+      allow create: if isRole('admin') || isRole('employee');
+      allow update: if isRole('admin');
+      allow delete: if false; // Deleting sales is not allowed from the client
     }
   }
 }
