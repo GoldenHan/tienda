@@ -1,9 +1,10 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch as clientWriteBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
+import { FieldValue } from "firebase-admin/firestore";
 import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow } from "./types";
 
 // --- Prerequisite Check ---
@@ -29,7 +30,7 @@ export const isInitialSetupRequired = async (): Promise<boolean> => {
         return !docSnap.exists();
     } catch (error) {
         console.error("Error checking for company doc. Assuming setup is required.", error);
-        // If we can't even check, it's safer to assume setup is needed.
+        // If we can't even check, it's safer to assume setup IS required.
         // This can happen on a fresh project where rules are not yet fully permissive for this check.
         return true;
     }
@@ -55,24 +56,24 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     // Set custom claim for role-based access
     await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'admin' });
 
-    const batch = writeBatch(adminDb);
+    const batch = adminDb.batch();
 
     // Create user document in Firestore
-    const userDocRef = doc(adminDb, "users", userRecord.uid);
+    const userDocRef = adminDb.doc(`users/${userRecord.uid}`);
     batch.set(userDocRef, {
         uid: userRecord.uid,
         name: data.adminName,
         email: data.email,
         role: "admin",
-        createdAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     });
     
     // Create company document in Firestore
-    const companyDocRef = doc(adminDb, "company", "main");
+    const companyDocRef = adminDb.doc("company/main");
     batch.set(companyDocRef, {
         name: data.companyName,
         ownerUid: userRecord.uid,
-        createdAt: serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
@@ -124,13 +125,13 @@ export const addEmployee = async (employeeData: EmployeeData) => {
     await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'employee' });
 
     // Create the user document in Firestore.
-    const newEmployeeDocRef = doc(adminDb, "users", userRecord.uid);
+    const newEmployeeDocRef = adminDb.doc(`users/${userRecord.uid}`);
     await setDoc(newEmployeeDocRef, {
       uid: userRecord.uid,
       name: employeeData.name,
       email: employeeData.email,
       role: "employee",
-      createdAt: serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
     });
 
   } catch(error: any) {
@@ -296,4 +297,5 @@ export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
   // Update the document with its own ID
   await updateDoc(docRef, { id: docRef.id });
 };
+
 
