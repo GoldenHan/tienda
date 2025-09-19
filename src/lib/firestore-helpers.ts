@@ -101,13 +101,18 @@ export const getUsers = async (): Promise<User[]> => {
   const firestore = getDbOrThrow();
   const usersCollectionRef = collection(firestore, "users");
   const q = query(usersCollectionRef, orderBy("name"));
-  const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => {
-      const data = doc.data();
-      // Firestore Timestamps are not serializable, convert them to strings
-      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
-      return { ...data, id: doc.id, uid: doc.id, createdAt } as User;
-    });
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Firestore Timestamps are not serializable, convert them to strings
+        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+        return { ...data, id: doc.id, uid: doc.id, createdAt } as User;
+      });
+  } catch (error) {
+    console.error(`Error fetching users:`, error);
+    return [];
+  }
 };
 
 export const addEmployee = async (employeeData: EmployeeData) => {
@@ -156,8 +161,8 @@ export const getProducts = async (): Promise<Product[]> => {
         return { ...data, id: doc.id, createdAt } as Product;
     });
   } catch (error) {
-    console.error(`Error fetching products:`, error);
-    throw error;
+    console.error(`Error fetching products. This is normal if the collection doesn't exist yet.`, error);
+    return [];
   }
 };
 
@@ -192,8 +197,8 @@ export const getSales = async (): Promise<Sale[]> => {
     // The 'date' field is already an ISO string, so no conversion is needed here.
     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sale));
   } catch (error) {
-    console.error(`Error fetching sales:`, error);
-    throw error;
+    console.error(`Error fetching sales. This is normal if the collection doesn't exist yet.`, error);
+    return [];
   }
 };
 
@@ -285,8 +290,8 @@ export const getCashOutflows = async (): Promise<CashOutflow[]> => {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as CashOutflow));
   } catch (error) {
-    console.error(`Error fetching cash outflows:`, error);
-    throw error;
+    console.error(`Error fetching cash outflows. This is normal if the collection doesn't exist yet.`, error);
+    return [];
   }
 };
 
@@ -299,3 +304,6 @@ export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
 };
 
 
+
+
+    
