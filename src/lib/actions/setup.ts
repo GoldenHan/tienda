@@ -1,13 +1,10 @@
 
 'use server';
 
-import { getFirestore, FieldValue, DocumentReference } from "firebase-admin/firestore";
 import type { InitialAdminData, User, Category, EmployeeData } from "@/lib/types";
-import { getAuth } from "firebase-admin/auth";
-import adminApp from "../firebase/server";
+import { adminDb, adminAuth } from "../firebase/server";
+import { FieldValue } from "firebase-admin/firestore";
 
-const adminDb = getFirestore(adminApp);
-const adminAuth = getAuth(adminApp);
 
 // -----------------
 // Helpers Admin
