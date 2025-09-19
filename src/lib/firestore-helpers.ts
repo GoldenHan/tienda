@@ -1,11 +1,11 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch as clientWriteBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, serverTimestamp, where } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow } from "./types";
+import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation } from "./types";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -155,11 +155,7 @@ export const getProducts = async (): Promise<Product[]> => {
   const q = query(productsCollectionRef, orderBy("name"));
   try {
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => {
-        const data = doc.data();
-        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : undefined;
-        return { ...data, id: doc.id, createdAt } as Product;
-    });
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
   } catch (error) {
     console.error(`Error fetching products. This is normal if the collection doesn't exist yet.`, error);
     return [];
@@ -206,12 +202,10 @@ export const getSales = async (): Promise<Sale[]> => {
 export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
   const firestore = getDbOrThrow();
   
-  // Use a transaction to ensure atomicity
   await runTransaction(firestore, async (transaction) => {
     const salesCollectionRef = collection(firestore, "sales");
     const newSaleRef = doc(salesCollectionRef);
     
-    // Set the sale data, and immediately add the ID
     transaction.set(newSaleRef, { ...saleData, id: newSaleRef.id });
 
     for (const item of cartItems) {
@@ -320,4 +314,42 @@ export const addInflow = async (inflowData: Omit<Inflow, 'id'>) => {
   const inflowsCollectionRef = collection(firestore, "inflows");
   const docRef = await addDoc(inflowsCollectionRef, { ...inflowData });
   await updateDoc(docRef, { id: docRef.id });
+};
+
+
+// --- Reconciliation Management ---
+
+export const getReconciliationStatus = async (dateId: string): Promise<Reconciliation['status']> => {
+  const firestore = getDbOrThrow();
+  const reconDocRef = doc(firestore, "reconciliations", dateId);
+  try {
+    const docSnap = await getDoc(reconDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data().status || 'open';
+    }
+    return 'open'; // Default to open if no document exists
+  } catch (error) {
+    console.error(`Error fetching reconciliation status for ${dateId}:`, error);
+    return 'open'; // Default to open on error
+  }
+};
+
+export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status']) => {
+  const firestore = getDbOrThrow();
+  const reconDocRef = doc(firestore, "reconciliations", dateId);
+  // Use setDoc with merge:true to create or update the document
+  await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const getClosedReconciliations = async (): Promise<Reconciliation[]> => {
+    const firestore = getDbOrThrow();
+    const reconCollectionRef = collection(firestore, "reconciliations");
+    const q = query(reconCollectionRef, where("status", "==", "closed"), orderBy("updatedAt", "desc"));
+     try {
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Reconciliation));
+    } catch (error) {
+        console.error(`Error fetching closed reconciliations.`, error);
+        return [];
+    }
 };

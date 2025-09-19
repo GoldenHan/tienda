@@ -1,3 +1,4 @@
+
 export type Product = {
   id: string;
   name: string;
@@ -74,4 +75,10 @@ export type InitialAdminData = {
   adminName: string;
   email: string;
   password: string;
+};
+
+export type Reconciliation = {
+  id: string; // YYYY-MM-DD
+  status: 'open' | 'closed';
+  updatedAt: string;
 };
