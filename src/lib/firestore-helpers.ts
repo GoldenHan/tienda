@@ -1,7 +1,7 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, where, serverTimestamp } from "firebase/firestore";
 import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
 import { db } from "./firebase";
 import { Product, Sale, User, EmployeeData, Company } from "./types";
@@ -76,6 +76,17 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
   }
   
   try {
+    // First, check if the requesting user is an admin.
+    // This server-side check is crucial.
+    const adminAuth = getAuth();
+    if (!adminAuth.currentUser) {
+        throw new Error("Authentication required to add an employee.");
+    }
+    const adminUserDoc = await getUserDoc(adminAuth.currentUser.uid);
+    if (!adminUserDoc || adminUserDoc.role !== 'admin' || adminUserDoc.companyId !== companyId) {
+        throw new Error("Only admins of the company can add new employees.");
+    }
+
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
     const newUser = userCredential.user;
 
@@ -86,7 +97,7 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
       email: employeeData.email,
       role: "employee",
       companyId: companyId,
-      createdAt: new Date(),
+      createdAt: serverTimestamp(),
     });
 
   } catch(error: any) {
@@ -114,7 +125,7 @@ export const getProducts = async (companyId: string): Promise<Product[]> => {
 export const addProduct = async (companyId: string, productData: Omit<Product, 'id'>) => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  await addDoc(productsCollectionRef, productData);
+  await addDoc(productsCollectionRef, { ...productData, createdAt: serverTimestamp() });
 };
 
 export const updateProduct = async (companyId: string, id: string, updates: Partial<Product>) => {
