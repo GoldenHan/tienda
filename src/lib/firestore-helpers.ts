@@ -112,7 +112,8 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
 export const getProducts = async (companyId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  const q = query(productsCollectionRef, where("name", "!=", null));
+  // Añade una cláusula where para asegurar que solo se obtienen documentos con datos válidos.
+  const q = query(productsCollectionRef, where("name", "!=", ""));
   try {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
@@ -145,7 +146,8 @@ export const deleteProduct = async (companyId: string, id: string) => {
 export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
-  const q = query(salesCollectionRef, where("date", "!=", null), orderBy("date", "desc"));
+  // Añade una cláusula where y un orderBy para asegurar consultas válidas.
+  const q = query(salesCollectionRef, where("grandTotal", ">=", 0), orderBy("grandTotal", "desc"));
   try {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
