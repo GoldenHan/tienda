@@ -8,7 +8,7 @@ export type Product = {
   lowStockThreshold: number;
   imageUrl: string;
   imageHint: string;
-  createdAt?: string; // Changed from any to string
+  createdAt?: string;
 };
 
 export type SaleItem = {
@@ -51,10 +51,11 @@ export type InventoryData = {
 // It is the source of truth for authorization
 export type User = {
   uid: string;
+  id: string;
   name: string;
   email: string;
   role: 'admin' | 'employee';
-  createdAt: string | null; // Changed from any to string
+  createdAt: string;
 };
 
 export type EmployeeData = {

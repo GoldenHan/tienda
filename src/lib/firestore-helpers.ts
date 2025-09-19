@@ -2,8 +2,8 @@
 "use server";
 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { db, secondaryAuth } from "./firebase";
+import { db } from "./firebase";
+import { adminDb, adminAuth } from "./firebase-admin";
 import { Product, Sale, User, EmployeeData, InitialAdminData } from "./types";
 
 // --- Prerequisite Check ---
@@ -30,24 +30,23 @@ export const isInitialSetupRequired = async (): Promise<boolean> => {
 };
 
 export const createInitialAdminUser = async (data: InitialAdminData) => {
-    const firestore = getDbOrThrow();
-    if (!secondaryAuth) {
-        throw new Error("Firebase secondary auth for user creation is not initialized.");
-    }
-    
     const isSetupNeeded = await isInitialSetupRequired();
     if (!isSetupNeeded) {
         throw new Error("Setup is not required. An admin user already exists.");
     }
     
-    // Create Auth user
-    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, data.email, data.password);
-    const newUser = userCredential.user;
+    // Create Auth user using Admin SDK
+    const userRecord = await adminAuth.createUser({
+        email: data.email,
+        password: data.password,
+        displayName: data.adminName,
+    });
+    const newUser = userRecord;
 
-    const batch = writeBatch(firestore);
+    const batch = writeBatch(adminDb);
 
     // Create user document in Firestore
-    const userDocRef = doc(firestore, "users", newUser.uid);
+    const userDocRef = doc(adminDb, "users", newUser.uid);
     batch.set(userDocRef, {
         uid: newUser.uid,
         name: data.adminName,
@@ -57,7 +56,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     });
     
     // Create company document in Firestore
-    const companyDocRef = doc(firestore, "company", "main");
+    const companyDocRef = doc(adminDb, "company", "main");
     batch.set(companyDocRef, {
         name: data.companyName,
         ownerUid: newUser.uid,
@@ -93,22 +92,21 @@ export const getUsers = async (): Promise<User[]> => {
   return snapshot.docs.map(doc => {
       const data = doc.data();
       // Firestore Timestamps are not serializable, convert them to strings
-      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
-      return { ...data, createdAt } as User;
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      return { id: doc.id, ...data, createdAt } as User;
     });
 };
 
 export const addEmployee = async (employeeData: EmployeeData) => {
-  const firestore = getDbOrThrow();
-  if (!secondaryAuth) {
-    throw new Error("Secondary Firebase app for employee creation is not initialized.");
-  }
-  
   try {
-    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
-    const newUser = userCredential.user;
+    const userRecord = await adminAuth.createUser({
+      email: employeeData.email,
+      password: employeeData.password,
+      displayName: employeeData.name,
+    });
+    const newUser = userRecord;
 
-    const newEmployeeDocRef = doc(firestore, "users", newUser.uid);
+    const newEmployeeDocRef = doc(adminDb, "users", newUser.uid);
     await setDoc(newEmployeeDocRef, {
       uid: newUser.uid,
       name: employeeData.name,
@@ -118,7 +116,7 @@ export const addEmployee = async (employeeData: EmployeeData) => {
     });
 
   } catch(error: any) {
-     if (error.code === 'auth/email-already-in-use') {
+     if (error.code === 'auth/email-already-exists') {
         throw new Error('Este correo electrónico ya está registrado.');
     }
     console.error("Error creating employee:", error);
