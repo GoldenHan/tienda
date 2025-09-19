@@ -36,6 +36,10 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  experimental: {
+    // Allow all origins in development to prevent CORS issues.
+    allowedDevOrigins: ['*'],
+  },
 };
 
 export default nextConfig;
