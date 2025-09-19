@@ -17,6 +17,9 @@ const firebaseConfig = {
 const getFirebaseApp = (): FirebaseApp => {
   if (getApps().length === 0) {
     try {
+      if (!firebaseConfig.apiKey) {
+        throw new Error("Missing Firebase API Key. Check your .env.local file.");
+      }
       return initializeApp(firebaseConfig);
     } catch (error) {
       console.error("Firebase initialization error", error);
