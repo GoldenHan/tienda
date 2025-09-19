@@ -1,10 +1,11 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch, FieldValue } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
+import { FieldValue } from "firebase-admin/firestore";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -401,3 +402,5 @@ export const getClosedReconciliations = async (): Promise<Reconciliation[]> => {
         return [];
     }
 };
+
+    

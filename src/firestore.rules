@@ -1,12 +1,10 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // =========================
     // Helpers
     // =========================
-
     function getUserData() {
       return (request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
              ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
@@ -38,16 +36,22 @@ service cloud.firestore {
 
       // Products
       match /products/{productId} {
-        allow list, get: if isCompanyMember(companyId);
+        allow read: if isCompanyMember(companyId);
         allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
       }
 
       // Sales
       match /sales/{saleId} {
-        allow list, get: if isCompanyMember(companyId);
+        allow read: if isCompanyMember(companyId);
         allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
         allow update: if isCompanyMember(companyId) && isRole('admin');
         allow delete: if false;
+      }
+
+      // Categories
+      match /categories/{categoryId} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
       }
     }
   }
