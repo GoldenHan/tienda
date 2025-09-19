@@ -1,4 +1,5 @@
 
+
 export type Product = {
   id: string;
   name: string;
@@ -66,10 +67,11 @@ export type User = {
   createdAt: string;
 };
 
-export type EmployeeData = {
+export type NewUserData = {
   name: string;
   email: string;
   password: string;
+  role: 'admin' | 'employee';
 };
 
 export type InitialAdminData = {
@@ -97,5 +99,7 @@ export type Company = {
     ownerUid: string;
     createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
 }
+
+    
 
     

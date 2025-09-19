@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/lib/types';
 import { getUsers } from '@/lib/firestore-helpers';
-import { addEmployee, promoteToAdmin } from '@/lib/actions/setup';
+import { addUser, promoteToAdmin } from '@/lib/actions/setup';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -14,7 +14,7 @@ import { UserForm } from '@/components/users/user-form';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
-import type { EmployeeData } from '@/lib/types';
+import type { NewUserData } from '@/lib/types';
 import { Shield, ShieldCheck, ShieldPlus, UserPlus, Loader2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -50,17 +50,17 @@ export default function UsersPage() {
     }
   }, [user, fetchUsers]);
 
-  const handleAddEmployee = async (data: EmployeeData) => {
+  const handleAddUser = async (data: NewUserData) => {
     if (!user) return;
     setIsProcessing('add');
     try {
-      await addEmployee(data, user.uid);
+      await addUser(data, user.uid);
       await fetchUsers(); 
       setIsAddDialogOpen(false);
-      toast({ title: 'Éxito', description: 'Empleado añadido correctamente.' });
+      toast({ title: 'Éxito', description: 'Usuario añadido correctamente.' });
     } catch (error: any) {
       console.error(error);
-      toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo añadir el empleado.' });
+      toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo añadir el usuario.' });
     } finally {
       setIsProcessing(null);
     }
@@ -145,16 +145,16 @@ export default function UsersPage() {
           <DialogTrigger asChild>
             <Button>
                 <UserPlus className="mr-2" />
-                Añadir Empleado
+                Añadir Usuario
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Añadir Nuevo Empleado</DialogTitle>
-              <DialogDescription>Crea una cuenta para un nuevo miembro del equipo. Recibirá una contraseña temporal.</DialogDescription>
+              <DialogTitle>Añadir Nuevo Miembro del Equipo</DialogTitle>
+              <DialogDescription>Crea una cuenta, asigna un rol y una contraseña temporal.</DialogDescription>
             </DialogHeader>
             <UserForm 
-                onSubmit={handleAddEmployee} 
+                onSubmit={handleAddUser} 
                 onClose={() => setIsAddDialogOpen(false)}
                 isSubmitting={isProcessing === 'add'}
             />
@@ -224,3 +224,5 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
+    

@@ -8,16 +8,20 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { EmployeeData } from "@/lib/types";
+import type { NewUserData } from "@/lib/types";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const formSchema = z.object({
   name: z.string().min(2, "El nombre debe tener al menos 2 caracteres."),
   email: z.string().email("Introduce un email válido."),
   password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres."),
+  role: z.enum(["admin", "employee"], {
+    required_error: "Debes seleccionar un rol."
+  }),
 });
 
 interface UserFormProps {
-  onSubmit: (data: EmployeeData) => Promise<void>;
+  onSubmit: (data: NewUserData) => Promise<void>;
   onClose: () => void;
   isSubmitting?: boolean;
 }
@@ -30,6 +34,7 @@ export function UserForm({ onSubmit, onClose, isSubmitting }: UserFormProps) {
       name: "",
       email: "",
       password: "",
+      role: "employee",
     },
   });
 
@@ -79,13 +84,51 @@ export function UserForm({ onSubmit, onClose, isSubmitting }: UserFormProps) {
             </FormItem>
           )}
         />
+
+        <FormField
+          control={form.control}
+          name="role"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>Rol del Usuario</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex space-x-4"
+                  disabled={isSubmitting}
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="employee" />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Empleado
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="admin" />
+                    </FormControl>
+                    <FormLabel className="font-normal">
+                      Administrador
+                    </FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="ghost" onClick={onClose} disabled={isSubmitting}>Cancelar</Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? <Loader2 className="animate-spin" /> : "Añadir Empleado"}
+              {isSubmitting ? <Loader2 className="animate-spin" /> : "Añadir Usuario"}
             </Button>
         </div>
       </form>
     </Form>
   );
 }
+
+    

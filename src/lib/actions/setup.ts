@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, EmployeeData, Product, Sale, CashOutflow, Inflow } from "@/lib/types";
+import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -91,26 +91,30 @@ export async function createInitialAdminUser(data: InitialAdminData) {
 // -----------------
 // Gestión de usuarios
 // -----------------
-export async function addEmployee(employeeData: EmployeeData, adminUserId: string) {
+export async function addUser(userData: NewUserData, adminUserId: string) {
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(adminUserId);
 
+    if (userData.role !== 'admin' && userData.role !== 'employee') {
+        throw new Error("Rol de usuario no válido.");
+    }
+
     try {
         const userRecord = await auth.createUser({
-            email: employeeData.email,
-            password: employeeData.password,
-            displayName: employeeData.name,
+            email: userData.email,
+            password: userData.password,
+            displayName: userData.name,
         });
         
-        await auth.setCustomUserClaims(userRecord.uid, { role: 'employee', companyId });
+        await auth.setCustomUserClaims(userRecord.uid, { role: userData.role, companyId });
 
-        const newEmployeeDocRef = db.doc(`users/${userRecord.uid}`);
-        await newEmployeeDocRef.set({
+        const newUserDocRef = db.doc(`users/${userRecord.uid}`);
+        await newUserDocRef.set({
             uid: userRecord.uid,
-            name: employeeData.name,
-            email: employeeData.email,
-            role: "employee",
+            name: userData.name,
+            email: userData.email,
+            role: userData.role,
             companyId: companyId,
             createdAt: FieldValue.serverTimestamp(),
         });
@@ -121,8 +125,8 @@ export async function addEmployee(employeeData: EmployeeData, adminUserId: strin
         if (error.code === 'auth/email-already-exists') {
             throw new Error('Este correo electrónico ya está registrado.');
         }
-        console.error("Error creating employee:", error);
-        throw new Error('No se pudo crear el empleado. ' + error.message);
+        console.error("Error creating user:", error);
+        throw new Error('No se pudo crear el usuario. ' + error.message);
     }
 };
 
@@ -308,3 +312,5 @@ export async function updateReconciliationStatus(dateId: string, status: 'open' 
         updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 };
+
+    
