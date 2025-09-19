@@ -9,7 +9,7 @@ import {
   User as FirebaseUser,
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-import { auth, db } from "@/lib/firebase";
+import { auth, firestore as db } from "@/lib/firebase/client";
 import type { User as AppUser } from "@/lib/types";
 
 // The full user object exposed by the context will be the FirebaseUser merged with our AppUser
@@ -41,6 +41,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         setLoading(true);
         try {
+          // Force refresh to get custom claims
+          await firebaseUser.getIdToken(true);
+          
           // Fetch the user's data from the root /users collection
           const userDocRef = doc(db, "users", firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);

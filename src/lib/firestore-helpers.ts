@@ -2,21 +2,21 @@
 "use server";
 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch } from "firebase/firestore";
-import { db } from "./firebase";
-import { adminDb, adminAuth } from "./firebase-admin";
-import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
-import { FieldValue } from "firebase-admin/firestore";
+import { firestore as db } from "./firebase/client";
+import { adminDb } from "./firebase/server";
+import { Product, Sale, User, EmployeeData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
+import { addEmployee as addEmployeeAuth } from './actions/users';
 
 
 const getDbOrThrow = () => {
-  if (!db || !adminDb || !adminAuth) {
+  if (!db || !adminDb ) {
     throw new Error("Firebase is not configured. Please check your .env file and service account key.");
   }
-  return { db, adminDb, adminAuth };
+  return { db, adminDb };
 };
 
 
-const getCompanyIdForUser = async (userId: string): Promise<string> => {
+export const getCompanyIdForUser = async (userId: string): Promise<string> => {
     const { db } = getDbOrThrow();
     const userDocRef = doc(db, "users", userId);
     const userDoc = await getDoc(userDocRef);
@@ -27,63 +27,7 @@ const getCompanyIdForUser = async (userId: string): Promise<string> => {
 }
 
 
-// --- Initial Setup and Company Info ---
-export const isInitialSetupRequired = async (): Promise<boolean> => {
-    const { db } = getDbOrThrow();
-    const companiesCollectionRef = collection(db, "companies");
-    try {
-        const snapshot = await getDocs(query(companiesCollectionRef));
-        return snapshot.empty;
-    } catch (error) {
-        console.error("Error checking for companies. Assuming setup is required.", error);
-        return true;
-    }
-};
-
-export const createInitialAdminUser = async (data: InitialAdminData) => {
-    const isSetupNeeded = await isInitialSetupRequired();
-    if (!isSetupNeeded) {
-        throw new Error("Setup is not required. A company already exists.");
-    }
-    
-    const { adminAuth, adminDb } = getDbOrThrow();
-
-    // Create Company document first
-    const companyDocRef = adminDb.collection("companies").doc();
-    
-    // Create Auth user
-    const userRecord = await adminAuth.createUser({
-        email: data.email,
-        password: data.password,
-        displayName: data.adminName,
-    });
-    
-    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'admin', companyId: companyDocRef.id });
-
-    const batch = adminDb.batch();
-
-    // Set Company Data
-    batch.set(companyDocRef, {
-        id: companyDocRef.id,
-        name: data.companyName,
-        ownerUid: userRecord.uid,
-        createdAt: FieldValue.serverTimestamp(),
-    });
-
-    // Set User Data
-    const userDocRef = adminDb.doc(`users/${userRecord.uid}`);
-    batch.set(userDocRef, {
-        uid: userRecord.uid,
-        name: data.adminName,
-        email: data.email,
-        role: "admin",
-        companyId: companyDocRef.id,
-        createdAt: FieldValue.serverTimestamp(),
-    });
-
-    await batch.commit();
-};
-
+// --- Company Info ---
 export const getCompanyName = async (userId: string): Promise<string> => {
   const { db } = getDbOrThrow();
    try {
@@ -121,35 +65,8 @@ export const getUsers = async (userId: string): Promise<User[]> => {
 };
 
 export const addEmployee = async (employeeData: EmployeeData, adminUserId: string) => {
-    const { adminAuth, adminDb } = getDbOrThrow();
     const companyId = await getCompanyIdForUser(adminUserId);
-
-    try {
-        const userRecord = await adminAuth.createUser({
-        email: employeeData.email,
-        password: employeeData.password,
-        displayName: employeeData.name,
-        });
-        
-        await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'employee', companyId });
-
-        const newEmployeeDocRef = adminDb.doc(`users/${userRecord.uid}`);
-        await setDoc(newEmployeeDocRef, {
-        uid: userRecord.uid,
-        name: employeeData.name,
-        email: employeeData.email,
-        role: "employee",
-        companyId: companyId,
-        createdAt: FieldValue.serverTimestamp(),
-        });
-
-    } catch(error: any) {
-        if (error.code === 'auth/email-already-exists') {
-            throw new Error('Este correo electrónico ya está registrado.');
-        }
-        console.error("Error creating employee:", error);
-        throw new Error('No se pudo crear el empleado. ' + error.message);
-    }
+    return addEmployeeAuth(employeeData, companyId);
 };
 
 // --- Category Management ---
@@ -182,17 +99,28 @@ export const deleteCategory = async (categoryId: string, userId: string) => {
     const companyId = await getCompanyIdForUser(userId);
     const categoryDocRef = doc(db, `companies/${companyId}/categories`, categoryId);
 
-    await runTransaction(db, async (transaction) => {
-        const productsToUpdateQuery = query(collection(db, `companies/${companyId}/products`), where("categoryId", "==", categoryId));
-        const productsSnapshot = await getDocs(productsToUpdateQuery);
-        
-        productsSnapshot.forEach(productDoc => {
-            const productRef = doc(db, `companies/${companyId}/products`, productDoc.id);
-            transaction.update(productRef, { categoryId: "" });
-        });
-        
-        transaction.delete(categoryDocRef);
+    // Create a batch to perform multiple writes as a single atomic unit.
+    const batch = writeBatch(db);
+
+    // Query for all products with the categoryId to be deleted
+    const productsToUpdateQuery = query(
+        collection(db, `companies/${companyId}/products`),
+        where("categoryId", "==", categoryId)
+    );
+    
+    const productsSnapshot = await getDocs(productsToUpdateQuery);
+    
+    // For each product found, update its categoryId to an empty string
+    productsSnapshot.forEach(productDoc => {
+        const productRef = doc(db, `companies/${companyId}/products`, productDoc.id);
+        batch.update(productRef, { categoryId: "" });
     });
+    
+    // Delete the category document itself
+    batch.delete(categoryDocRef);
+
+    // Commit the batch
+    await batch.commit();
 };
 
 
@@ -372,8 +300,3 @@ export const getClosedReconciliations = async (userId: string): Promise<Reconcil
         return [];
     }
 };
-
-
-    
-
-    
