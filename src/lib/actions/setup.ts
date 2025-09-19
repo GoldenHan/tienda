@@ -19,7 +19,7 @@ const getAdminAuthOrThrow = () => {
   return adminAuth;
 };
 
-export const getCompanyIdForUser = async (userId: string): Promise<string> => {
+export async function getCompanyIdForUser(userId: string): Promise<string> {
     const db = getAdminDbOrThrow();
     const userRef = db.doc(`users/${userId}`);
     const userSnap = await userRef.get();
@@ -32,14 +32,14 @@ export const getCompanyIdForUser = async (userId: string): Promise<string> => {
 // -----------------
 // Setup inicial
 // -----------------
-export const isInitialSetupRequired = async (): Promise<boolean> => {
+export async function isInitialSetupRequired(): Promise<boolean> {
   const db = getAdminDbOrThrow();
   const companiesCol = db.collection("companies");
   const snapshot = await companiesCol.limit(1).get();
   return snapshot.empty;
 };
 
-export const createInitialAdminUser = async (data: InitialAdminData) => {
+export async function createInitialAdminUser(data: InitialAdminData) {
   const secretCode = process.env.REGISTRATION_SECRET_CODE;
   if (!secretCode || data.secretCode !== secretCode) {
     throw new Error("El código secreto de registro no es válido.");
@@ -60,7 +60,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
   });
 
   await auth.setCustomUserClaims(userRecord.uid, {
-    role: "admin",
+    role: "primary-admin",
     companyId: companyRef.id,
   });
 
@@ -78,7 +78,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     uid: userRecord.uid,
     name: data.adminName,
     email: data.email,
-    role: "admin",
+    role: "primary-admin",
     companyId: companyRef.id,
     createdAt: FieldValue.serverTimestamp(),
   });
@@ -91,7 +91,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
 // -----------------
 // Gestión de usuarios
 // -----------------
-export const addEmployee = async (employeeData: EmployeeData, adminUserId: string) => {
+export async function addEmployee(employeeData: EmployeeData, adminUserId: string) {
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(adminUserId);
@@ -125,6 +125,25 @@ export const addEmployee = async (employeeData: EmployeeData, adminUserId: strin
         throw new Error('No se pudo crear el empleado. ' + error.message);
     }
 };
+
+export async function promoteToAdmin(userIdToPromote: string, currentAdminId: string) {
+    const auth = getAdminAuthOrThrow();
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(currentAdminId);
+
+    // Check if the user to promote belongs to the same company
+    const userToPromoteRef = db.doc(`users/${userIdToPromote}`);
+    const userDoc = await userToPromoteRef.get();
+
+    if (!userDoc.exists || userDoc.data()?.companyId !== companyId) {
+        throw new Error("El usuario a promover no pertenece a la misma empresa.");
+    }
+    
+    // Set custom claims and update user document
+    await auth.setCustomUserClaims(userIdToPromote, { role: 'admin', companyId });
+    await userToPromoteRef.update({ role: 'admin' });
+}
+
 
 // -----------------
 // Category Management

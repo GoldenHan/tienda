@@ -42,13 +42,14 @@ const allLinks = [
 
 interface AppSidebarProps {
   companyName: string;
+  isAdmin: boolean;
 }
 
-export function AppSidebar({ companyName }: AppSidebarProps) {
+export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
   const pathname = usePathname()
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
 
-  const visibleLinks = allLinks.filter(link => !link.adminOnly || user?.role === 'admin');
+  const visibleLinks = allLinks.filter(link => !link.adminOnly || isAdmin);
 
   return (
     <Sidebar>

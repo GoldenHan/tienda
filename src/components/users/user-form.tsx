@@ -1,6 +1,6 @@
+
 "use client";
 
-import { useState } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -19,10 +19,10 @@ const formSchema = z.object({
 interface UserFormProps {
   onSubmit: (data: EmployeeData) => Promise<void>;
   onClose: () => void;
+  isSubmitting?: boolean;
 }
 
-export function UserForm({ onSubmit, onClose }: UserFormProps) {
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function UserForm({ onSubmit, onClose, isSubmitting }: UserFormProps) {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -34,9 +34,7 @@ export function UserForm({ onSubmit, onClose }: UserFormProps) {
   });
 
   const handleFormSubmit = async (data: z.infer<typeof formSchema>) => {
-    setIsSubmitting(true);
     await onSubmit(data);
-    setIsSubmitting(false);
   };
 
   return (

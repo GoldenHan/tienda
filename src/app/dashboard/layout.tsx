@@ -36,14 +36,13 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       return;
     }
     
-    if (user.role === 'employee' && pathname === '/dashboard') {
+    // Check if the user is an employee and trying to access an admin-only route or the main dashboard
+    const isEmployee = user.role === 'employee';
+    const isAdminRoute = ADMIN_ONLY_ROUTES.includes(pathname) || pathname === '/dashboard';
+
+    if (isEmployee && isAdminRoute) {
         router.replace('/dashboard/pos');
         return;
-    }
-
-    if (user.role !== "admin" && ADMIN_ONLY_ROUTES.includes(pathname)) {
-      router.replace("/dashboard/pos");
-      return;
     }
 
     const fetchCompany = async () => {
@@ -84,10 +83,12 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     );
   }
 
+  const isAdmin = user.role === 'admin' || user.role === 'primary-admin';
+
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <AppSidebar companyName={companyName || "Cargando..."} />
+        <AppSidebar companyName={companyName || "Cargando..."} isAdmin={isAdmin} />
         <SidebarInset className="flex-1 flex flex-col">
           {isLoading ? (
              <div className="flex h-full w-full items-center justify-center">

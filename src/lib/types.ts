@@ -54,12 +54,14 @@ export type InventoryData = {
   value: number;
 };
 
+export type UserRole = 'primary-admin' | 'admin' | 'employee';
+
 export type User = {
   uid: string;
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'employee';
+  role: UserRole;
   companyId: string;
   createdAt: string;
 };
