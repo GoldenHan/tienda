@@ -7,7 +7,7 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { useAuth } from "@/context/auth-context";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCompany } from "@/lib/firestore-helpers";
+import { getCompanyName } from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
 
 const ADMIN_ONLY_ROUTES = [
@@ -28,23 +28,14 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (authLoading) {
-      // If auth is still loading, we wait. Don't do anything yet.
       return;
     }
 
     if (!user) {
-      // If auth has finished and there's NO user, redirect to login.
       router.push("/login");
       return;
     }
     
-    // If we have a user but no companyId yet, it means AuthContext is still fetching it.
-    // We should wait until we have the companyId.
-    if (!user.companyId) {
-      setCompanyLoading(true); // Keep showing loader
-      return;
-    }
-
     // If there IS a user, proceed with checks and data fetching.
     if (user.role !== "admin" && ADMIN_ONLY_ROUTES.includes(pathname)) {
       router.replace("/dashboard/pos");
@@ -52,30 +43,18 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     }
 
     const fetchCompany = async () => {
-      // We know user.companyId exists if we got this far
       setCompanyLoading(true);
       try {
-        const companyData = await getCompany(user.companyId!);
-        if (companyData) {
-          setCompanyName(companyData.name);
-        } else {
-           toast({
-            variant: "destructive",
-            title: "Error de la empresa",
-            description: `No se pudieron encontrar los datos para la empresa con ID: ${user.companyId}`,
-          });
-          // Set a default name to avoid crashing the UI
-          setCompanyName("Mi Empresa");
-        }
+        const name = await getCompanyName();
+        setCompanyName(name);
       } catch (error) {
-        console.error("Error fetching company data:", error);
+        console.error("Error fetching company name:", error);
         toast({
           variant: "destructive",
           title: "Error al cargar la empresa",
-          description: "No se pudieron obtener los datos de la empresa. Revisa los permisos.",
+          description: "No se pudo obtener el nombre de la empresa.",
         });
-        // Set a default name to avoid crashing the UI
-        setCompanyName("Mi Empresa");
+        setCompanyName("Mi Empresa"); // Fallback name
       } finally {
         setCompanyLoading(false);
       }
@@ -85,11 +64,8 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     
   }, [user, authLoading, router, pathname, toast]);
 
-  // Loading is true if auth is loading OR if company data is loading
   const isLoading = authLoading || companyLoading;
 
-  // The full page skeleton is only shown while the user object is not available.
-  // Once we have the user, we can render the layout shell and show loading indicators inside.
   if (authLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -104,7 +80,6 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     );
   }
 
-  // Once everything is loaded, render the real layout
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">

@@ -15,10 +15,10 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchSales = useCallback(async (companyId: string) => {
+  const fetchSales = useCallback(async () => {
     setLoading(true);
     try {
-      const salesData = await getSales(companyId);
+      const salesData = await getSales();
       setSales(salesData);
     } catch (error) {
       console.error("Reports fetch error:", error);
@@ -34,8 +34,8 @@ export default function ReportsPage() {
 
 
   useEffect(() => {
-    if (user?.companyId) {
-      fetchSales(user.companyId);
+    if (user) {
+      fetchSales();
     } else {
       setLoading(false);
     }

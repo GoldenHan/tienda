@@ -17,12 +17,12 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchData = useCallback(async (companyId: string) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
         const [productsData, salesData] = await Promise.all([
-            getProducts(companyId),
-            getSales(companyId)
+            getProducts(),
+            getSales()
         ]);
         setProducts(productsData);
         setSales(salesData);
@@ -35,11 +35,9 @@ export default function DashboardPage() {
   }, [toast]);
 
   useEffect(() => {
-    // We wait until auth is done and we have a user with a companyId
-    if (!authLoading && user?.companyId) {
-      fetchData(user.companyId);
+    if (!authLoading && user) {
+      fetchData();
     } else if (!authLoading && !user) {
-       // If auth is done and there's no user, stop loading.
       setLoading(false);
     }
   }, [user, authLoading, fetchData]);

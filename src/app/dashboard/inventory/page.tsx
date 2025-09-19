@@ -15,10 +15,10 @@ export default function InventoryPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchProducts = useCallback(async (companyId: string) => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const productsData = await getProducts(companyId);
+      const productsData = await getProducts();
       setProducts(productsData);
     } catch (error) {
       console.error("Inventory fetch error:", error);
@@ -29,18 +29,18 @@ export default function InventoryPage() {
   }, [toast]);
 
   useEffect(() => {
-    if (user?.companyId) {
-      fetchProducts(user.companyId);
+    if (user) {
+      fetchProducts();
     } else {
-      setLoading(false); // If no user/companyId, stop loading, table will show empty state
+      setLoading(false);
     }
   }, [user, fetchProducts]);
 
   const handleAddProduct = async (newProductData: Omit<Product, 'id'>) => {
-    if (!user?.companyId) return;
+    if (!user) return;
     try {
-      await addProduct(user.companyId, newProductData);
-      await fetchProducts(user.companyId); 
+      await addProduct(newProductData);
+      await fetchProducts(); 
       toast({ title: "Éxito", description: "Producto añadido correctamente." });
     } catch (error) {
       console.error(error);
@@ -49,10 +49,10 @@ export default function InventoryPage() {
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
-    if (!user?.companyId) return;
+    if (!user) return;
     try {
-      await updateProduct(user.companyId, updatedProduct.id, updatedProduct);
-      await fetchProducts(user.companyId);
+      await updateProduct(updatedProduct.id, updatedProduct);
+      await fetchProducts();
       toast({ title: "Éxito", description: "Producto actualizado correctamente." });
     } catch (error) {
       console.error(error);
@@ -61,10 +61,10 @@ export default function InventoryPage() {
   };
 
   const handleDeleteProduct = async (productId: string) => {
-    if (!user?.companyId) return;
+    if (!user) return;
     try {
-      await deleteProduct(user.companyId, productId);
-      await fetchProducts(user.companyId);
+      await deleteProduct(productId);
+      await fetchProducts();
       toast({ title: "Éxito", description: "Producto eliminado correctamente." });
     } catch (error) {
       console.error(error);

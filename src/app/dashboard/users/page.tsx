@@ -22,10 +22,10 @@ export default function UsersPage() {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const fetchUsers = useCallback(async (companyId: string) => {
+  const fetchUsers = useCallback(async () => {
     setLoading(true);
     try {
-      const usersData = await getUsers(companyId);
+      const usersData = await getUsers();
       // Filter out the current user from the list to not show them
       const otherUsers = usersData.filter(u => u.uid !== user?.uid);
       setUsers(otherUsers);
@@ -38,18 +38,18 @@ export default function UsersPage() {
   }, [toast, user?.uid]);
 
   useEffect(() => {
-    if (user?.companyId) {
-      fetchUsers(user.companyId);
+    if (user) {
+      fetchUsers();
     } else {
       setLoading(false);
     }
   }, [user, fetchUsers]);
 
   const handleAddEmployee = async (data: EmployeeData) => {
-    if (!user?.companyId) return;
+    if (!user) return;
     try {
-      await addEmployee(user.companyId, data);
-      await fetchUsers(user.companyId); // Refresh the user list
+      await addEmployee(data);
+      await fetchUsers(); // Refresh the user list
       setIsAddDialogOpen(false);
       toast({ title: 'Éxito', description: 'Empleado añadido correctamente.' });
     } catch (error: any) {

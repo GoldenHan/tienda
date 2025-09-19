@@ -26,7 +26,7 @@ export type Sale = {
 };
 
 export type Inflow = {
-  id: string;
+  id:string;
   productName: string;
   quantity: number;
   purchaseCost: number;
@@ -46,15 +46,6 @@ export type InventoryData = {
   value: number;
 };
 
-// This represents the document in /companies/{companyId}/users/{userId}
-// This is more of a profile, the core auth data is in UserLookup
-export type UserProfile = {
-  uid: string;
-  name: string;
-  email: string;
-  createdAt: any;
-};
-
 // This represents the document in the root /users/{userId} collection
 // It is the source of truth for authorization
 export type User = {
@@ -62,7 +53,6 @@ export type User = {
   name: string;
   email: string;
   role: 'admin' | 'employee';
-  companyId: string;
   createdAt: any;
 };
 
@@ -70,11 +60,4 @@ export type EmployeeData = {
   name: string;
   email: string;
   password: string;
-};
-
-export type Company = {
-  id: string;
-  name: string;
-  adminUid: string;
-  createdAt: any;
 };

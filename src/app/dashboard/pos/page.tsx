@@ -20,10 +20,10 @@ export default function POSPage() {
   const [isCompletingSale, setIsCompletingSale] = useState(false);
   const { toast } = useToast();
 
-  const fetchProducts = useCallback(async (companyId: string) => {
+  const fetchProducts = useCallback(async () => {
     setLoading(true);
     try {
-      const productsData = await getProducts(companyId);
+      const productsData = await getProducts();
       setProducts(productsData);
     } catch (error) {
       console.error("POS fetch error:", error);
@@ -34,8 +34,8 @@ export default function POSPage() {
   }, [toast]);
 
   useEffect(() => {
-    if(user?.companyId){
-      fetchProducts(user.companyId);
+    if(user){
+      fetchProducts();
     } else {
       setLoading(false);
     }
@@ -102,7 +102,7 @@ export default function POSPage() {
 
 
   const handleCompleteSale = async () => {
-    if (!user?.companyId) return;
+    if (!user) return;
     if (cart.length === 0) {
       toast({
         variant: "destructive",
@@ -129,10 +129,10 @@ export default function POSPage() {
     };
 
     try {
-      await addSale(user.companyId, newSale, cart);
+      await addSale(newSale, cart);
       
       setCart([]);
-      await fetchProducts(user.companyId); // Re-fetch products with updated stock
+      await fetchProducts(); // Re-fetch products with updated stock
 
       toast({
         title: "Venta completada",

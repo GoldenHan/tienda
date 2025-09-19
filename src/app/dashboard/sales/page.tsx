@@ -17,12 +17,12 @@ export default function SalesPage() {
   const [isUpdating, setIsUpdating] = useState(false);
   const { toast } = useToast();
 
-  const fetchData = useCallback(async (companyId: string) => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [salesData, productsData] = await Promise.all([
-        getSales(companyId), 
-        getProducts(companyId)
+        getSales(), 
+        getProducts()
       ]);
       setSales(salesData);
       setProducts(productsData);
@@ -35,27 +35,27 @@ export default function SalesPage() {
   }, [toast]);
 
   useEffect(() => {
-    if(user?.companyId) {
-      fetchData(user.companyId);
+    if(user) {
+      fetchData();
     } else {
       setLoading(false);
     }
   }, [user, fetchData]);
 
   const handleUpdateSale = async (updatedSale: Sale, originalSale: Sale) => {
-    if (!user?.companyId) return;
+    if (!user) return;
     setIsUpdating(true);
     try {
-      await updateSaleAndAdjustStock(user.companyId, updatedSale, originalSale);
+      await updateSaleAndAdjustStock(updatedSale, originalSale);
       toast({
         title: "Venta Actualizada",
         description: `La transacción ${updatedSale.id} ha sido modificada.`,
       });
-      await fetchData(user.companyId); // Refresh data after update
+      await fetchData(); // Refresh data after update
     } catch (error: any) {
       console.error("Error al actualizar la venta:", error);
       toast({ variant: "destructive", title: "Error al Actualizar", description: error.message });
-      await fetchData(user.companyId); // Re-fetch data even on error to show original state
+      await fetchData(); // Re-fetch data even on error to show original state
     } finally {
       setIsUpdating(false);
     }

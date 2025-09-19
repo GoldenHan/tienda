@@ -7,73 +7,57 @@ service cloud.firestore {
     // Helpers
     // =========================
 
-    // Devuelve los datos del usuario autenticado de forma segura
-    function getUserData() {
-      return (request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
-             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
-             : { role: null, companyId: null };
+    // Gets the user's role from their document in the /users collection
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
     }
 
-    // Verifica el rol del usuario
-    function isRole(role) {
-      return getUserData().role == role;
+    // Checks if the user is an admin
+    function isAdmin() {
+      return request.auth != null && getRole() == 'admin';
     }
 
-    // Verifica si el usuario pertenece a la empresa
-    function isCompanyMember(companyId) {
-      return getUserData().companyId == companyId;
+    // Checks if the user is an employee or admin
+    function isEmployeeOrAdmin() {
+      return request.auth != null && (getRole() == 'employee' || getRole() == 'admin');
     }
 
     // =========================
-    // Users
+    // Users Collection
     // =========================
     match /users/{userId} {
-      // Cada usuario solo puede leer/escribir su propio documento
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Any authenticated user can create their own user document during sign-up
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Users can only read and update their own document
+      allow read, update: if request.auth != null && request.auth.uid == userId;
+      // Admins can read any user document
+      allow list: if isAdmin();
+      // Admins can delete users (a feature not implemented in the UI but good to have)
+      allow delete: if isAdmin();
     }
 
     // =========================
-    // Companies
+    // Products Collection
     // =========================
-    match /companies/{companyId} {
-      // Crear empresa: cualquier usuario autenticado
-      allow create: if request.auth != null;
+    match /products/{productId} {
+      // Admins or employees can read the list of products and individual products
+      allow read: if isEmployeeOrAdmin();
+      // Only admins can create, update, or delete products
+      allow write: if isAdmin();
+    }
 
-      // Lectura: solo miembros y empresa debe existir
-      allow read: if isCompanyMember(companyId) && exists(/databases/$(database)/documents/companies/$(companyId));
-
-      // Actualización: solo admins
-      allow update: if isCompanyMember(companyId) && isRole('admin');
-
-      // =========================
-      // Subcollections
-      // =========================
-
-      // Products
-      match /products/{productId} {
-        // Listar y obtener solo productos que existen y pertenecen a la empresa
-        allow list, get: if isCompanyMember(companyId) &&
-                           exists(/databases/$(database)/documents/companies/$(companyId)/products/$(productId));
-
-        // Crear/actualizar/eliminar solo admins
-        allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
-      }
-
-      // Sales
-      match /sales/{saleId} {
-        // Listar y obtener solo ventas que existen y pertenecen a la empresa
-        allow list, get: if isCompanyMember(companyId) &&
-                           exists(/databases/$(database)/documents/companies/$(companyId)/sales/$(saleId));
-
-        // Crear: admins o empleados
-        allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
-
-        // Actualizar: solo admins
-        allow update: if isCompanyMember(companyId) && isRole('admin');
-
-        // Eliminar: prohibido desde cliente
-        allow delete: if false;
-      }
+    // =========================
+    // Sales Collection
+    // =========================
+    match /sales/{saleId} {
+      // Admins or employees can read sales history
+      allow read: if isEmployeeOrAdmin();
+      // Admins or employees can create new sales
+      allow create: if isEmployeeOrAdmin();
+      // Only admins can update (edit) a sale
+      allow update: if isAdmin();
+      // Deleting sales is not allowed from the client for data integrity
+      allow delete: if false;
     }
   }
 }
