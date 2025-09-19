@@ -23,9 +23,10 @@ export default function UsersPage() {
   const { toast } = useToast();
 
   const fetchUsers = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const usersData = await getUsers();
+      const usersData = await getUsers(user.uid);
       // Filter out the current user from the list to not show them
       const otherUsers = usersData.filter(u => u.uid !== user?.uid);
       setUsers(otherUsers);
@@ -35,7 +36,7 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, user?.uid]);
+  }, [toast, user]);
 
   useEffect(() => {
     if (user) {
@@ -48,7 +49,7 @@ export default function UsersPage() {
   const handleAddEmployee = async (data: EmployeeData) => {
     if (!user) return;
     try {
-      await addEmployee(data);
+      await addEmployee(data, user.uid);
       await fetchUsers(); // Refresh the user list
       setIsAddDialogOpen(false);
       toast({ title: 'Éxito', description: 'Empleado añadido correctamente.' });

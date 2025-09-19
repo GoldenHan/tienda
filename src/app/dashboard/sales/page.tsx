@@ -18,11 +18,12 @@ export default function SalesPage() {
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const [salesData, productsData] = await Promise.all([
-        getSales(), 
-        getProducts()
+        getSales(user.uid), 
+        getProducts(user.uid)
       ]);
       setSales(salesData);
       setProducts(productsData);
@@ -32,7 +33,7 @@ export default function SalesPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     if(user) {
@@ -46,7 +47,7 @@ export default function SalesPage() {
     if (!user) return;
     setIsUpdating(true);
     try {
-      await updateSaleAndAdjustStock(updatedSale, originalSale);
+      await updateSaleAndAdjustStock(updatedSale, originalSale, user.uid);
       toast({
         title: "Venta Actualizada",
         description: `La transacción ${updatedSale.id} ha sido modificada.`,

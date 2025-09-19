@@ -1,36 +1,41 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
 import { FieldValue } from "firebase-admin/firestore";
 
-// --- Prerequisite Check ---
-function getDbOrThrow() {
+
+const getDbOrThrow = () => {
   if (!db || !adminDb || !adminAuth) {
     throw new Error("Firebase is not configured. Please check your .env file and service account key.");
   }
   return db;
+};
+
+
+const getCompanyIdForUser = async (userId: string): Promise<string> => {
+    const firestore = getDbOrThrow();
+    const userDocRef = doc(firestore, "users", userId);
+    const userDoc = await getDoc(userDocRef);
+    if (!userDoc.exists() || !userDoc.data().companyId) {
+        throw new Error("User is not associated with a company.");
+    }
+    return userDoc.data().companyId;
 }
 
 
 // --- Initial Setup and Company Info ---
-
-/**
- * Checks if the initial setup (company creation) is required.
- * @returns {Promise<boolean>} True if the 'company/main' document does not exist.
- */
 export const isInitialSetupRequired = async (): Promise<boolean> => {
     const firestore = getDbOrThrow();
-    const companyDocRef = doc(firestore, "company", "main");
+    const companiesCollectionRef = collection(firestore, "companies");
     try {
-        const docSnap = await getDoc(companyDocRef);
-        return !docSnap.exists();
+        const snapshot = await getDocs(query(companiesCollectionRef));
+        return snapshot.empty;
     } catch (error) {
-        console.error("Error checking for company doc. Assuming setup is required.", error);
-        // If rules prevent reading, we must assume setup IS required.
+        console.error("Error checking for companies. Assuming setup is required.", error);
         return true;
     }
 };
@@ -45,44 +50,47 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
       throw new Error("Firebase Admin SDK is not initialized.");
     }
 
-    // Create Auth user using Admin SDK
+    // Create Company document first
+    const companyDocRef = adminDb.collection("companies").doc();
+    
+    // Create Auth user
     const userRecord = await adminAuth.createUser({
         email: data.email,
         password: data.password,
         displayName: data.adminName,
     });
     
-    // Set custom claim for role-based access
-    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'admin' });
+    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'admin', companyId: companyDocRef.id });
 
     const batch = adminDb.batch();
 
-    // Create user document in Firestore
+    // Set Company Data
+    batch.set(companyDocRef, {
+        id: companyDocRef.id,
+        name: data.companyName,
+        ownerUid: userRecord.uid,
+        createdAt: FieldValue.serverTimestamp(),
+    });
+
+    // Set User Data
     const userDocRef = adminDb.doc(`users/${userRecord.uid}`);
     batch.set(userDocRef, {
         uid: userRecord.uid,
         name: data.adminName,
         email: data.email,
         role: "admin",
-        createdAt: FieldValue.serverTimestamp(),
-    });
-    
-    // Create company document in Firestore
-    const companyDocRef = adminDb.doc("company/main");
-    batch.set(companyDocRef, {
-        name: data.companyName,
-        ownerUid: userRecord.uid,
+        companyId: companyDocRef.id,
         createdAt: FieldValue.serverTimestamp(),
     });
 
     await batch.commit();
 };
 
-
-export const getCompanyName = async (): Promise<string> => {
+export const getCompanyName = async (userId: string): Promise<string> => {
   const firestore = getDbOrThrow();
-  const companyDocRef = doc(firestore, "company", "main");
-  try {
+   try {
+    const companyId = await getCompanyIdForUser(userId);
+    const companyDocRef = doc(firestore, "companies", companyId);
     const docSnap = await getDoc(companyDocRef);
     if (docSnap.exists()) {
       return docSnap.data().name || "Mi Empresa";
@@ -96,15 +104,15 @@ export const getCompanyName = async (): Promise<string> => {
 
 
 // --- User Management ---
-export const getUsers = async (): Promise<User[]> => {
+export const getUsers = async (userId: string): Promise<User[]> => {
   const firestore = getDbOrThrow();
+  const companyId = await getCompanyIdForUser(userId);
   const usersCollectionRef = collection(firestore, "users");
-  const q = query(usersCollectionRef, orderBy("name"));
+  const q = query(usersCollectionRef, where("companyId", "==", companyId), orderBy("name"));
   try {
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => {
         const data = doc.data();
-        // Firestore Timestamps are not serializable, convert them to strings
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
         return { ...data, id: doc.id, uid: doc.id, createdAt } as User;
       });
@@ -114,43 +122,47 @@ export const getUsers = async (): Promise<User[]> => {
   }
 };
 
-export const addEmployee = async (employeeData: EmployeeData) => {
+export const addEmployee = async (employeeData: EmployeeData, adminUserId: string) => {
     if (!adminAuth || !adminDb) {
       throw new Error("Firebase Admin SDK is not initialized.");
     }
-  try {
-    const userRecord = await adminAuth.createUser({
-      email: employeeData.email,
-      password: employeeData.password,
-      displayName: employeeData.name,
-    });
-    
-    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'employee' });
+    const companyId = await getCompanyIdForUser(adminUserId);
 
-    const newEmployeeDocRef = adminDb.doc(`users/${userRecord.uid}`);
-    await setDoc(newEmployeeDocRef, {
-      uid: userRecord.uid,
-      name: employeeData.name,
-      email: employeeData.email,
-      role: "employee",
-      createdAt: FieldValue.serverTimestamp(),
-    });
+    try {
+        const userRecord = await adminAuth.createUser({
+        email: employeeData.email,
+        password: employeeData.password,
+        displayName: employeeData.name,
+        });
+        
+        await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'employee', companyId });
 
-  } catch(error: any) {
-     if (error.code === 'auth/email-already-exists') {
-        throw new Error('Este correo electrónico ya está registrado.');
+        const newEmployeeDocRef = adminDb.doc(`users/${userRecord.uid}`);
+        await setDoc(newEmployeeDocRef, {
+        uid: userRecord.uid,
+        name: employeeData.name,
+        email: employeeData.email,
+        role: "employee",
+        companyId: companyId,
+        createdAt: FieldValue.serverTimestamp(),
+        });
+
+    } catch(error: any) {
+        if (error.code === 'auth/email-already-exists') {
+            throw new Error('Este correo electrónico ya está registrado.');
+        }
+        console.error("Error creating employee:", error);
+        throw new Error('No se pudo crear el empleado. ' + error.message);
     }
-    console.error("Error creating employee:", error);
-    throw new Error('No se pudo crear el empleado. ' + error.message);
-  }
 };
 
 // --- Category Management ---
-export const getCategories = async (): Promise<Category[]> => {
-  const firestore = getDbOrThrow();
-  const categoriesCollectionRef = collection(firestore, "categories");
-  const q = query(categoriesCollectionRef, orderBy("name"));
+export const getCategories = async (userId: string): Promise<Category[]> => {
   try {
+    const firestore = getDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const categoriesCollectionRef = collection(firestore, `companies/${companyId}/categories`);
+    const q = query(categoriesCollectionRef, orderBy("name"));
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Category));
   } catch (error) {
@@ -159,44 +171,40 @@ export const getCategories = async (): Promise<Category[]> => {
   }
 };
 
-export const addCategory = async (categoryName: string) => {
+export const addCategory = async (categoryName: string, userId: string) => {
   const firestore = getDbOrThrow();
-  // Create a reference to a new document with a generated ID
-  const newCategoryRef = doc(collection(firestore, "categories"));
-  // Use setDoc to create the document with its own ID as a field
+  const companyId = await getCompanyIdForUser(userId);
+  const newCategoryRef = doc(collection(firestore, `companies/${companyId}/categories`));
   await setDoc(newCategoryRef, { 
     id: newCategoryRef.id,
     name: categoryName,
   });
 };
 
-export const deleteCategory = async (categoryId: string) => {
-  const firestore = getDbOrThrow();
-  const categoryDocRef = doc(firestore, "categories", categoryId);
-  
-  // Before deleting, you might want to handle products that belong to this category.
-  // A simple approach is to un-categorize them. A more complex one would be to prevent deletion if products exist.
-  // For simplicity now, we will just delete the category. A batch write to update products would be the next step.
-  const productsToUpdateQuery = query(collection(firestore, "products"), where("categoryId", "==", categoryId));
-  const productsSnapshot = await getDocs(productsToUpdateQuery);
-  const batch = writeBatch(firestore);
-  productsSnapshot.forEach(productDoc => {
-    const productRef = doc(firestore, "products", productDoc.id);
-    batch.update(productRef, { categoryId: "" }); // or set to a default categoryId
-  });
-  
-  // Also delete the category document itself
-  batch.delete(categoryDocRef);
-  
-  // Commit the batch
-  await batch.commit();
+export const deleteCategory = async (categoryId: string, userId: string) => {
+    const firestore = getDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const categoryDocRef = doc(firestore, `companies/${companyId}/categories`, categoryId);
+
+    const productsToUpdateQuery = query(collection(firestore, `companies/${companyId}/products`), where("categoryId", "==", categoryId));
+    const productsSnapshot = await getDocs(productsToUpdateQuery);
+    
+    const batch = writeBatch(firestore);
+    productsSnapshot.forEach(productDoc => {
+        const productRef = doc(firestore, `companies/${companyId}/products`, productDoc.id);
+        batch.update(productRef, { categoryId: "" });
+    });
+    
+    batch.delete(categoryDocRef);
+    await batch.commit();
 };
 
 
 // --- Product Management ---
-export const getProducts = async (): Promise<Product[]> => {
+export const getProducts = async (userId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
-  const productsCollectionRef = collection(firestore, "products");
+  const companyId = await getCompanyIdForUser(userId);
+  const productsCollectionRef = collection(firestore, `companies/${companyId}/products`);
   const q = query(productsCollectionRef, orderBy("name"));
   try {
     const snapshot = await getDocs(q);
@@ -207,9 +215,10 @@ export const getProducts = async (): Promise<Product[]> => {
   }
 };
 
-export const addProduct = async (productData: Omit<Product, 'id'>) => {
+export const addProduct = async (productData: Omit<Product, 'id'>, userId: string) => {
   const firestore = getDbOrThrow();
-  const newProductRef = doc(collection(firestore, "products"));
+  const companyId = await getCompanyIdForUser(userId);
+  const newProductRef = doc(collection(firestore, `companies/${companyId}/products`));
   await setDoc(newProductRef, { 
       ...productData, 
       id: newProductRef.id,
@@ -217,24 +226,25 @@ export const addProduct = async (productData: Omit<Product, 'id'>) => {
   });
 };
 
-
-export const updateProduct = async (id: string, updates: Partial<Product>) => {
+export const updateProduct = async (id: string, updates: Partial<Product>, userId: string) => {
   const firestore = getDbOrThrow();
-  const productDocRef = doc(firestore, "products", id);
+  const companyId = await getCompanyIdForUser(userId);
+  const productDocRef = doc(firestore, `companies/${companyId}/products`, id);
   await updateDoc(productDocRef, updates);
 };
 
-export const deleteProduct = async (id: string) => {
+export const deleteProduct = async (id: string, userId: string) => {
   const firestore = getDbOrThrow();
-  const productDocRef = doc(firestore, "products", id);
+  const companyId = await getCompanyIdForUser(userId);
+  const productDocRef = doc(firestore, `companies/${companyId}/products`, id);
   await deleteDoc(productDocRef);
 };
 
-
 // --- Sales Management ---
-export const getSales = async (): Promise<Sale[]> => {
+export const getSales = async (userId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
-  const salesCollectionRef = collection(firestore, "sales");
+  const companyId = await getCompanyIdForUser(userId);
+  const salesCollectionRef = collection(firestore, `companies/${companyId}/sales`);
   const q = query(salesCollectionRef, orderBy("date", "desc"));
   try {
     const snapshot = await getDocs(q);
@@ -245,76 +255,59 @@ export const getSales = async (): Promise<Sale[]> => {
   }
 };
 
-
-export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
+export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[], userId: string) => {
   const firestore = getDbOrThrow();
+  const companyId = await getCompanyIdForUser(userId);
   
   await runTransaction(firestore, async (transaction) => {
-    const salesCollectionRef = collection(firestore, "sales");
-    const newSaleRef = doc(salesCollectionRef);
-    
-    // Set the sale data, including its own ID for consistency
+    const newSaleRef = doc(collection(firestore, `companies/${companyId}/sales`));
     transaction.set(newSaleRef, { ...saleData, id: newSaleRef.id });
 
     for (const item of cartItems) {
-      const productRef = doc(firestore, "products", item.id);
+      const productRef = doc(firestore, `companies/${companyId}/products`, item.id);
       const productDoc = await transaction.get(productRef);
 
-      if (!productDoc.exists()) {
-        throw new Error(`Producto con ID ${item.id} no fue encontrado durante la transacción.`);
-      }
+      if (!productDoc.exists()) throw new Error(`Producto ${item.name} no encontrado.`);
       
       const currentQuantity = productDoc.data().quantity;
-      if (currentQuantity < item.quantityInCart) {
-        throw new Error(`Stock insuficiente para ${item.name}. Solo quedan ${currentQuantity}.`);
-      }
+      if (currentQuantity < item.quantityInCart) throw new Error(`Stock insuficiente para ${item.name}.`);
 
-      const newQuantity = currentQuantity - item.quantityInCart;
-      transaction.update(productRef, { quantity: newQuantity });
+      transaction.update(productRef, { quantity: currentQuantity - item.quantityInCart });
     }
   });
 };
 
-
-export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale) => {
+export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale, userId: string) => {
   const firestore = getDbOrThrow();
+  const companyId = await getCompanyIdForUser(userId);
   try {
     await runTransaction(firestore, async (transaction) => {
       const stockAdjustments: { [productId: string]: number } = {};
 
-      originalSale.items.forEach(originalItem => {
-        stockAdjustments[originalItem.productId] = (stockAdjustments[originalItem.productId] || 0) + originalItem.quantity;
+      originalSale.items.forEach(item => {
+        stockAdjustments[item.productId] = (stockAdjustments[item.productId] || 0) + item.quantity;
       });
 
-      updatedSale.items.forEach(updatedItem => {
-        stockAdjustments[updatedItem.productId] = (stockAdjustments[updatedItem.productId] || 0) - updatedItem.quantity;
+      updatedSale.items.forEach(item => {
+        stockAdjustments[item.productId] = (stockAdjustments[item.productId] || 0) - item.quantity;
       });
 
       for (const productId in stockAdjustments) {
         const adjustment = stockAdjustments[productId];
         if (adjustment === 0) continue;
 
-        const productRef = doc(firestore, "products", productId);
+        const productRef = doc(firestore, `companies/${companyId}/products`, productId);
         const productDoc = await transaction.get(productRef);
 
-        if (!productDoc.exists()) {
-          throw new Error(`Producto con ID ${productId} no encontrado.`);
-        }
-
-        const currentQuantity = productDoc.data().quantity;
-        const newQuantity = currentQuantity + adjustment;
-
-        if (newQuantity < 0) {
-          throw new Error(`Stock insuficiente para "${productDoc.data().name}".`);
-        }
+        if (!productDoc.exists()) throw new Error(`Producto no encontrado.`);
+        
+        const newQuantity = productDoc.data().quantity + adjustment;
+        if (newQuantity < 0) throw new Error(`Stock insuficiente para "${productDoc.data().name}".`);
         transaction.update(productRef, { quantity: newQuantity });
       }
 
-      const saleDocRef = doc(firestore, "sales", updatedSale.id);
-      transaction.update(saleDocRef, {
-        items: updatedSale.items,
-        grandTotal: updatedSale.grandTotal,
-      });
+      const saleDocRef = doc(firestore, `companies/${companyId}/sales`, updatedSale.id);
+      transaction.update(saleDocRef, { items: updatedSale.items, grandTotal: updatedSale.grandTotal });
     });
   } catch (e: any) {
     console.error("Falló la transacción de actualización de venta:", e);
@@ -322,80 +315,58 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
   }
 };
 
-
-// --- Cash Flow Management ---
-
-export const getCashOutflows = async (): Promise<CashOutflow[]> => {
-  const firestore = getDbOrThrow();
-  const outflowsCollectionRef = collection(firestore, "cash_outflows");
-  const q = query(outflowsCollectionRef, orderBy("date", "desc"));
-  try {
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as CashOutflow));
-  } catch (error) {
-    console.error(`Error fetching cash outflows. This is normal if the collection doesn't exist yet.`, error);
-    return [];
-  }
-};
-
-export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
+// --- Cash Flow & Reconciliation Management ---
+const getSubcollection = async <T>(userId: string, subcollectionName: string): Promise<T[]> => {
     const firestore = getDbOrThrow();
-    const newOutflowRef = doc(collection(firestore, "cash_outflows"));
-    await setDoc(newOutflowRef, { 
-        ...outflowData, 
-        id: newOutflowRef.id 
-    });
-};
+    const companyId = await getCompanyIdForUser(userId);
+    const collectionRef = collection(firestore, `companies/${companyId}/${subcollectionName}`);
+    const q = query(collectionRef, orderBy("date", "desc"));
+    try {
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as T));
+    } catch (error) {
+        console.error(`Error fetching ${subcollectionName}.`, error);
+        return [];
+    }
+}
 
-export const getInflows = async (): Promise<Inflow[]> => {
-  const firestore = getDbOrThrow();
-  const inflowsCollectionRef = collection(firestore, "inflows");
-  const q = query(inflowsCollectionRef, orderBy("date", "desc"));
-  try {
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Inflow));
-  } catch (error) {
-    console.error(`Error fetching inflows. This is normal if the collection doesn't exist yet.`, error);
-    return [];
-  }
-};
-
-export const addInflow = async (inflowData: Omit<Inflow, 'id'>) => {
+const addSubcollectionDoc = async (userId: string, subcollectionName: string, data: any) => {
     const firestore = getDbOrThrow();
-    const newInflowRef = doc(collection(firestore, "inflows"));
-    await setDoc(newInflowRef, { 
-        ...inflowData, 
-        id: newInflowRef.id 
-    });
-};
+    const companyId = await getCompanyIdForUser(userId);
+    const newDocRef = doc(collection(firestore, `companies/${companyId}/${subcollectionName}`));
+    await setDoc(newDocRef, { ...data, id: newDocRef.id });
+}
 
+export const getCashOutflows = (userId: string): Promise<CashOutflow[]> => getSubcollection<CashOutflow>(userId, "cash_outflows");
+export const addCashOutflow = (outflowData: Omit<CashOutflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "cash_outflows", outflowData);
 
-// --- Reconciliation Management ---
+export const getInflows = (userId: string): Promise<Inflow[]> => getSubcollection<Inflow>(userId, "inflows");
+export const addInflow = (inflowData: Omit<Inflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "inflows", inflowData);
 
-export const getReconciliationStatus = async (dateId: string): Promise<Reconciliation['status']> => {
+export const getReconciliationStatus = async (dateId: string, userId: string): Promise<Reconciliation['status']> => {
   const firestore = getDbOrThrow();
-  const reconDocRef = doc(firestore, "reconciliations", dateId);
+  const companyId = await getCompanyIdForUser(userId);
+  const reconDocRef = doc(firestore, `companies/${companyId}/reconciliations`, dateId);
   try {
     const docSnap = await getDoc(reconDocRef);
-    if (docSnap.exists()) {
-      return docSnap.data().status || 'open';
-    }
-    return 'open'; // Default to open if no document exists
+    return docSnap.exists() ? docSnap.data().status || 'open' : 'open';
   } catch (error) {
     console.error(`Error fetching reconciliation status for ${dateId}:`, error);
-    return 'open'; // Default to open on error
+    return 'open';
   }
 };
 
-export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status']) => {
+export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status'], userId: string) => {
   const firestore = getDbOrThrow();
-  const reconDocRef = doc(firestore, "reconciliations", dateId);
-  await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: new Date().toISOString() }, { merge: true });
+  const companyId = await getCompanyIdForUser(userId);
+  const reconDocRef = doc(firestore, `companies/${companyId}/reconciliations`, dateId);
+  await setDoc(reconDocRef, { id: dateId, status, updatedAt: new Date().toISOString() }, { merge: true });
 };
 
-export const getClosedReconciliations = async (): Promise<Reconciliation[]> => {
+export const getClosedReconciliations = async (userId: string): Promise<Reconciliation[]> => {
     const firestore = getDbOrThrow();
-    const reconCollectionRef = collection(firestore, "reconciliations");
+    const companyId = await getCompanyIdForUser(userId);
+    const reconCollectionRef = collection(firestore, `companies/${companyId}/reconciliations`);
     const q = query(reconCollectionRef, where("status", "==", "closed"), orderBy("updatedAt", "desc"));
      try {
         const snapshot = await getDocs(q);

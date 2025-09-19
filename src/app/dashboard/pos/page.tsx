@@ -23,11 +23,12 @@ export default function POSPage() {
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const [productsData, categoriesData] = await Promise.all([
-        getProducts(),
-        getCategories(),
+        getProducts(user.uid),
+        getCategories(user.uid),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
@@ -37,7 +38,7 @@ export default function POSPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     if(user){
@@ -135,7 +136,7 @@ export default function POSPage() {
     };
 
     try {
-      await addSale(newSale, cart);
+      await addSale(newSale, cart, user.uid);
       
       setCart([]);
       await fetchData(); // Re-fetch products with updated stock

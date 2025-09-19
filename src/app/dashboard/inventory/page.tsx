@@ -17,11 +17,12 @@ export default function InventoryPage() {
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const [productsData, categoriesData] = await Promise.all([
-          getProducts(),
-          getCategories()
+          getProducts(user.uid),
+          getCategories(user.uid)
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
@@ -31,7 +32,7 @@ export default function InventoryPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     if (user) {
@@ -44,7 +45,7 @@ export default function InventoryPage() {
   const handleAddProduct = async (newProductData: Omit<Product, 'id'>) => {
     if (!user) return;
     try {
-      await addProduct(newProductData);
+      await addProduct(newProductData, user.uid);
       await fetchData(); 
       toast({ title: "Éxito", description: "Producto añadido correctamente." });
     } catch (error) {
@@ -56,7 +57,7 @@ export default function InventoryPage() {
   const handleUpdateProduct = async (updatedProduct: Product) => {
     if (!user) return;
     try {
-      await updateProduct(updatedProduct.id, updatedProduct);
+      await updateProduct(updatedProduct.id, updatedProduct, user.uid);
       await fetchData();
       toast({ title: "Éxito", description: "Producto actualizado correctamente." });
     } catch (error) {
@@ -68,7 +69,7 @@ export default function InventoryPage() {
   const handleDeleteProduct = async (productId: string) => {
     if (!user) return;
     try {
-      await deleteProduct(productId);
+      await deleteProduct(productId, user.uid);
       await fetchData();
       toast({ title: "Éxito", description: "Producto eliminado correctamente." });
     } catch (error) {

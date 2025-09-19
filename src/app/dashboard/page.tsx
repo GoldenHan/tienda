@@ -18,11 +18,12 @@ export default function DashboardPage() {
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
         const [productsData, salesData] = await Promise.all([
-            getProducts(),
-            getSales()
+            getProducts(user.uid),
+            getSales(user.uid)
         ]);
         setProducts(productsData);
         setSales(salesData);
@@ -32,7 +33,7 @@ export default function DashboardPage() {
     } finally {
         setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     if (!authLoading && user) {

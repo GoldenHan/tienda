@@ -59,12 +59,13 @@ export default function SettingsPage() {
   });
 
   const fetchPageData = useCallback(async () => {
+    if (!user) return;
     setIsReconLoading(true);
     setIsCategoryLoading(true);
     try {
       const [closedData, categoriesData] = await Promise.all([
-        getClosedReconciliations(),
-        getCategories(),
+        getClosedReconciliations(user.uid),
+        getCategories(user.uid),
       ]);
       setClosedReconciliations(closedData);
       setCategories(categoriesData);
@@ -75,7 +76,7 @@ export default function SettingsPage() {
       setIsReconLoading(false);
       setIsCategoryLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
   useEffect(() => {
     if(user){
@@ -116,9 +117,10 @@ export default function SettingsPage() {
   }
 
   const handleReopenReconciliation = async (dateId: string) => {
+    if (!user) return;
     setIsReopening(dateId);
     try {
-        await updateReconciliationStatus(dateId, 'open');
+        await updateReconciliationStatus(dateId, 'open', user.uid);
         toast({
             title: "Arqueo Reabierto",
             description: `El arqueo del día ${dateId} ahora puede ser editado.`,
@@ -133,9 +135,10 @@ export default function SettingsPage() {
   };
 
   async function onCategorySubmit(values: z.infer<typeof categoryFormSchema>) {
+    if (!user) return;
     setIsCategorySubmitting(true);
     try {
-      await addCategory(values.newCategoryName);
+      await addCategory(values.newCategoryName, user.uid);
       toast({
         title: "Categoría Creada",
         description: `Se ha añadido la categoría "${values.newCategoryName}".`,
@@ -151,9 +154,10 @@ export default function SettingsPage() {
   }
 
   const handleDeleteCategory = async (category: Category) => {
+    if (!user) return;
     setIsDeletingCategory(category.id);
     try {
-      await deleteCategory(category.id);
+      await deleteCategory(category.id, user.uid);
       toast({
         title: "Categoría Eliminada",
         description: `Se ha eliminado la categoría "${category.name}". Los productos asociados ya no tendrán categoría.`,
@@ -161,7 +165,7 @@ export default function SettingsPage() {
       await fetchPageData();
     } catch (error) {
       console.error("Error deleting category:", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la categoría. Asegúrate de que no haya productos usándola." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la categoría." });
     } finally {
       setIsDeletingCategory(null);
     }

@@ -45,13 +45,14 @@ export default function CashReconciliationPage() {
   const formattedDateId = useMemo(() => formatDateFns(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
 
   const fetchData = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
       const [salesData, outflowsData, inflowsData, statusData] = await Promise.all([
-        getSales(),
-        getCashOutflows(),
-        getInflows(),
-        getReconciliationStatus(formattedDateId),
+        getSales(user.uid),
+        getCashOutflows(user.uid),
+        getInflows(user.uid),
+        getReconciliationStatus(formattedDateId, user.uid),
       ]);
       setSales(salesData);
       setOutflows(outflowsData);
@@ -68,7 +69,7 @@ export default function CashReconciliationPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, formattedDateId]);
+  }, [toast, formattedDateId, user]);
 
   useEffect(() => {
     if (user) {
@@ -79,9 +80,10 @@ export default function CashReconciliationPage() {
   }, [user, fetchData, selectedDate]);
 
   const handleCloseReconciliation = async () => {
+    if (!user) return;
     setIsSubmitting(true);
     try {
-      await updateReconciliationStatus(formattedDateId, 'closed');
+      await updateReconciliationStatus(formattedDateId, 'closed', user.uid);
       await fetchData(); // Refetch to update status
       toast({
         title: "Arqueo Cerrado",

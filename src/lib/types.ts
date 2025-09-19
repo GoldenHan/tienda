@@ -62,6 +62,7 @@ export type User = {
   name: string;
   email: string;
   role: 'admin' | 'employee';
+  companyId: string; // Added to associate user with a company
   createdAt: string;
 };
 
@@ -87,4 +88,11 @@ export type Reconciliation = {
 export type Category = {
     id: string;
     name: string;
+}
+
+export type Company = {
+    id: string;
+    name: string;
+    ownerUid: string;
+    createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
 }

@@ -16,9 +16,10 @@ export default function ReportsPage() {
   const { toast } = useToast();
 
   const fetchSales = useCallback(async () => {
+    if (!user) return;
     setLoading(true);
     try {
-      const salesData = await getSales();
+      const salesData = await getSales(user.uid);
       setSales(salesData);
     } catch (error) {
       console.error("Reports fetch error:", error);
@@ -30,7 +31,7 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user]);
 
 
   useEffect(() => {

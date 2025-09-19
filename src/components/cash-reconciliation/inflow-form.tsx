@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
+import { useAuth } from "@/context/auth-context";
 
 const formSchema = z.object({
   total: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
@@ -27,6 +28,7 @@ interface InflowFormProps {
 
 export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<InflowFormData>({
@@ -38,6 +40,7 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
   });
 
   const handleFormSubmit = async (data: InflowFormData) => {
+    if (!user) return;
     setIsSubmitting(true);
     try {
       const newInflow = {
@@ -45,7 +48,7 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
         total: data.total,
         reason: data.reason,
       };
-      await addInflow(newInflow);
+      await addInflow(newInflow, user.uid);
       toast({
         title: "Ingreso Registrado",
         description: `Se registró un ingreso de C$${data.total}.`,

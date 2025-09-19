@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
+import { useAuth } from "@/context/auth-context";
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
@@ -27,6 +28,7 @@ interface OutflowFormProps {
 
 export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const form = useForm<OutflowFormData>({
@@ -38,6 +40,7 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
   });
 
   const handleFormSubmit = async (data: OutflowFormData) => {
+    if (!user) return;
     setIsSubmitting(true);
     try {
       const newOutflow = {
@@ -45,7 +48,7 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
         amount: data.amount,
         reason: data.reason,
       };
-      await addCashOutflow(newOutflow);
+      await addCashOutflow(newOutflow, user.uid);
       toast({
         title: "Egreso Registrado",
         description: `Se registró una salida de C$${data.amount}.`,

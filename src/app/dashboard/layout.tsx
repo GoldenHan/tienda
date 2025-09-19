@@ -45,7 +45,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     const fetchCompany = async () => {
       setCompanyLoading(true);
       try {
-        const name = await getCompanyName();
+        const name = await getCompanyName(user.uid);
         setCompanyName(name);
       } catch (error) {
         console.error("Error fetching company name:", error);
