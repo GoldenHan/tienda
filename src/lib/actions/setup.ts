@@ -19,7 +19,7 @@ const getAdminAuthOrThrow = () => {
   return adminAuth;
 };
 
-const getCompanyIdForUser = async (userId: string): Promise<string> => {
+export const getCompanyIdForUser = async (userId: string): Promise<string> => {
     const db = getAdminDbOrThrow();
     const userRef = db.doc(`users/${userId}`);
     const userSnap = await userRef.get();
@@ -126,30 +126,3 @@ export const addEmployee = async (employeeData: EmployeeData, adminUserId: strin
     }
 };
 
-export const getUsers = async (userId: string): Promise<User[]> => {
-  const db = getAdminDbOrThrow();
-  const companyId = await getCompanyIdForUser(userId);
-
-  const usersCol = db.collection("users");
-  const q = usersCol.where("companyId", "==", companyId).orderBy("name");
-  const snapshot = await q.get();
-
-  return snapshot.docs.map(doc => {
-      const data = doc.data();
-      // Aseguramos que `createdAt` sea un string serializable
-      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
-      return { ...data, id: doc.id, uid: doc.id, createdAt } as User;
-  });
-};
-
-// -----------------
-// Gestión de categorías
-// -----------------
-export const getCategories = async (userId: string): Promise<Category[]> => {
-  const db = getAdminDbOrThrow();
-  const companyId = await getCompanyIdForUser(userId);
-  const categoriesCol = db.collection(`companies/${companyId}/categories`);
-  const q = categoriesCol.orderBy("name");
-  const snapshot = await q.get();
-  return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Category));
-};

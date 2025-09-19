@@ -3,7 +3,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/lib/types';
-import { getUsers, addEmployee } from '@/lib/firestore-helpers';
+import { getUsers } from '@/lib/firestore-helpers';
+import { addEmployee } from '@/lib/actions/setup';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';

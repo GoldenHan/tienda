@@ -2,12 +2,12 @@
 "use server";
 
 import { 
-  collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch 
+  collection, getDocs, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch, increment
 } from "firebase/firestore";
 import { firestore as db } from "./firebase/client"; // SDK del cliente
-import { adminDb, FieldValue } from "./firebase/server"; // SDK de Admin
 import { Product, Sale, User, EmployeeData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
-import { addEmployee as addEmployeeAuth } from './actions/setup'; // Usar la acción consolidada
+import { getCompanyIdForUser } from './actions/setup';
+
 
 // -----------------
 // Helpers internos
@@ -19,29 +19,12 @@ const getClientDbOrThrow = () => {
     return db;
 };
 
-const getAdminDbOrThrow = () => {
-    if (!adminDb) {
-        throw new Error("El SDK de Admin de Firebase no está configurado. Revisa tu variable de entorno FIREBASE_SERVICE_ACCOUNT_JSON.");
-    }
-    return adminDb;
-};
-
-
-const getCompanyIdForUser = async (userId: string): Promise<string> => {
-  const db = getAdminDbOrThrow(); // Usamos admin para esta operación segura
-  const userDocRef = doc(db, "users", userId);
-  const userDoc = await getDoc(userDocRef);
-  if (!userDoc.exists() || !userDoc.data()?.companyId) {
-    throw new Error("El usuario no está asociado a ninguna empresa.");
-  }
-  return userDoc.data().companyId;
-};
 
 // -----------------
 // Company Helpers
 // -----------------
 
-export const getCompanyName = async (userId: string): Promise<string> => {
+export async function getCompanyName(userId: string): Promise<string> {
   const db = getClientDbOrThrow(); // Lectura simple desde el cliente
   try {
     const companyId = await getCompanyIdForUser(userId);
@@ -58,7 +41,7 @@ export const getCompanyName = async (userId: string): Promise<string> => {
 // -----------------
 // User Management (Client-facing & wrappers)
 // -----------------
-export const getUsers = async (userId: string): Promise<User[]> => {
+export async function getUsers(userId: string): Promise<User[]> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const usersCollectionRef = collection(db, "users");
@@ -76,15 +59,13 @@ export const getUsers = async (userId: string): Promise<User[]> => {
     }
 };
 
-export const addEmployee = async (employeeData: EmployeeData, adminUserId: string) => {
-  return addEmployeeAuth(employeeData, adminUserId);
-};
+// addEmployee is now a full server action in setup.ts
 
 
 // -----------------
 // Category Management (Client-facing & wrappers)
 // -----------------
-export const getCategories = async (userId: string): Promise<Category[]> => {
+export async function getCategories(userId: string): Promise<Category[]> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const categoriesCollectionRef = collection(db, `companies/${companyId}/categories`);
@@ -98,15 +79,15 @@ export const getCategories = async (userId: string): Promise<Category[]> => {
     }
 };
 
-export const addCategory = async (categoryName: string, userId: string) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+export async function addCategory(categoryName: string, userId: string) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const newCategoryRef = doc(collection(db, `companies/${companyId}/categories`));
     await setDoc(newCategoryRef, { id: newCategoryRef.id, name: categoryName });
 };
 
-export const deleteCategory = async (categoryId: string, userId: string) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+export async function deleteCategory(categoryId: string, userId: string) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const categoryDocRef = doc(db, `companies/${companyId}/categories`, categoryId);
 
@@ -115,7 +96,8 @@ export const deleteCategory = async (categoryId: string, userId: string) => {
         collection(db, `companies/${companyId}/products`),
         where("categoryId", "==", categoryId)
     );
-
+    
+    // This is a client-side implementation. For large datasets, a server-side function would be better.
     const productsSnapshot = await getDocs(productsToUpdateQuery);
     productsSnapshot.forEach(productDoc => {
         const productRef = doc(db, `companies/${companyId}/products`, productDoc.id);
@@ -130,7 +112,7 @@ export const deleteCategory = async (categoryId: string, userId: string) => {
 // -----------------
 // Product Management (Client-facing & wrappers)
 // -----------------
-export const getProducts = async (userId: string): Promise<Product[]> => {
+export async function getProducts(userId: string): Promise<Product[]> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const productsCollectionRef = collection(db, `companies/${companyId}/products`);
@@ -144,22 +126,22 @@ export const getProducts = async (userId: string): Promise<Product[]> => {
     }
 };
 
-export const addProduct = async (productData: Omit<Product, 'id'>, userId: string) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+export async function addProduct(productData: Omit<Product, 'id'>, userId: string) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const newProductRef = doc(collection(db, `companies/${companyId}/products`));
     await setDoc(newProductRef, { ...productData, id: newProductRef.id, createdAt: new Date().toISOString() });
 };
 
-export const updateProduct = async (id: string, updates: Partial<Product>, userId: string) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+export async function updateProduct(id: string, updates: Partial<Product>, userId: string) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const productDocRef = doc(db, `companies/${companyId}/products`, id);
     await updateDoc(productDocRef, updates);
 };
 
-export const deleteProduct = async (id: string, userId: string) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+export async function deleteProduct(id: string, userId: string) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const productDocRef = doc(db, `companies/${companyId}/products`, id);
     await deleteDoc(productDocRef);
@@ -169,7 +151,7 @@ export const deleteProduct = async (id: string, userId: string) => {
 // -----------------
 // Sales Management (Server-side logic for transactions)
 // -----------------
-export const getSales = async (userId: string): Promise<Sale[]> => {
+export async function getSales(userId: string): Promise<Sale[]> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const salesCollectionRef = collection(db, `companies/${companyId}/sales`);
@@ -183,8 +165,8 @@ export const getSales = async (userId: string): Promise<Sale[]> => {
     }
 };
 
-export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[], userId: string) => {
-  const db = getAdminDbOrThrow(); // Transacción, usar admin
+export async function addSale(saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[], userId: string) {
+  const db = getClientDbOrThrow(); // Transaction, use client
   const companyId = await getCompanyIdForUser(userId);
 
   await runTransaction(db, async (transaction) => {
@@ -202,8 +184,8 @@ export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & 
   });
 };
 
-export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale, userId: string) => {
-    const db = getAdminDbOrThrow(); // Transacción, usar admin
+export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: Sale, userId: string) {
+    const db = getClientDbOrThrow(); // Transaction, use client
     const companyId = await getCompanyIdForUser(userId);
 
     await runTransaction(db, async (transaction) => {
@@ -242,7 +224,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
         for (const [productId, delta] of quantityDeltas.entries()) {
             if (delta !== 0) {
                 const productRef = doc(db, `companies/${companyId}/products`, productId);
-                transaction.update(productRef, { quantity: FieldValue.increment(delta) });
+                transaction.update(productRef, { quantity: increment(delta) });
             }
         }
         
@@ -257,7 +239,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
 // -----------------
 // Cash Flow & Reconciliation (Client-facing & wrappers)
 // -----------------
-const getSubcollection = async <T>(userId: string, subcollectionName: string): Promise<T[]> => {
+async function getSubcollection<T>(userId: string, subcollectionName: string): Promise<T[]> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const collectionRef = collection(db, `companies/${companyId}/${subcollectionName}`);
@@ -271,28 +253,28 @@ const getSubcollection = async <T>(userId: string, subcollectionName: string): P
     }
 };
 
-const addSubcollectionDoc = async (userId: string, subcollectionName: string, data: any) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+async function addSubcollectionDoc(userId: string, subcollectionName: string, data: any) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const newDocRef = doc(collection(db, `companies/${companyId}/${subcollectionName}`));
     await setDoc(newDocRef, { ...data, id: newDocRef.id });
 };
 
-export const getCashOutflows = async (userId: string): Promise<CashOutflow[]> => {
+export async function getCashOutflows(userId: string): Promise<CashOutflow[]> {
     return await getSubcollection<CashOutflow>(userId, "cash_outflows");
 };
-export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>, userId: string) => {
+export async function addCashOutflow(outflowData: Omit<CashOutflow, 'id'>, userId: string) {
     await addSubcollectionDoc(userId, "cash_outflows", outflowData);
 };
 
-export const getInflows = async (userId: string): Promise<Inflow[]> => {
+export async function getInflows(userId: string): Promise<Inflow[]> {
     return await getSubcollection<Inflow>(userId, "inflows");
 };
-export const addInflow = async (inflowData: Omit<Inflow, 'id'>, userId: string) => {
+export async function addInflow(inflowData: Omit<Inflow, 'id'>, userId: string) {
     await addSubcollectionDoc(userId, "inflows", inflowData);
 };
 
-export const getReconciliationStatus = async (dateId: string, userId: string): Promise<Reconciliation['status']> => {
+export async function getReconciliationStatus(dateId: string, userId: string): Promise<Reconciliation['status']> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const reconDocRef = doc(db, `companies/${companyId}/reconciliations`, dateId);
@@ -305,14 +287,14 @@ export const getReconciliationStatus = async (dateId: string, userId: string): P
     }
 };
 
-export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status'], userId: string) => {
-    const db = getAdminDbOrThrow(); // Escritura, usar admin
+export async function updateReconciliationStatus(dateId: string, status: Reconciliation['status'], userId: string) {
+    const db = getClientDbOrThrow(); // Escritura, usar client
     const companyId = await getCompanyIdForUser(userId);
     const reconDocRef = doc(db, `companies/${companyId}/reconciliations`, dateId);
     await setDoc(reconDocRef, { id: dateId, status, updatedAt: new Date().toISOString() }, { merge: true });
 };
 
-export const getClosedReconciliations = async (userId: string): Promise<Reconciliation[]> => {
+export async function getClosedReconciliations(userId: string): Promise<Reconciliation[]> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const reconCollectionRef = collection(db, `companies/${companyId}/reconciliations`);
