@@ -2,45 +2,57 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Helper function to check if a user belongs to the company they're trying to access.
-    // It checks the custom claim 'companyId' set on the user's auth token.
+  
+    // --- Funciones de Ayuda ---
     function isMemberOfCompany(companyId) {
-      return request.auth != null && request.auth.token.companyId == companyId;
-    }
-    
-    // Helper function to check if the user is an admin of the company.
-    function isAdmin(companyId) {
-      return isMemberOfCompany(companyId) && request.auth.token.role in ['admin', 'primary-admin'];
+      return request.auth.token.companyId == companyId;
     }
 
-    // Allow anyone to check if the companies collection is empty for initial setup.
-    // This is safe because it only allows 'list' (checking existence) but not 'get' (reading data).
-    match /companies {
-      allow list: if true;
-      allow get: if false; 
+    function isAdmin() {
+      return request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin';
     }
+
+    function isEmployee() {
+      return request.auth.token.role == 'employee';
+    }
+
+    // --- Reglas Globales ---
     
-    // Allow an admin to read the details of their own company document.
+    // Nadie puede leer/escribir la colección de empresas directamente.
     match /companies/{companyId} {
-        allow get: if isAdmin(companyId);
+      allow read, write: if false;
     }
 
-    // Rules for all subcollections within a company (products, sales, etc.)
-    match /companies/{companyId}/{document=**} {
-      // Admins have full read/write access to all company data.
-      allow read, write: if isAdmin(companyId);
-      
-      // Specific permissions for employees.
-      allow read: if isMemberOfCompany(companyId) && resource.parent.id in ['products', 'categories'];
-      allow create: if isMemberOfCompany(companyId) && resource.parent.id == 'sales';
-    }
-
-    // Users can read their own profile data.
-    // Admins can see the list of all users in their company.
+    // Regla para la colección de USUARIOS
     match /users/{userId} {
-      allow get: if request.auth != null && request.auth.uid == userId;
-      allow list: if request.auth != null && isAdmin(request.resource.data.companyId);
+      // Un usuario solo puede leer/actualizar su propio documento.
+      allow get, update: if request.auth.uid == userId;
+      // Los administradores pueden listar todos los usuarios de su propia empresa.
+      allow list: if isMemberOfCompany(resource.data.companyId) && isAdmin();
+      // Nadie puede crear o eliminar usuarios directamente, debe hacerse desde el servidor.
+      allow create, delete: if false;
+    }
+
+    // --- Reglas para Subcolecciones de Empresa ---
+    
+    // Regla general para administradores: acceso total a todo dentro de su empresa.
+    match /companies/{companyId}/{document=**} {
+      allow read, write: if isMemberOfCompany(companyId) && isAdmin();
+    }
+
+    // Reglas específicas para EMPLEADOS, que anulan la regla general anterior si son más específicas.
+    
+    // Los empleados pueden leer productos y categorías para el POS.
+    match /companies/{companyId}/products/{productId} {
+      allow read: if isMemberOfCompany(companyId) && isEmployee();
+    }
+    match /companies/{companyId}/categories/{categoryId} {
+      allow read: if isMemberOfCompany(companyId) && isEmployee();
+    }
+
+    // Los empleados pueden crear nuevas ventas. No pueden leer, actualizar o eliminar.
+    match /companies/{companyId}/sales/{saleId} {
+      allow create: if isMemberOfCompany(companyId) && isEmployee();
     }
   }
 }
