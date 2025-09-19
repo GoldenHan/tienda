@@ -6,13 +6,14 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale } from '@/lib/types';
 import { getProducts, getSales } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, Shield, ShieldCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SalesChart } from '@/components/dashboard/sales-chart';
 import { subDays, format, isAfter, startOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 
 export default function DashboardPage() {
@@ -114,12 +115,37 @@ export default function DashboardPage() {
 
   const welcomeMessage = user ? `¡Bienvenido de nuevo, ${user.name.split(' ')[0]}!` : "Panel de Control";
 
+  const renderRoleIcon = () => {
+    if (!user) return null;
+
+    if (user.role === 'primary-admin') {
+      return (
+        <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
+            <ShieldCheck className="mr-2 text-white" />
+            Admin Principal
+        </Badge>
+      );
+    }
+    if (user.role === 'admin') {
+      return (
+         <Badge variant="secondary" className="bg-purple-600 text-white hover:bg-purple-700">
+            <Shield className="mr-2" />
+            Admin
+        </Badge>
+      );
+    }
+    return null;
+  }
+
   return (
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
-        <h1 className="text-2xl font-bold tracking-tight font-headline">
-          {welcomeMessage}
-        </h1>
+        <div className="flex items-center gap-4">
+          <h1 className="text-2xl font-bold tracking-tight font-headline">
+            {welcomeMessage}
+          </h1>
+          {renderRoleIcon()}
+        </div>
         <p className="text-muted-foreground">
           Aquí tienes un resumen de la actividad de tu negocio.
         </p>
@@ -175,3 +201,4 @@ export default function DashboardPage() {
     </div>
   );
 }
+
