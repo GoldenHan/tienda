@@ -87,7 +87,7 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
             <FormItem>
             <FormLabel>Motivo del Ingreso</FormLabel>
             <FormControl>
-                <Textarea placeholder="Ej. Aporte de capital" {...field} disabled={isSubmitting} />
+                <Textarea placeholder="Ej. Aporte de capital para caja chica" {...field} disabled={isSubmitting} />
             </FormControl>
             <FormMessage />
             </FormItem>

@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { getSales, getCashOutflows, getInflows, getReconciliationStatus, updateReconciliationStatus } from '@/lib/firestore-helpers';
@@ -9,7 +10,7 @@ import { Sale, CashOutflow, Inflow, Reconciliation } from '@/lib/types';
 import { isSameDay, startOfDay, format as formatDateFns } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowDown, ArrowUp, Scale, Lock, Unlock } from 'lucide-react';
+import { ArrowDown, ArrowUp, Scale, Lock, Unlock, ChevronDown, PackagePlus, DollarSign } from 'lucide-react';
 import { OutflowForm } from '@/components/cash-reconciliation/outflow-form';
 import { InflowForm } from '@/components/cash-reconciliation/inflow-form';
 import { ReconciliationTable } from '@/components/cash-reconciliation/reconciliation-table';
@@ -18,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
 const formatCurrency = (amount: number) =>
@@ -28,6 +30,7 @@ const formatCurrency = (amount: number) =>
 
 export default function CashReconciliationPage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [sales, setSales] = useState<Sale[]>([]);
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [inflows, setInflows] = useState<Inflow[]>([]);
@@ -166,14 +169,32 @@ export default function CashReconciliationPage() {
           <DatePicker date={selectedDate} onDateChange={(date) => date && setSelectedDate(startOfDay(date))} />
            <div className="flex gap-2">
                 <Dialog open={isInflowDialogOpen} onOpenChange={setIsInflowDialogOpen}>
-                  <DialogTrigger asChild>
-                     <Button variant="outline" disabled={isClosed}>Añadir Ingreso</Button>
-                  </DialogTrigger>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" disabled={isClosed}>
+                        Añadir Ingreso
+                        <ChevronDown className="ml-2" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DialogTrigger asChild>
+                        <DropdownMenuItem>
+                          <DollarSign className="mr-2" />
+                          Ingreso de Efectivo
+                        </DropdownMenuItem>
+                      </DialogTrigger>
+                      <DropdownMenuItem onClick={() => router.push('/dashboard/inventory')}>
+                        <PackagePlus className="mr-2" />
+                        Añadir/Actualizar Productos
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
                   <DialogContent>
                     <DialogHeader>
-                      <DialogTitle>Registrar Ingreso Manual</DialogTitle>
+                      <DialogTitle>Registrar Ingreso de Efectivo</DialogTitle>
                       <DialogDescription>
-                        Añade un ingreso de dinero que no provenga de una venta de producto.
+                        Añade un ingreso de dinero que no provenga de una venta. (Ej. Aporte de capital)
                       </DialogDescription>
                     </DialogHeader>
                     <InflowForm 
@@ -272,4 +293,3 @@ export default function CashReconciliationPage() {
     </div>
   );
 }
-
