@@ -24,6 +24,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
   const pathname = usePathname();
   const [companyName, setCompanyName] = useState<string | null>(null);
   const [companyLoading, setCompanyLoading] = useState(true);
+  const [isAccessDenied, setIsAccessDenied] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -36,10 +37,12 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       return;
     }
     
+    setIsAccessDenied(false);
     const isEmployee = user.role === 'employee';
     const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.includes(pathname);
 
     if (isEmployee && isAdminOnlyRoute) {
+        setIsAccessDenied(true);
         toast({
             variant: "destructive",
             title: "Acceso Denegado",
@@ -73,7 +76,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
 
   const isLoading = authLoading || companyLoading;
 
-  if (authLoading || !user) {
+  if (isLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex items-center space-x-4">
@@ -86,6 +89,24 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       </div>
     );
   }
+  
+  const renderContent = () => {
+    if (isLoading || isAccessDenied) {
+       return (
+         <div className="flex h-full w-full items-center justify-center">
+          <div className="flex items-center space-x-4">
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <div className="space-y-2">
+              <Skeleton className="h-4 w-[250px]" />
+              <Skeleton className="h-4 w-[200px]" />
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return children;
+  }
+
 
   const isAdmin = user.role === 'admin' || user.role === 'primary-admin';
 
@@ -94,17 +115,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       <div className="flex min-h-screen w-full">
         <AppSidebar companyName={companyName || "Cargando..."} isAdmin={isAdmin} />
         <SidebarInset className="flex-1 flex flex-col">
-          {isLoading ? (
-             <div className="flex h-full w-full items-center justify-center">
-              <div className="flex items-center space-x-4">
-                <Skeleton className="h-12 w-12 rounded-full" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-[250px]" />
-                  <Skeleton className="h-4 w-[200px]" />
-                </div>
-              </div>
-            </div>
-          ) : children }
+          {renderContent()}
         </SidebarInset>
       </div>
     </SidebarProvider>
