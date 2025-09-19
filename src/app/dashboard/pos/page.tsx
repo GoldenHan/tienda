@@ -1,33 +1,39 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Product, Sale, SaleItem } from "@/lib/types";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Product, Sale, SaleItem, Category } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { getProducts, addSale } from "@/lib/firestore-helpers";
+import { getProducts, addSale, getCategories } from "@/lib/firestore-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export type CartItem = Product & { quantityInCart: number };
 
 export default function POSPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCompletingSale, setIsCompletingSale] = useState(false);
   const { toast } = useToast();
 
-  const fetchProducts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const productsData = await getProducts();
+      const [productsData, categoriesData] = await Promise.all([
+        getProducts(),
+        getCategories(),
+      ]);
       setProducts(productsData);
+      setCategories(categoriesData);
     } catch (error) {
       console.error("POS fetch error:", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
     } finally {
       setLoading(false);
     }
@@ -35,11 +41,11 @@ export default function POSPage() {
 
   useEffect(() => {
     if(user){
-      fetchProducts();
+      fetchData();
     } else {
       setLoading(false);
     }
-  }, [user, fetchProducts]);
+  }, [user, fetchData]);
 
   const handleAddToCart = (product: Product) => {
     setCart((prevCart) => {
@@ -132,7 +138,7 @@ export default function POSPage() {
       await addSale(newSale, cart);
       
       setCart([]);
-      await fetchProducts(); // Re-fetch products with updated stock
+      await fetchData(); // Re-fetch products with updated stock
 
       toast({
         title: "Venta completada",
@@ -147,6 +153,41 @@ export default function POSPage() {
     }
   };
 
+  const categoryTabs = useMemo(() => [{ id: 'all', name: 'Todos' }, ...categories], [categories]);
+
+  const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="lg:col-span-2 h-full overflow-y-auto">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+            {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-square" />)}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="lg:col-span-2 h-full overflow-y-auto">
+        <Tabs defaultValue="all" className="flex flex-col h-full">
+          <TabsList className="flex-shrink-0">
+            {categoryTabs.map(cat => (
+              <TabsTrigger key={cat.id} value={cat.id}>{cat.name}</TabsTrigger>
+            ))}
+          </TabsList>
+          {categoryTabs.map(cat => (
+            <TabsContent key={cat.id} value={cat.id} className="flex-1 overflow-y-auto mt-4">
+              <ProductGrid
+                products={cat.id === 'all' ? products : products.filter(p => p.categoryId === cat.id)}
+                onAddToCart={handleAddToCart}
+              />
+            </TabsContent>
+          ))}
+        </Tabs>
+      </div>
+    );
+  };
+
+
   return (
     <div className="flex h-full flex-col">
       <header className="p-4 sm:p-6">
@@ -154,19 +195,11 @@ export default function POSPage() {
           Punto de Venta
         </h1>
         <p className="text-muted-foreground">
-          Selecciona productos para añadirlos al carrito y completar la venta.
+          Selecciona una categoría y añade productos al carrito para completar la venta.
         </p>
       </header>
       <main className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 p-4 pt-0 sm:p-6 sm:pt-0 overflow-hidden">
-        <div className="lg:col-span-2 h-full overflow-y-auto">
-          {loading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
-              {[...Array(8)].map((_, i) => <Skeleton key={i} className="aspect-square" />)}
-            </div>
-          ) : (
-            <ProductGrid products={products} onAddToCart={handleAddToCart} />
-          )}
-        </div>
+        {renderContent()}
         <div className="lg:col-span-1 h-full flex flex-col">
           <Cart 
             cartItems={cart}

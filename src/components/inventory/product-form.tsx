@@ -6,7 +6,7 @@ import Image from "next/image";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Product } from "@/lib/types";
+import { Product, Category } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { Loader2, UploadCloud } from "lucide-react";
 import { uploadImage } from "@/lib/storage-helpers";
 import { Textarea } from "../ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -23,17 +24,19 @@ const formSchema = z.object({
   salePrice: z.coerce.number().min(0, "El precio de venta debe ser positivo"),
   purchaseCost: z.coerce.number().min(0, "El costo de compra debe ser positivo"),
   lowStockThreshold: z.coerce.number().int().min(0, "El umbral debe ser un número entero"),
+  categoryId: z.string().min(1, "Debes seleccionar una categoría"),
 });
 
 type ProductFormData = z.infer<typeof formSchema>;
 
 interface ProductFormProps {
   product?: Product;
+  categories: Category[];
   onSubmit: (data: ProductFormData & { imageUrl: string, imageHint: string }) => void;
   isSubmitting?: boolean;
 }
 
-export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProps) {
+export function ProductForm({ product, categories, onSubmit, isSubmitting }: ProductFormProps) {
   const { toast } = useToast();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.imageUrl || null);
@@ -48,6 +51,7 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
       salePrice: product?.salePrice || 0,
       purchaseCost: product?.purchaseCost || 0,
       lowStockThreshold: product?.lowStockThreshold || 10,
+      categoryId: product?.categoryId || "",
     },
   });
 
@@ -69,7 +73,6 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
     let finalImageHint = product?.imageHint || "producto";
 
     try {
-      // Si se seleccionó un nuevo archivo, súbelo a Storage
       if (imageFile) {
         finalImageUrl = await uploadImage(imageFile);
         finalImageHint = imageFile.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || 'producto';
@@ -78,7 +81,6 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
           description: "La nueva imagen del producto se ha guardado en Firebase Storage.",
         });
       } else if (!product) {
-        // Si es un producto nuevo y NO se subió imagen, usa un placeholder
         const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
         finalImageUrl = randomPlaceholder.imageUrl;
         finalImageHint = randomPlaceholder.imageHint;
@@ -88,7 +90,6 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
         });
       }
       
-      // Si llegamos aquí sin una URL de imagen, algo salió mal
       if (!finalImageUrl) {
          toast({
           variant: "destructive",
@@ -161,6 +162,35 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
               <FormMessage />
             </FormItem>
           )}
+        />
+
+        <FormField
+            control={form.control}
+            name="categoryId"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Categoría</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecciona una categoría para el producto" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                    {categories.length === 0 ? (
+                        <SelectItem value="no-cat" disabled>Crea una categoría en Configuración</SelectItem>
+                    ) : (
+                        categories.map(cat => (
+                        <SelectItem key={cat.id} value={cat.id}>
+                            {cat.name}
+                        </SelectItem>
+                        ))
+                    )}
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
         />
         
         <FormField

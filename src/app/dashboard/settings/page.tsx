@@ -13,20 +13,24 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Unlock } from "lucide-react";
+import { Loader2, Unlock, Trash2, PlusCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getClosedReconciliations, updateReconciliationStatus } from "@/lib/firestore-helpers";
-import { Reconciliation } from "@/lib/types";
+import { getClosedReconciliations, updateReconciliationStatus, getCategories, addCategory, deleteCategory } from "@/lib/firestore-helpers";
+import { Reconciliation, Category } from "@/lib/types";
 import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 
-
 const passwordFormSchema = z.object({
   currentPassword: z.string().min(1, { message: "La contraseña actual es requerida." }),
   newPassword: z.string().min(6, { message: "La nueva contraseña debe tener al menos 6 caracteres." }),
 });
+
+const categoryFormSchema = z.object({
+  newCategoryName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
+});
+
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -36,6 +40,10 @@ export default function SettingsPage() {
   const [isReconLoading, setIsReconLoading] = useState(true);
   const [isReopening, setIsReopening] = useState<string | null>(null);
 
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isCategoryLoading, setIsCategoryLoading] = useState(true);
+  const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
+
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema),
     defaultValues: {
@@ -44,22 +52,35 @@ export default function SettingsPage() {
     },
   });
 
-  const fetchReconciliations = useCallback(async () => {
+  const categoryForm = useForm<z.infer<typeof categoryFormSchema>>({
+    resolver: zodResolver(categoryFormSchema),
+    defaultValues: { newCategoryName: "" },
+  });
+
+  const fetchPageData = useCallback(async () => {
     setIsReconLoading(true);
+    setIsCategoryLoading(true);
     try {
-      const closedData = await getClosedReconciliations();
+      const [closedData, categoriesData] = await Promise.all([
+        getClosedReconciliations(),
+        getCategories(),
+      ]);
       setClosedReconciliations(closedData);
+      setCategories(categoriesData);
     } catch (error) {
-      console.error("Error fetching closed reconciliations:", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los arqueos cerrados." });
+      console.error("Error fetching settings page data:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
     } finally {
       setIsReconLoading(false);
+      setIsCategoryLoading(false);
     }
   }, [toast]);
 
   useEffect(() => {
-    fetchReconciliations();
-  }, [fetchReconciliations]);
+    if(user){
+      fetchPageData();
+    }
+  }, [fetchPageData, user]);
 
   async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
     if (!user || !user.email) {
@@ -101,7 +122,7 @@ export default function SettingsPage() {
             title: "Arqueo Reabierto",
             description: `El arqueo del día ${dateId} ahora puede ser editado.`,
         });
-        await fetchReconciliations(); // Refresh list
+        await fetchPageData(); // Refresh list
     } catch (error) {
         console.error("Error reopening reconciliation:", error);
         toast({ variant: "destructive", title: "Error", description: "No se pudo reabrir el arqueo." });
@@ -109,6 +130,39 @@ export default function SettingsPage() {
         setIsReopening(null);
     }
   };
+
+  async function onCategorySubmit(values: z.infer<typeof categoryFormSchema>) {
+    setIsCategorySubmitting(true);
+    try {
+      await addCategory(values.newCategoryName);
+      toast({
+        title: "Categoría Creada",
+        description: `Se ha añadido la categoría "${values.newCategoryName}".`,
+      });
+      categoryForm.reset();
+      await fetchPageData();
+    } catch (error) {
+      console.error("Error adding category:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo añadir la categoría." });
+    } finally {
+      setIsCategorySubmitting(false);
+    }
+  }
+
+  const handleDeleteCategory = async (category: Category) => {
+    try {
+      await deleteCategory(category.id);
+      toast({
+        title: "Categoría Eliminada",
+        description: `Se ha eliminado la categoría "${category.name}". Los productos asociados ya no tendrán categoría.`,
+      });
+      await fetchPageData();
+    } catch (error) {
+      console.error("Error deleting category:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudo eliminar la categoría." });
+    }
+  };
+
 
   return (
     <div className="flex flex-col">
@@ -221,8 +275,86 @@ export default function SettingsPage() {
                 )}
             </CardContent>
         </Card>
+
+        <Card className="md:col-span-2">
+            <CardHeader>
+                <CardTitle>Gestionar Categorías de Productos</CardTitle>
+                <CardDescription>
+                Crea y elimina categorías para organizar tus productos en el punto de venta.
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="grid gap-6 md:grid-cols-2">
+                    <div>
+                      <Form {...categoryForm}>
+                        <form onSubmit={categoryForm.handleSubmit(onCategorySubmit)} className="space-y-4">
+                           <FormField
+                            control={categoryForm.control}
+                            name="newCategoryName"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Nueva Categoría</FormLabel>
+                                <FormControl>
+                                  <div className="flex gap-2">
+                                    <Input placeholder="Ej. Bebidas" {...field} disabled={isCategorySubmitting} />
+                                    <Button type="submit" disabled={isCategorySubmitting}>
+                                        {isCategorySubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                    </Button>
+                                  </div>
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                        </form>
+                      </Form>
+                    </div>
+                    <div>
+                        <h4 className="font-medium mb-2">Categorías Existentes</h4>
+                        {isCategoryLoading ? (
+                           <div className="space-y-2">
+                                <Skeleton className="h-10 w-full" />
+                                <Skeleton className="h-10 w-full" />
+                            </div>
+                        ) : categories.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+                                No hay categorías creadas.
+                            </p>
+                        ) : (
+                            <ul className="space-y-2">
+                                {categories.map(cat => (
+                                    <li key={cat.id} className="flex items-center justify-between p-2 border rounded-md">
+                                        <span className="font-medium">{cat.name}</span>
+                                          <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
+                                                <AlertDialogHeader>
+                                                <AlertDialogTitle>¿Eliminar la categoría "{cat.name}"?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta acción no se puede deshacer. Los productos de esta categoría perderán su asignación, pero no serán eliminados.
+                                                </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction onClick={() => handleDeleteCategory(cat)}>
+                                                    Confirmar Eliminación
+                                                </AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
       </main>
     </div>
   );
 }
-

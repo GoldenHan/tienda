@@ -10,6 +10,7 @@ export type Product = {
   imageUrl: string;
   imageHint: string;
   createdAt?: string;
+  categoryId: string;
 };
 
 export type SaleItem = {
@@ -82,3 +83,9 @@ export type Reconciliation = {
   status: 'open' | 'closed';
   updatedAt: string;
 };
+
+export type Category = {
+    id: string;
+    name: string;
+    createdAt: string;
+}

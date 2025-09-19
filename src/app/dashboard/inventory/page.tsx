@@ -3,8 +3,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { ProductsTable } from "@/components/inventory/products-table";
-import { Product } from "@/lib/types";
-import { getProducts, addProduct, updateProduct, deleteProduct } from "@/lib/firestore-helpers";
+import { Product, Category } from "@/lib/types";
+import { getProducts, addProduct, updateProduct, deleteProduct, getCategories } from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,17 +12,22 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function InventoryPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchProducts = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const productsData = await getProducts();
+      const [productsData, categoriesData] = await Promise.all([
+          getProducts(),
+          getCategories()
+      ]);
       setProducts(productsData);
+      setCategories(categoriesData);
     } catch (error) {
       console.error("Inventory fetch error:", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
     } finally {
       setLoading(false);
     }
@@ -30,17 +35,17 @@ export default function InventoryPage() {
 
   useEffect(() => {
     if (user) {
-      fetchProducts();
+      fetchData();
     } else {
       setLoading(false);
     }
-  }, [user, fetchProducts]);
+  }, [user, fetchData]);
 
   const handleAddProduct = async (newProductData: Omit<Product, 'id'>) => {
     if (!user) return;
     try {
       await addProduct(newProductData);
-      await fetchProducts(); 
+      await fetchData(); 
       toast({ title: "Éxito", description: "Producto añadido correctamente." });
     } catch (error) {
       console.error(error);
@@ -52,7 +57,7 @@ export default function InventoryPage() {
     if (!user) return;
     try {
       await updateProduct(updatedProduct.id, updatedProduct);
-      await fetchProducts();
+      await fetchData();
       toast({ title: "Éxito", description: "Producto actualizado correctamente." });
     } catch (error) {
       console.error(error);
@@ -64,7 +69,7 @@ export default function InventoryPage() {
     if (!user) return;
     try {
       await deleteProduct(productId);
-      await fetchProducts();
+      await fetchData();
       toast({ title: "Éxito", description: "Producto eliminado correctamente." });
     } catch (error) {
       console.error(error);
@@ -79,7 +84,7 @@ export default function InventoryPage() {
           Inventario
         </h1>
         <p className="text-muted-foreground">
-          Gestiona tus productos y controla los niveles de stock.
+          Gestiona tus productos, categorías y controla los niveles de stock.
         </p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
@@ -94,6 +99,7 @@ export default function InventoryPage() {
         ) : (
           <ProductsTable
             data={products}
+            categories={categories}
             onAddProduct={handleAddProduct}
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}

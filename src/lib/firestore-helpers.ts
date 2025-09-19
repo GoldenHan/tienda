@@ -1,11 +1,11 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, serverTimestamp, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, serverTimestamp, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation } from "./types";
+import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow, Reconciliation, Category } from "./types";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -30,8 +30,6 @@ export const isInitialSetupRequired = async (): Promise<boolean> => {
         return !docSnap.exists();
     } catch (error) {
         console.error("Error checking for company doc. Assuming setup is required.", error);
-        // If we can't even check, it's safer to assume setup IS required.
-        // This can happen on a fresh project where rules are not yet fully permissive for this check.
         return true;
     }
 };
@@ -126,10 +124,8 @@ export const addEmployee = async (employeeData: EmployeeData) => {
       displayName: employeeData.name,
     });
     
-    // Set custom claim for role-based access
     await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'employee' });
 
-    // Create the user document in Firestore.
     const newEmployeeDocRef = adminDb.doc(`users/${userRecord.uid}`);
     await setDoc(newEmployeeDocRef, {
       uid: userRecord.uid,
@@ -147,6 +143,47 @@ export const addEmployee = async (employeeData: EmployeeData) => {
     throw new Error('No se pudo crear el empleado. ' + error.message);
   }
 };
+
+// --- Category Management ---
+export const getCategories = async (): Promise<Category[]> => {
+  const firestore = getDbOrThrow();
+  const categoriesCollectionRef = collection(firestore, "categories");
+  const q = query(categoriesCollectionRef, orderBy("name"));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Category));
+  } catch (error) {
+    console.error(`Error fetching categories. This is normal if the collection doesn't exist yet.`, error);
+    return [];
+  }
+};
+
+export const addCategory = async (categoryName: string) => {
+  const firestore = getDbOrThrow();
+  const categoriesCollectionRef = collection(firestore, "categories");
+  const docRef = await addDoc(categoriesCollectionRef, { name: categoryName, createdAt: serverTimestamp() });
+  await updateDoc(docRef, { id: docRef.id });
+};
+
+export const deleteCategory = async (categoryId: string) => {
+  const firestore = getDbOrThrow();
+  await runTransaction(firestore, async (transaction) => {
+    // 1. Delete the category document
+    const categoryDocRef = doc(firestore, "categories", categoryId);
+    transaction.delete(categoryDocRef);
+    
+    // 2. Find all products with this categoryId
+    const productsCollectionRef = collection(firestore, "products");
+    const q = query(productsCollectionRef, where("categoryId", "==", categoryId));
+    const productsSnapshot = await getDocs(q);
+
+    // 3. Update all found products to have an empty categoryId
+    productsSnapshot.forEach(productDoc => {
+      transaction.update(productDoc.ref, { categoryId: "" });
+    });
+  });
+};
+
 
 // --- Product Management ---
 export const getProducts = async (): Promise<Product[]> => {
@@ -166,7 +203,6 @@ export const addProduct = async (productData: Omit<Product, 'id'>) => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "products");
   const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: serverTimestamp() });
-  // Update the document with its own ID
   await updateDoc(docRef, { id: docRef.id });
 };
 
@@ -190,7 +226,6 @@ export const getSales = async (): Promise<Sale[]> => {
   const q = query(salesCollectionRef, orderBy("date", "desc"));
   try {
     const snapshot = await getDocs(q);
-    // The 'date' field is already an ISO string, so no conversion is needed here.
     return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sale));
   } catch (error) {
     console.error(`Error fetching sales. This is normal if the collection doesn't exist yet.`, error);
@@ -337,7 +372,6 @@ export const getReconciliationStatus = async (dateId: string): Promise<Reconcili
 export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status']) => {
   const firestore = getDbOrThrow();
   const reconDocRef = doc(firestore, "reconciliations", dateId);
-  // Use setDoc with merge:true to create or update the document
   await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: serverTimestamp() }, { merge: true });
 };
 

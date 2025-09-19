@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -23,16 +24,17 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { getColumns, ProductColumnActions } from "./columns"
-import { Product } from "@/lib/types"
+import { Product, Category } from "@/lib/types"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ProductForm } from "./product-form"
 
 interface ProductsTableProps extends ProductColumnActions {
   data: Product[];
+  categories: Category[];
   onAddProduct: (product: Omit<Product, 'id'>) => void;
 }
 
-export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductsTableProps) {
+export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductsTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
@@ -79,9 +81,11 @@ export function ProductsTable({ data, onAddProduct, onUpdateProduct, onDeletePro
                 Completa los detalles a continuación para añadir un nuevo producto a tu inventario.
               </DialogDescription>
             </DialogHeader>
-            <ProductForm onSubmit={(data) => {
-              onAddProduct(data);
-              setIsAddDialogOpen(false);
+            <ProductForm 
+              categories={categories}
+              onSubmit={(data) => {
+                onAddProduct(data);
+                setIsAddDialogOpen(false);
             }} />
           </DialogContent>
         </Dialog>
