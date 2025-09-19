@@ -2,72 +2,74 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-    }
-
-    function isRole(role) {
-      return isSignedIn() && getUserData().role == role;
-    }
-
-    function isCompanyMember(companyId) {
-       return isSignedIn() && getUserData().companyId == companyId;
+    // --- Functions ---
+    // Gets the user's companyId from the root /users collection
+    function getUserCompanyId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId;
     }
     
-    // USERS:
-    // - Anyone can create their own user document during sign-up.
-    // - Users can read their own document.
-    // - Admins can create new users (employees) for their company.
-    // - Admins can read all users within their company.
-    match /users/{userId} {
-      allow create: if isSignedIn(); // Allows new user registration
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if isRole('admin'); // Admins can modify users
+    // Checks if the requesting user is a member of a specific company
+    function isCompanyMember(companyId) {
+      return request.auth != null && getUserCompanyId() == companyId;
     }
 
-    // COMPANIES:
-    // - Authenticated users can create a company (part of registration).
-    // - Company members can read their own company's document.
-    // - Admins of the company can update it.
+    // Checks if the user has a specific role in their company
+    function hasRole(role) {
+      let companyId = getUserCompanyId();
+      return isCompanyMember(companyId) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == role;
+    }
+
+    // --- Rules ---
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -- Registration --
+    // Allow any authenticated user to create a company and their own user documents
     match /companies/{companyId} {
-      allow create: if isSignedIn();
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.adminUid;
+    }
+
+    match /users/{userId} {
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Allow a user to read their own lookup document
+      allow read: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // -- App Data Access --
+    match /companies/{companyId} {
+      // Allow company members to read company data
       allow read: if isCompanyMember(companyId);
-      allow update: if isRole('admin') && isCompanyMember(companyId);
+    }
+    
+    // Products Subcollection
+    match /companies/{companyId}/products/{productId} {
+      // Allow read if user is part of the company.
+      // The placeholder document is filtered out on the client-side query.
+      allow read: if isCompanyMember(companyId);
+      // Only admins can create, update, or delete products.
+      allow write: if hasRole('admin');
+    }
 
-      // SUBCOLLECTIONS
-      
-      // PRODUCTS:
-      // - Company members can read products.
-      // - Admins can create, update, and delete products.
-      match /products/{productId} {
-        // Exclude placeholder from read/write rules for regular users
-        allow read: if isCompanyMember(companyId) && resource.data.initialized != true;
-        allow write: if isRole('admin') && isCompanyMember(companyId);
-        allow create: if isRole('admin') && isCompanyMember(companyId); // Explicit create
-      }
-      
-      // SALES:
-      // - Admins can read all sales. Employees can only create them.
-      // - Any company member can create a sale (i.e., from the POS).
-      // - Admins can update/delete sales records.
-      match /sales/{saleId} {
-        allow read: if isRole('admin') && isCompanyMember(companyId) && resource.data.initialized != true;
-        allow create: if isCompanyMember(companyId);
-        allow update, delete: if isRole('admin') && isCompanyMember(companyId);
-      }
+    // Sales Subcollection
+    match /companies/{companyId}/sales/{saleId} {
+      // Allow read if user is part of the company.
+      // The placeholder document is filtered out on the client-side query.
+      allow read: if isCompanyMember(companyId);
+      // Employees can create sales (POS), but only admins can edit/delete history.
+      allow create: if hasRole('admin') || hasRole('employee');
+      allow update, delete: if hasRole('admin');
+    }
 
-      // Placeholder documents for initializing collections
-      match /products/_placeholder {
-        allow write: if isSignedIn();
-      }
-      match /sales/_placeholder {
-        allow write: if isSignedIn();
-      }
+    // Users Subcollection
+    match /companies/{companyId}/users/{userId} {
+      // Allow company members to list/read user profiles in their company
+      allow read: if isCompanyMember(companyId);
+      // Only admins can add, update, or remove users
+      allow write: if hasRole('admin');
     }
   }
 }

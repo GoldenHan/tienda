@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { getSales } from "@/lib/firestore-helpers";
@@ -15,33 +15,31 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  const fetchSales = useCallback(async (companyId: string) => {
+    setLoading(true);
+    try {
+      const salesData = await getSales(companyId);
+      setSales(salesData);
+    } catch (error) {
+      console.error("Reports fetch error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No se pudieron cargar los datos de ventas.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+
   useEffect(() => {
-    const fetchSales = async () => {
-      // Don't fetch if there's no user or companyId
-      if (!user?.companyId) {
-        setLoading(false);
-        return;
-      };
-      
-      setLoading(true);
-      try {
-        const salesData = await getSales(user.companyId);
-        setSales(salesData);
-      } catch (error) {
-        console.error("Reports fetch error:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "No se pudieron cargar los datos de ventas.",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    fetchSales();
-    
-  }, [user, toast]);
+    if (user?.companyId) {
+      fetchSales(user.companyId);
+    } else {
+      setLoading(false);
+    }
+  }, [user, fetchSales]);
 
   if (loading) {
     return (
