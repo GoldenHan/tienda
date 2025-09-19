@@ -9,6 +9,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isInitialSetupRequired, createInitialAdminUser } from "@/lib/actions/setup";
 import { useToast } from "@/hooks/use-toast";
+import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -64,6 +65,17 @@ export default function RegisterPage() {
     setIsLoading(true);
     try {
       await createInitialAdminUser(values);
+
+      // --- TOKEN REFRESH LOGIC ---
+      // This is crucial to get the custom claims on the client right after registration.
+      const auth = getAuth();
+      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
+      if (userCredential.user) {
+        await userCredential.user.getIdToken(true); // Force refresh
+      }
+      await signOut(auth); // Sign out silently
+      // --- END TOKEN REFRESH LOGIC ---
+
       toast({
         title: "¡Empresa Registrada!",
         description: "Has creado la cuenta de administrador. Ahora inicia sesión.",
