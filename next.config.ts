@@ -1,3 +1,4 @@
+
 import type {NextConfig} from 'next';
 
 const nextConfig: NextConfig = {
@@ -36,9 +37,9 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Allow all origins in development to prevent CORS issues.
+  allowedDevOrigins: ['*'],
   experimental: {
-    // Allow all origins in development to prevent CORS issues.
-    allowedDevOrigins: ['*'],
   },
 };
 
