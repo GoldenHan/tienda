@@ -80,12 +80,17 @@ export default function DashboardPage() {
     );
   }
 
+  const welcomeMessage = user ? `¡Bienvenido de nuevo, ${user.name.split(' ')[0]}!` : "Panel de Control";
+
   return (
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
-          Panel de Control
+          {welcomeMessage}
         </h1>
+        <p className="text-muted-foreground">
+          Aquí tienes un resumen de la actividad de tu negocio.
+        </p>
       </header>
       <main className="grid flex-1 gap-4 p-4 sm:grid-cols-2 lg:grid-cols-4 sm:p-6">
         <StatCard

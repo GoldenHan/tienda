@@ -33,11 +33,22 @@ export default function RegisterPage() {
 
   useEffect(() => {
     async function checkSetup() {
-      const required = await isInitialSetupRequired();
-      setSetupRequired(required);
+      try {
+        const required = await isInitialSetupRequired();
+        setSetupRequired(required);
+      } catch (error) {
+        console.error("Error checking setup status:", error);
+        toast({
+            variant: "destructive",
+            title: "Error de Verificación",
+            description: "No se pudo comprobar el estado de la configuración. Revisa las reglas de Firestore y la conexión."
+        });
+        // We assume setup is not required to prevent locking out users if there's a misconfiguration.
+        setSetupRequired(false);
+      }
     }
     checkSetup();
-  }, []);
+  }, [toast]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -73,7 +84,7 @@ export default function RegisterPage() {
   const renderContent = () => {
     if (setupRequired === null) {
       return (
-        <div className="space-y-4">
+        <div className="space-y-4 p-6">
           <Skeleton className="h-8 w-3/4" />
           <Skeleton className="h-4 w-1/2" />
           <div className="space-y-2 pt-4">

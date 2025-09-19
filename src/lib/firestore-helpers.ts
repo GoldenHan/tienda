@@ -35,6 +35,10 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
         throw new Error("Setup is not required. An admin user already exists.");
     }
     
+    if (!adminAuth || !adminDb) {
+      throw new Error("Firebase Admin SDK is not initialized.");
+    }
+
     // Create Auth user using Admin SDK
     const userRecord = await adminAuth.createUser({
         email: data.email,
@@ -100,6 +104,9 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const addEmployee = async (employeeData: EmployeeData) => {
+    if (!adminAuth || !adminDb) {
+      throw new Error("Firebase Admin SDK is not initialized.");
+    }
   try {
     const userRecord = await adminAuth.createUser({
       email: employeeData.email,
