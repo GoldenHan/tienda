@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, EmployeeData, Product, Sale } from "@/lib/types";
+import type { InitialAdminData, User, Category, EmployeeData, Product, Sale, CashOutflow, Inflow } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
