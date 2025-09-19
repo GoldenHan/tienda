@@ -18,21 +18,20 @@ function getDbOrThrow() {
 // --- Initial Setup and Company Info ---
 
 /**
- * Checks if the initial setup (admin user creation) is required.
- * @returns {Promise<boolean>} True if the 'users' collection is empty.
+ * Checks if the initial setup (company creation) is required.
+ * @returns {Promise<boolean>} True if the 'company/main' document does not exist.
  */
 export const isInitialSetupRequired = async (): Promise<boolean> => {
     const firestore = getDbOrThrow();
-    const usersCollectionRef = collection(firestore, "users");
-    const q = query(usersCollectionRef, limit(1));
-    const snapshot = await getDocs(q);
-    return snapshot.empty;
+    const companyDocRef = doc(firestore, "company", "main");
+    const docSnap = await getDoc(companyDocRef);
+    return !docSnap.exists();
 };
 
 export const createInitialAdminUser = async (data: InitialAdminData) => {
     const isSetupNeeded = await isInitialSetupRequired();
     if (!isSetupNeeded) {
-        throw new Error("Setup is not required. An admin user already exists.");
+        throw new Error("Setup is not required. A company already exists.");
     }
     
     if (!adminAuth || !adminDb) {
