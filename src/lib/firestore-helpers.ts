@@ -24,8 +24,15 @@ function getDbOrThrow() {
 export const isInitialSetupRequired = async (): Promise<boolean> => {
     const firestore = getDbOrThrow();
     const companyDocRef = doc(firestore, "company", "main");
-    const docSnap = await getDoc(companyDocRef);
-    return !docSnap.exists();
+    try {
+        const docSnap = await getDoc(companyDocRef);
+        return !docSnap.exists();
+    } catch (error) {
+        console.error("Error checking for company doc. Assuming setup is required.", error);
+        // If we can't even check, it's safer to assume setup is needed.
+        // This can happen on a fresh project where rules are not yet fully permissive for this check.
+        return true;
+    }
 };
 
 export const createInitialAdminUser = async (data: InitialAdminData) => {
@@ -289,3 +296,4 @@ export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
   // Update the document with its own ID
   await updateDoc(docRef, { id: docRef.id });
 };
+
