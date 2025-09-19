@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -13,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2, UploadCloud } from "lucide-react";
 import { uploadImage } from "@/lib/storage-helpers";
 import { Textarea } from "../ui/textarea";
+import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -63,28 +65,41 @@ export function ProductForm({ product, onSubmit, isSubmitting }: ProductFormProp
 
   const handleFormSubmit = async (data: ProductFormData) => {
     setIsUploading(true);
-    let imageUrl = product?.imageUrl || ""; // Keep old image if no new one is uploaded
+    let finalImageUrl = product?.imageUrl || "";
+    let finalImageHint = product?.imageHint || "producto";
 
     try {
+      // Si se seleccionó un nuevo archivo, súbelo a Storage
       if (imageFile) {
-        imageUrl = await uploadImage(imageFile);
+        finalImageUrl = await uploadImage(imageFile);
+        finalImageHint = imageFile.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || 'producto';
         toast({
           title: "Imagen Subida",
-          description: "La nueva imagen del producto se ha guardado.",
+          description: "La nueva imagen del producto se ha guardado en Firebase Storage.",
         });
-      } else if (!imageUrl) {
-        toast({
+      } else if (!product) {
+        // Si es un producto nuevo y NO se subió imagen, usa un placeholder
+        const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
+        finalImageUrl = randomPlaceholder.imageUrl;
+        finalImageHint = randomPlaceholder.imageHint;
+         toast({
+          title: "Imagen de Ejemplo Asignada",
+          description: "Se ha asignado una imagen de ejemplo. Puedes cambiarla editando el producto.",
+        });
+      }
+      
+      // Si llegamos aquí sin una URL de imagen, algo salió mal
+      if (!finalImageUrl) {
+         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Debes seleccionar una imagen para el producto.",
+          title: "Error de Imagen",
+          description: "No se pudo determinar la imagen para el producto.",
         });
         setIsUploading(false);
         return;
       }
-      
-      const imageHint = imageFile?.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || product?.imageHint || 'producto';
 
-      onSubmit({ ...data, imageUrl, imageHint });
+      onSubmit({ ...data, imageUrl: finalImageUrl, imageHint: finalImageHint });
 
     } catch (error) {
       console.error("Error al subir imagen o guardar producto:", error);

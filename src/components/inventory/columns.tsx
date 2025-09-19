@@ -1,7 +1,9 @@
+
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
 import Image from "next/image"
+import { Package } from "lucide-react"
 
 import { Product } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
@@ -30,15 +32,23 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct }: ProductColumnAc
     },
     cell: ({ row }) => {
       const product = row.original
+      const hasImage = product.imageUrl && product.imageUrl.startsWith('http');
+      
       return (
         <div className="flex items-center gap-4">
-          <Image
-            src={product.imageUrl}
-            alt={product.name}
-            width={40}
-            height={40}
-            className="rounded-md object-cover"
-          />
+          <div className="h-10 w-10 flex-shrink-0 rounded-md bg-muted flex items-center justify-center">
+             {hasImage ? (
+                <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    width={40}
+                    height={40}
+                    className="rounded-md object-cover h-full w-full"
+                />
+            ) : (
+                <Package className="h-5 w-5 text-muted-foreground" />
+            )}
+          </div>
           <div className="flex flex-col">
             <span className="font-medium">{product.name}</span>
             <span className="text-sm text-muted-foreground truncate max-w-xs">{product.description}</span>
