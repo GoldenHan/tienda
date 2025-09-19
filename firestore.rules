@@ -1,27 +1,46 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Allow public read access to check if setup is needed, but only for listing.
-    match /companies/{companyId} {
-      allow list: if true;
-      allow read, write: if request.auth != null && request.auth.token.companyId == companyId && request.auth.token.role == 'admin';
-
-      // Allow access to subcollections for authenticated users of the same company
-      match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null && request.auth.token.companyId == companyId;
-      }
+    
+    // Helper function to check if a user belongs to the company they're trying to access.
+    // It checks the custom claim 'companyId' set on the user's auth token.
+    function isMemberOfCompany(companyId) {
+      return request.auth != null && request.auth.token.companyId == companyId;
+    }
+    
+    // Helper function to check if the user is an admin of the company.
+    function isAdmin(companyId) {
+      return isMemberOfCompany(companyId) && request.auth.token.role in ['admin', 'primary-admin'];
     }
 
+    // Allow anyone to check if the companies collection is empty for initial setup.
+    // This is safe because it only allows 'list' (checking existence) but not 'get' (reading data).
+    match /companies {
+      allow list: if true;
+      allow get: if false; 
+    }
+    
+    // Allow an admin to read the details of their own company document.
+    match /companies/{companyId} {
+        allow get: if isAdmin(companyId);
+    }
+
+    // Rules for all subcollections within a company (products, sales, etc.)
+    match /companies/{companyId}/{document=**} {
+      // Admins have full read/write access to all company data.
+      allow read, write: if isAdmin(companyId);
+      
+      // Specific permissions for employees.
+      allow read: if isMemberOfCompany(companyId) && resource.parent.id in ['products', 'categories'];
+      allow create: if isMemberOfCompany(companyId) && resource.parent.id == 'sales';
+    }
+
+    // Users can read their own profile data.
+    // Admins can see the list of all users in their company.
     match /users/{userId} {
-      // Allow a user to read their own document.
       allow get: if request.auth != null && request.auth.uid == userId;
-      // Allow admins of the same company to list all users.
-      allow list: if request.auth != null && request.auth.token.role == 'admin';
-      // Allow admins to create/update users.
-      allow write: if request.auth != null && request.auth.token.role == 'admin';
+      allow list: if request.auth != null && isAdmin(request.resource.data.companyId);
     }
   }
 }
