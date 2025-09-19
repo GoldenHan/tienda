@@ -1,7 +1,7 @@
 
 "use server";
 
-import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, serverTimestamp, where, writeBatch } from "firebase/firestore";
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -162,7 +162,7 @@ export const getCategories = async (): Promise<Category[]> => {
 export const addCategory = async (categoryName: string) => {
   const firestore = getDbOrThrow();
   const categoriesCollectionRef = collection(firestore, "categories");
-  const docRef = await addDoc(categoriesCollectionRef, { name: categoryName, createdAt: serverTimestamp() });
+  const docRef = await addDoc(categoriesCollectionRef, { name: categoryName, createdAt: FieldValue.serverTimestamp() });
   await updateDoc(docRef, { id: docRef.id });
 };
 
@@ -203,7 +203,7 @@ export const getProducts = async (): Promise<Product[]> => {
 export const addProduct = async (productData: Omit<Product, 'id'>) => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "products");
-  const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: serverTimestamp() });
+  const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: FieldValue.serverTimestamp() });
   await updateDoc(docRef, { id: docRef.id });
 };
 
@@ -373,7 +373,7 @@ export const getReconciliationStatus = async (dateId: string): Promise<Reconcili
 export const updateReconciliationStatus = async (dateId: string, status: Reconciliation['status']) => {
   const firestore = getDbOrThrow();
   const reconDocRef = doc(firestore, "reconciliations", dateId);
-  await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: serverTimestamp() }, { merge: true });
+  await setDoc(reconDocRef, { id: dateId, status: status, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 };
 
 export const getClosedReconciliations = async (): Promise<Reconciliation[]> => {
