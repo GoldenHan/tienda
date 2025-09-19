@@ -5,7 +5,7 @@ import {
   collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, runTransaction, setDoc, getDoc, where, writeBatch 
 } from "firebase/firestore";
 import { firestore as db } from "./firebase/client";
-import { adminDb } from "./firebase/server";
+import { adminDb, FieldValue } from "./firebase/server";
 import { Product, Sale, User, EmployeeData, CashOutflow, Inflow, Reconciliation, Category, SaleItem } from "./types";
 import { addEmployee as addEmployeeAuth } from './actions/users';
 
@@ -238,7 +238,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
     for (const [productId, delta] of quantityDeltas.entries()) {
       if (delta !== 0) {
         const productRef = doc(db, `companies/${companyId}/products`, productId);
-        transaction.update(productRef, { quantity: adminDb.FieldValue.increment(delta) });
+        transaction.update(productRef, { quantity: FieldValue.increment(delta) });
       }
     }
     
