@@ -10,15 +10,7 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-
-// This is the augmented User type we'll use throughout the app
-interface AppUser {
-  uid: string;
-  email: string | null;
-  name: string | null;
-  role: "admin" | "employee";
-  companyId: string;
-}
+import type { User as AppUser } from "@/lib/types";
 
 // The full user object exposed by the context will be the FirebaseUser merged with our AppUser
 export type AuthUser = FirebaseUser & AppUser;
@@ -49,40 +41,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (firebaseUser) {
         setLoading(true);
         try {
-          // STEP 1: Get the user's companyId from the root /users/{uid} lookup document.
-          // This read is allowed by our new security rules.
-          const userLookupRef = doc(db, "users", firebaseUser.uid);
-          const userLookupSnap = await getDoc(userLookupRef);
-
-          if (!userLookupSnap.exists()) {
-            throw new Error("User lookup document not found. The user might not have a company assigned.");
-          }
-          
-          const { companyId } = userLookupSnap.data() as { companyId: string };
-          
-          // STEP 2: Fetch the user's full profile from within the company's subcollection.
-          // This read is now permitted because we are using the validated companyId.
-          const userDocRef = doc(db, "companies", companyId, "users", firebaseUser.uid);
+          // Fetch the user's data from the root /users collection
+          const userDocRef = doc(db, "users", firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
           if (!userDocSnap.exists()) {
-            throw new Error(`User document not found in company ${companyId}.`);
+            throw new Error("User document not found in root /users collection.");
           }
 
-          const userData = userDocSnap.data() as Omit<AppUser, 'uid' | 'email' | 'companyId'>;
+          const userData = userDocSnap.data() as AppUser;
 
-          // Merge Firebase user with our custom user data to create the final user object
+          // Merge Firebase user with our custom user data
           setUser({
             ...firebaseUser,
-            name: userData.name,
-            role: userData.role,
-            companyId: companyId,
+            ...userData
           });
 
         } catch (error) {
           console.error("Auth context error:", error);
-          // If any step fails, the user is not fully authenticated in our system.
-          // Sign them out to prevent being in a broken state.
+          // Sign out if there's any error fetching the user's profile
           await signOut(auth);
           setUser(null);
         } finally {
@@ -114,7 +91,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     loading,
     login,
     logout,
-    // We don't expose register here anymore as it's a one-off flow
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

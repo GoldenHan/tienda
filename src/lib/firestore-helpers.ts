@@ -46,8 +46,8 @@ export const getCompany = async (companyId: string): Promise<Company | null> => 
 // --- User Management ---
 export const getUsers = async (companyId: string): Promise<User[]> => {
   const firestore = getDbOrThrow();
-  const usersCollectionRef = collection(firestore, "companies", companyId, "users");
-  const q = query(usersCollectionRef, orderBy("name"));
+  const usersCollectionRef = collection(firestore, "users");
+  const q = query(usersCollectionRef, where("companyId", "==", companyId), orderBy("name"));
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => doc.data() as User);
 };
@@ -59,28 +59,20 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
   }
   
   try {
+    // Create user in Auth
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
     const newUser = userCredential.user;
 
-    const batch = writeBatch(firestore);
-
-    // Create user profile in company subcollection
-    const userDocRef = doc(firestore, "companies", companyId, "users", newUser.uid);
-    batch.set(userDocRef, {
+    // Create user document in the root /users collection
+    const userDocRef = doc(firestore, "users", newUser.uid);
+    await setDoc(userDocRef, {
       uid: newUser.uid,
       name: employeeData.name,
       email: employeeData.email,
       role: "employee",
+      companyId: companyId,
       createdAt: new Date(),
     });
-
-    // Create root lookup document
-    const userLookupDocRef = doc(firestore, "users", newUser.uid);
-    batch.set(userLookupDocRef, {
-      companyId: companyId
-    });
-
-    await batch.commit();
 
   } catch(error: any) {
      if (error.code === 'auth/email-already-in-use') {

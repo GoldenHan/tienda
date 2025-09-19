@@ -1,4 +1,3 @@
-
 export type Product = {
   id: string;
   name: string;
@@ -48,17 +47,23 @@ export type InventoryData = {
 };
 
 // This represents the document in /companies/{companyId}/users/{userId}
+// This is more of a profile, the core auth data is in UserLookup
+export type UserProfile = {
+  uid: string;
+  name: string;
+  email: string;
+  createdAt: any;
+};
+
+// This represents the document in the root /users/{userId} collection
+// It is the source of truth for authorization
 export type User = {
   uid: string;
   name: string;
   email: string;
   role: 'admin' | 'employee';
-  createdAt: any; 
-};
-
-// This represents the document in /users/{userId}
-export type UserLookup = {
   companyId: string;
+  createdAt: any;
 };
 
 export type EmployeeData = {

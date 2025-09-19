@@ -76,30 +76,26 @@ export default function RegisterPage() {
           createdAt: new Date(),
       });
 
-      // 3. Create the user document within the new company's subcollection
-      const userDocRef = doc(db, "companies", companyDocRef.id, "users", adminUser.uid);
+      // 3. Create the user document in the root /users collection
+      // This is the source of truth for roles and company association
+      const userDocRef = doc(db, "users", adminUser.uid);
       batch.set(userDocRef, {
           uid: adminUser.uid,
           email: values.email,
           name: values.adminName,
           role: "admin",
+          companyId: companyDocRef.id,
           createdAt: new Date(),
       });
-
-      // 4. Create the root user lookup document to find the company later
-      const userLookupDocRef = doc(db, "users", adminUser.uid);
-      batch.set(userLookupDocRef, {
-        companyId: companyDocRef.id
-      });
       
-      // 5. Initialize subcollections by adding a placeholder document
+      // 4. Initialize subcollections by adding a placeholder document
       const productsCollectionRef = collection(db, "companies", companyDocRef.id, "products");
       const salesCollectionRef = collection(db, "companies", companyDocRef.id, "sales");
       batch.set(doc(productsCollectionRef, "_placeholder"), { initialized: true });
       batch.set(doc(salesCollectionRef, "_placeholder"), { initialized: true });
 
 
-      // 6. Commit the batch transaction
+      // 5. Commit the batch transaction
       await batch.commit();
       
       toast({

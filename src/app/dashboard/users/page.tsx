@@ -26,14 +26,16 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const usersData = await getUsers(companyId);
-      setUsers(usersData);
+      // Filter out the current user from the list to not show them
+      const otherUsers = usersData.filter(u => u.uid !== user?.uid);
+      setUsers(otherUsers);
     } catch (error) {
       console.error("Users fetch error:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los usuarios.' });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, [toast, user?.uid]);
 
   useEffect(() => {
     if (user?.companyId) {
@@ -123,27 +125,27 @@ export default function UsersPage() {
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
         {users.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center p-8 border rounded-lg h-64">
-                <h3 className="text-xl font-semibold">No hay usuarios registrados</h3>
+                <h3 className="text-xl font-semibold">No hay empleados registrados</h3>
                 <p className="text-muted-foreground mt-2">
-                Añade tu primer empleado para empezar.
+                Añade tu primer empleado para empezar a construir tu equipo.
                 </p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {users.map(user => (
-                    <Card key={user.uid}>
+                {users.map(u => (
+                    <Card key={u.uid}>
                         <CardHeader className="flex flex-row items-center justify-between">
                             <div className="flex items-center gap-4">
                                 <Avatar>
-                                    <AvatarFallback>{getInitials(user.name)}</AvatarFallback>
+                                    <AvatarFallback>{getInitials(u.name)}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <CardTitle className="text-base">{user.name}</CardTitle>
-                                    <CardDescription>{user.email}</CardDescription>
+                                    <CardTitle className="text-base">{u.name}</CardTitle>
+                                    <CardDescription>{u.email}</CardDescription>
                                 </div>
                             </div>
-                            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                {user.role === 'admin' ? 'Admin' : 'Empleado'}
+                            <Badge variant={u.role === 'admin' ? 'default' : 'secondary'}>
+                                {u.role === 'admin' ? 'Admin' : 'Empleado'}
                             </Badge>
                         </CardHeader>
                     </Card>
