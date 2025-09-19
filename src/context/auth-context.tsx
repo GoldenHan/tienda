@@ -37,24 +37,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setLoading(true);
         try {
-          // Force refresh to get custom claims
+          // 1. Force refresh the token to get the latest custom claims.
           await firebaseUser.getIdToken(true);
           
-          // Fetch the user's data from the root /users collection
+          // 2. Fetch the user's profile from the /users collection.
           const userDocRef = doc(db, "users", firebaseUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
           if (!userDocSnap.exists()) {
-            throw new Error("User document not found in root /users collection.");
+            // This can happen if the user was deleted from Firestore but not Auth.
+            // Treat this as a logout.
+            throw new Error("User document not found in /users collection.");
           }
 
           const userData = userDocSnap.data() as AppUser;
 
-          // Merge Firebase user with our custom user data
+          // 3. Merge Firebase user with our custom user data.
           setUser({
             ...firebaseUser,
             ...userData
@@ -62,7 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         } catch (error) {
           console.error("Auth context error:", error);
-          // Sign out if there's any error fetching the user's profile
+          // If there's any error (e.g., fetching profile fails due to permissions or missing doc),
+          // sign out to prevent an inconsistent state.
           await signOut(auth);
           setUser(null);
         } finally {
