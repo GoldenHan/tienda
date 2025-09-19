@@ -1,72 +1,158 @@
+'use server';
 
-"use server";
+import { getFirestore, FieldValue, DocumentReference } from "firebase-admin/firestore";
+import type { InitialAdminData, User, Category, EmployeeData } from "@/lib/types";
+import { collection, doc, getDoc, setDoc, writeBatch, query, where, orderBy, getDocs } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+import adminApp from "../firebase/server";
 
-import { adminAuth, adminDb, FieldValue } from "../firebase/server";
-import type { InitialAdminData } from "@/lib/types";
+const adminDb = getFirestore(adminApp);
+const adminAuth = getAuth(adminApp);
 
+// -----------------
+// Helpers Admin
+// -----------------
+const getAdminDbOrThrow = () => {
+  if (!adminDb) throw new Error("La base de datos de administrador no está configurada.");
+  return adminDb;
+};
+
+const getAdminAuthOrThrow = () => {
+  if (!adminAuth) throw new Error("La autenticación de administrador no está configurada.");
+  return adminAuth;
+};
+
+const getCompanyIdForUser = async (userId: string): Promise<string> => {
+    const db = getAdminDbOrThrow();
+    const userRef = doc(db, "users", userId);
+    const userSnap = await getDoc(userRef);
+    if (!userSnap.exists() || !userSnap.data()?.companyId) {
+        throw new Error("Usuario no asociado a ninguna empresa.");
+    }
+    return userSnap.data()!.companyId;
+};
+
+// -----------------
+// Setup inicial
+// -----------------
 export const isInitialSetupRequired = async (): Promise<boolean> => {
-  try {
-    const snapshot = await adminDb.collection("companies").limit(1).get();
-    return snapshot.empty;
-  } catch (error) {
-    console.error("Error checking initial setup:", error);
-    return true; 
-  }
+  const db = getAdminDbOrThrow();
+  const companiesCol = collection(db, "companies");
+  const snapshot = await getDocs(query(companiesCol, orderBy("createdAt")));
+  return snapshot.empty;
 };
 
 export const createInitialAdminUser = async (data: InitialAdminData) => {
   const secretCode = process.env.REGISTRATION_SECRET_CODE;
-
   if (!secretCode || data.secretCode !== secretCode) {
     throw new Error("El código secreto de registro no es válido.");
   }
 
-  try {
-    const isSetupNeeded = await isInitialSetupRequired();
-    if (!isSetupNeeded) {
-      throw new Error("Setup is not required. A company already exists.");
-    }
-
-    const companyDocRef = adminDb.collection("companies").doc();
-
-    const userRecord = await adminAuth.createUser({
-      email: data.email,
-      password: data.password,
-      displayName: data.adminName,
-    });
-
-    await adminAuth.setCustomUserClaims(userRecord.uid, {
-      role: "admin",
-      companyId: companyDocRef.id,
-    });
-
-    const batch = adminDb.batch();
-
-    batch.set(companyDocRef, {
-      id: companyDocRef.id,
-      name: data.companyName,
-      ownerUid: userRecord.uid,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    const userDocRef = adminDb.doc(`users/${userRecord.uid}`);
-    batch.set(userDocRef, {
-      uid: userRecord.uid,
-      name: data.adminName,
-      email: data.email,
-      role: "admin",
-      companyId: companyDocRef.id,
-      createdAt: FieldValue.serverTimestamp(),
-    });
-
-    await batch.commit();
-
-    return { uid: userRecord.uid, companyId: companyDocRef.id };
-  } catch (error: any) {
-    console.error("Error creating initial admin:", error);
-    if (error.code === 'auth/email-already-exists') {
-        throw new Error("Este correo electrónico ya está en uso por otro usuario.");
-    }
-    throw new Error(error.message || "Ocurrió un error desconocido durante el registro.");
+  const setupNeeded = await isInitialSetupRequired();
+  if (!setupNeeded) {
+    throw new Error("La configuración inicial ya se ha realizado. No se pueden registrar más empresas.");
   }
+
+  const db = getAdminDbOrThrow();
+  const auth = getAdminAuthOrThrow();
+  const companyRef = doc(collection(db, "companies")) as DocumentReference;
+  const userRecord = await auth.createUser({
+    email: data.email,
+    password: data.password,
+    displayName: data.adminName,
+  });
+
+  await auth.setCustomUserClaims(userRecord.uid, {
+    role: "admin",
+    companyId: companyRef.id,
+  });
+
+  const batch = writeBatch(db);
+
+  batch.set(companyRef, {
+    id: companyRef.id,
+    name: data.companyName,
+    ownerUid: userRecord.uid,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  const userRef = doc(db, `users/${userRecord.uid}`);
+  batch.set(userRef, {
+    uid: userRecord.uid,
+    name: data.adminName,
+    email: data.email,
+    role: "admin",
+    companyId: companyRef.id,
+    createdAt: FieldValue.serverTimestamp(),
+  });
+
+  await batch.commit();
+
+  return { uid: userRecord.uid, companyId: companyRef.id };
+};
+
+// -----------------
+// Gestión de usuarios
+// -----------------
+export const addEmployee = async (employeeData: EmployeeData, adminUserId: string) => {
+    const auth = getAdminAuthOrThrow();
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(adminUserId);
+
+    try {
+        const userRecord = await auth.createUser({
+            email: employeeData.email,
+            password: employeeData.password,
+            displayName: employeeData.name,
+        });
+        
+        await auth.setCustomUserClaims(userRecord.uid, { role: 'employee', companyId });
+
+        const newEmployeeDocRef = doc(db, `users/${userRecord.uid}`);
+        await setDoc(newEmployeeDocRef, {
+            uid: userRecord.uid,
+            name: employeeData.name,
+            email: employeeData.email,
+            role: "employee",
+            companyId: companyId,
+            createdAt: FieldValue.serverTimestamp(),
+        });
+
+        return { uid: userRecord.uid };
+
+    } catch(error: any) {
+        if (error.code === 'auth/email-already-exists') {
+            throw new Error('Este correo electrónico ya está registrado.');
+        }
+        console.error("Error creating employee:", error);
+        throw new Error('No se pudo crear el empleado. ' + error.message);
+    }
+};
+
+export const getUsers = async (userId: string): Promise<User[]> => {
+  const db = getAdminDbOrThrow();
+  const companyId = await getCompanyIdForUser(userId);
+
+  const usersCol = collection(db, "users");
+  const q = query(usersCol, where("companyId", "==", companyId), orderBy("name"));
+  const snapshot = await getDocs(q);
+
+  return snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Aseguramos que `createdAt` sea un string serializable
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
+      return { ...data, id: doc.id, uid: doc.id, createdAt } as User;
+  });
+};
+
+// -----------------
+// Gestión de categorías
+// -----------------
+export const getCategories = async (userId: string): Promise<Category[]> => {
+  const db = getAdminDbOrThrow();
+  const companyId = await getCompanyIdForUser(userId);
+  const categoriesCol = collection(db, `companies/${companyId}/categories`);
+  const q = query(categoriesCol, orderBy("name"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Category));
 };
