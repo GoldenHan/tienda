@@ -2,41 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isRole(role) {
-      return isSignedIn() && request.auth.token.role == role;
-    }
-
-    // USER-OWNED DATA: Users can only read/write their own document
-    match /users/{userId} {
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
-      // Admins can also manage users
-      allow list, get, create, update, delete: if isRole('admin');
-    }
-
-    // COMPANY INFO: Read-only for all signed-in users, writable only by admins
-    match /company/{docId} {
-      allow read: if isSignedIn();
-      allow write: if isRole('admin');
-    }
-
-    // PRODUCTS: Read-only for all, writeable by admins
-    match /products/{productId} {
-      allow read: if isSignedIn();
-      allow write: if isRole('admin');
-    }
-
-    // SALES: Readable by all, employees/admins can create, only admins can update
-    match /sales/{saleId} {
-      allow read: if isSignedIn();
-      allow create: if isRole('admin') || isRole('employee');
-      allow update: if isRole('admin');
-      allow delete: if false; // Deleting sales is not allowed from the client
+    match /{document=**} {
+      // For this single-company application, any authenticated user can read/write all data.
+      // Access is controlled by who has an account, which is managed by the admin.
+      allow read, write: if request.auth != null;
     }
   }
 }
