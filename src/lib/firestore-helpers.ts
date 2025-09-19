@@ -8,8 +8,8 @@ import { Product, Sale, User, EmployeeData, InitialAdminData } from "./types";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
-  if (!db) {
-    throw new Error("Firebase is not configured. Please check your .env file.");
+  if (!db || !adminDb || !adminAuth) {
+    throw new Error("Firebase is not configured. Please check your .env file and service account key.");
   }
   return db;
 }
@@ -42,16 +42,19 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
         displayName: data.adminName,
     });
     const newUser = userRecord;
+    
+    // Set custom claim for role-based access
+    await adminAuth.setCustomUserClaims(newUser.uid, { role: 'admin' });
 
     const batch = writeBatch(adminDb);
 
-    // Create user document in Firestore
+    // Create user document in Firestore which will trigger the Cloud Function
     const userDocRef = doc(adminDb, "users", newUser.uid);
     batch.set(userDocRef, {
         uid: newUser.uid,
         name: data.adminName,
         email: data.email,
-        role: "admin",
+        role: "admin", // This field triggers the function to set claims
         createdAt: serverTimestamp(),
     });
     
@@ -105,7 +108,11 @@ export const addEmployee = async (employeeData: EmployeeData) => {
       displayName: employeeData.name,
     });
     const newUser = userRecord;
+    
+    // Set custom claim for role-based access
+    await adminAuth.setCustomUserClaims(newUser.uid, { role: 'employee' });
 
+    // Create the user document in Firestore. This will also trigger the function to set claims again, which is fine.
     const newEmployeeDocRef = doc(adminDb, "users", newUser.uid);
     await setDoc(newEmployeeDocRef, {
       uid: newUser.uid,

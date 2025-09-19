@@ -4,46 +4,39 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // Helper Functions
-    function isAuth() {
+    function isSignedIn() {
       return request.auth != null;
     }
 
     function isRole(role) {
-      // Safely access role from the user's custom claims, if they exist
-      return isAuth() && request.auth.token.role == role;
+      return isSignedIn() && request.auth.token.role == role;
     }
 
-    function isEmployee() {
-      return isAuth() && (request.auth.token.role == 'admin' || request.auth.token.role == 'employee');
-    }
-    
-    // Allow anyone to check if users exist for initial setup
+    // USER-OWNED DATA: Users can only read/write their own document
     match /users/{userId} {
-      allow list: if true;
-      allow read, write: if isAuth() && request.auth.uid == userId;
-    }
-    
-    match /company/main {
-      allow read: if isAuth();
-      allow create, write: if isRole('admin');
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      // Admins can also manage users
+      allow list, get, create, update, delete: if isRole('admin');
     }
 
-    match /products/{productId} {
-      // Any authenticated employee can read products
-      allow read: if isEmployee();
-      // Only admins can write products
+    // COMPANY INFO: Read-only for all signed-in users, writable only by admins
+    match /company/{docId} {
+      allow read: if isSignedIn();
       allow write: if isRole('admin');
     }
 
+    // PRODUCTS: Read-only for all, writeable by admins
+    match /products/{productId} {
+      allow read: if isSignedIn();
+      allow write: if isRole('admin');
+    }
+
+    // SALES: Readable by all, employees/admins can create, only admins can update
     match /sales/{saleId} {
-      // Any authenticated employee can read sales
-      allow read: if isEmployee();
-      // Any authenticated employee can create a sale
-      allow create: if isEmployee();
-      // Only admins can update a sale
+      allow read: if isSignedIn();
+      allow create: if isRole('admin') || isRole('employee');
       allow update: if isRole('admin');
-      // No one can delete a sale from the client
-      allow delete: if false;
+      allow delete: if false; // Deleting sales is not allowed from the client
     }
   }
 }
