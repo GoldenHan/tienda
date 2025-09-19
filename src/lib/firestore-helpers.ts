@@ -4,7 +4,7 @@
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
-import { Product, Sale, User, EmployeeData, InitialAdminData } from "./types";
+import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow } from "./types";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -265,4 +265,28 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
     console.error("Falló la transacción de actualización de venta:", e);
     throw e;
   }
+};
+
+
+// --- Cash Outflows (Egresos) Management ---
+
+export const getCashOutflows = async (): Promise<CashOutflow[]> => {
+  const firestore = getDbOrThrow();
+  const outflowsCollectionRef = collection(firestore, "cash_outflows");
+  const q = query(outflowsCollectionRef, orderBy("date", "desc"));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as CashOutflow));
+  } catch (error) {
+    console.error(`Error fetching cash outflows:`, error);
+    throw error;
+  }
+};
+
+export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
+  const firestore = getDbOrThrow();
+  const outflowsCollectionRef = collection(firestore, "cash_outflows");
+  const docRef = await addDoc(outflowsCollectionRef, { ...outflowData });
+  // Update the document with its own ID
+  await updateDoc(docRef, { id: docRef.id });
 };

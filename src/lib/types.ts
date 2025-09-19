@@ -35,6 +35,13 @@ export type Inflow = {
   date: string;
 };
 
+export type CashOutflow = {
+  id: string;
+  date: string;
+  amount: number;
+  reason: string;
+};
+
 export type SalesData = {
   month: string;
   sales: number;

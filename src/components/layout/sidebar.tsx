@@ -10,7 +10,8 @@ import {
   Settings,
   ShoppingCart,
   Tablet,
-  Users
+  Users,
+  PiggyBank,
 } from 'lucide-react'
 
 import {
@@ -29,12 +30,13 @@ import { useAuth } from '@/context/auth-context'
 
 const links = [
   { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard, adminOnly: false },
+  { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
   { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, adminOnly: true },
   { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart, adminOnly: true },
-  { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
+  { href: '/dashboard/cash-reconciliation', label: 'Arqueos', icon: PiggyBank, adminOnly: true },
   { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3, adminOnly: true },
-  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: true },
   { href: '/dashboard/users', label: 'Usuarios', icon: Users, adminOnly: true },
+  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: true },
 ]
 
 interface AppSidebarProps {
