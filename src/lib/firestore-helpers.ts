@@ -165,7 +165,6 @@ export const addCategory = async (categoryName: string) => {
   await setDoc(newCategoryRef, { 
     id: newCategoryRef.id,
     name: categoryName, 
-    createdAt: new Date().toISOString() 
   });
 };
 
@@ -402,5 +401,7 @@ export const getClosedReconciliations = async (): Promise<Reconciliation[]> => {
         return [];
     }
 };
+
+    
 
     
