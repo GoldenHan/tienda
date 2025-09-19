@@ -334,10 +334,10 @@ const addSubcollectionDoc = async (userId: string, subcollectionName: string, da
 }
 
 export const getCashOutflows = (userId: string): Promise<CashOutflow[]> => getSubcollection<CashOutflow>(userId, "cash_outflows");
-export const addCashOutflow = (outflowData: Omit<CashOutflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "cash_outflows", outflowData);
+export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "cash_outflows", outflowData);
 
 export const getInflows = (userId: string): Promise<Inflow[]> => getSubcollection<Inflow>(userId, "inflows");
-export const addInflow = (inflowData: Omit<Inflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "inflows", inflowData);
+export const addInflow = async (inflowData: Omit<Inflow, 'id'>, userId: string) => addSubcollectionDoc(userId, "inflows", inflowData);
 
 export const getReconciliationStatus = async (dateId: string, userId: string): Promise<Reconciliation['status']> => {
   const { db } = getDbOrThrow();
@@ -372,3 +372,6 @@ export const getClosedReconciliations = async (userId: string): Promise<Reconcil
         return [];
     }
 };
+
+
+    
