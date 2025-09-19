@@ -14,8 +14,8 @@ const ADMIN_ONLY_ROUTES = [
   "/dashboard/inventory",
   "/dashboard/reports",
   "/dashboard/sales",
-  "/dashboard/settings",
   "/dashboard/users",
+  "/dashboard/cash-reconciliation",
 ];
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
@@ -36,7 +36,11 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       return;
     }
     
-    // If there IS a user, proceed with checks and data fetching.
+    if (user.role === 'employee' && pathname === '/dashboard') {
+        router.replace('/dashboard/pos');
+        return;
+    }
+
     if (user.role !== "admin" && ADMIN_ONLY_ROUTES.includes(pathname)) {
       router.replace("/dashboard/pos");
       return;

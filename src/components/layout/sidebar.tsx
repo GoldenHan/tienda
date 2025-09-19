@@ -1,3 +1,4 @@
+
 'use client'
 
 import Link from 'next/link'
@@ -28,15 +29,15 @@ import { Warehouse } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 
-const links = [
-  { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard, adminOnly: false },
+const allLinks = [
+  { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard, adminOnly: true },
   { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
   { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, adminOnly: true },
   { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart, adminOnly: true },
   { href: '/dashboard/cash-reconciliation', label: 'Arqueos', icon: PiggyBank, adminOnly: true },
   { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3, adminOnly: true },
   { href: '/dashboard/users', label: 'Usuarios', icon: Users, adminOnly: true },
-  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: true },
+  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: false },
 ]
 
 interface AppSidebarProps {
@@ -47,7 +48,7 @@ export function AppSidebar({ companyName }: AppSidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth();
 
-  const visibleLinks = links.filter(link => !link.adminOnly || user?.role === 'admin');
+  const visibleLinks = allLinks.filter(link => !link.adminOnly || user?.role === 'admin');
 
   return (
     <Sidebar>

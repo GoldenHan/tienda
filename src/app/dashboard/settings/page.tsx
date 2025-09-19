@@ -45,6 +45,8 @@ export default function SettingsPage() {
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
   const [isDeletingCategory, setIsDeletingCategory] = useState<string|null>(null);
 
+  const isAdmin = user?.role === 'admin';
+
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema),
     defaultValues: {
@@ -59,7 +61,12 @@ export default function SettingsPage() {
   });
 
   const fetchPageData = useCallback(async () => {
-    if (!user) return;
+    if (!user || !isAdmin) {
+        setIsReconLoading(false);
+        setIsCategoryLoading(false);
+        return;
+    };
+
     setIsReconLoading(true);
     setIsCategoryLoading(true);
     try {
@@ -76,7 +83,7 @@ export default function SettingsPage() {
       setIsReconLoading(false);
       setIsCategoryLoading(false);
     }
-  }, [toast, user]);
+  }, [toast, user, isAdmin]);
 
   useEffect(() => {
     if(user){
@@ -181,10 +188,10 @@ export default function SettingsPage() {
         <p className="text-muted-foreground">Gestiona la configuración de tu cuenta y de la aplicación.</p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0 grid gap-6 md:grid-cols-2">
-        <Card>
+        <Card className={isAdmin ? '' : 'md:col-span-2'}>
           <CardHeader>
-            <CardTitle>Cuenta de Administrador</CardTitle>
-            <CardDescription>Actualiza tus credenciales de administrador.</CardDescription>
+            <CardTitle>Mi Cuenta</CardTitle>
+            <CardDescription>Actualiza tu contraseña.</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...passwordForm}>
@@ -227,129 +234,54 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-            <CardHeader>
-                <CardTitle>Gestión de Arqueos Consolidados</CardTitle>
-                <CardDescription>
-                Aquí puedes reabrir arqueos cerrados para permitir su edición.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                {isReconLoading ? (
-                    <div className="space-y-2">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ) : closedReconciliations.length === 0 ? (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                        No hay arqueos cerrados actualmente.
-                    </p>
-                ) : (
-                    <ul className="space-y-2">
-                        {closedReconciliations.map(recon => (
-                            <li key={recon.id} className="flex items-center justify-between p-2 border rounded-md">
-                                <span className="font-medium">
-                                    {formatDateFns(parseISO(recon.id), "d 'de' MMMM, yyyy", { locale: es })}
-                                </span>
-                                 <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <Button variant="secondary" size="sm" disabled={isReopening === recon.id}>
-                                            {isReopening === recon.id ? (
-                                                <Loader2 className="animate-spin mr-2" />
-                                            ) : (
-                                                <Unlock className="mr-2" />
-                                            )}
-                                            Reabrir
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                        <AlertDialogTitle>¿Reabrir el arqueo del {formatDateFns(parseISO(recon.id), "d 'de' MMMM", { locale: es })}?</AlertDialogTitle>
-                                        <AlertDialogDescription>
-                                            Esta acción permitirá que se realicen modificaciones en los ingresos y egresos de esta fecha. Podrás volver a cerrarlo más tarde.
-                                        </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                        <AlertDialogAction onClick={() => handleReopenReconciliation(recon.id)}>
-                                            Confirmar
-                                        </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </CardContent>
-        </Card>
-
-        <Card className="md:col-span-2">
-            <CardHeader>
-                <CardTitle>Gestionar Categorías de Productos</CardTitle>
-                <CardDescription>
-                Crea y elimina categorías para organizar tus productos en el punto de venta.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <div className="grid gap-6 md:grid-cols-2">
-                    <div>
-                      <Form {...categoryForm}>
-                        <form onSubmit={categoryForm.handleSubmit(onCategorySubmit)} className="space-y-4">
-                           <FormField
-                            control={categoryForm.control}
-                            name="newCategoryName"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Nueva Categoría</FormLabel>
-                                <FormControl>
-                                  <div className="flex gap-2">
-                                    <Input placeholder="Ej. Bebidas" {...field} disabled={isCategorySubmitting} />
-                                    <Button type="submit" disabled={isCategorySubmitting}>
-                                        {isCategorySubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
-                                    </Button>
-                                  </div>
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                        </form>
-                      </Form>
-                    </div>
-                    <div>
-                        <h4 className="font-medium mb-2">Categorías Existentes</h4>
-                        {isCategoryLoading ? (
-                           <div className="space-y-2">
+        {isAdmin && (
+            <>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Gestión de Arqueos Consolidados</CardTitle>
+                        <CardDescription>
+                        Aquí puedes reabrir arqueos cerrados para permitir su edición.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isReconLoading ? (
+                            <div className="space-y-2">
                                 <Skeleton className="h-10 w-full" />
                                 <Skeleton className="h-10 w-full" />
                             </div>
-                        ) : categories.length === 0 ? (
-                            <p className="text-sm text-muted-foreground text-center py-4 border rounded-md">
-                                No hay categorías creadas.
+                        ) : closedReconciliations.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                                No hay arqueos cerrados actualmente.
                             </p>
                         ) : (
                             <ul className="space-y-2">
-                                {categories.map(cat => (
-                                    <li key={cat.id} className="flex items-center justify-between p-2 border rounded-md">
-                                        <span className="font-medium">{cat.name}</span>
-                                          <AlertDialog>
+                                {closedReconciliations.map(recon => (
+                                    <li key={recon.id} className="flex items-center justify-between p-2 border rounded-md">
+                                        <span className="font-medium">
+                                            {formatDateFns(parseISO(recon.id), "d 'de' MMMM, yyyy", { locale: es })}
+                                        </span>
+                                        <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDeletingCategory === cat.id}>
-                                                     {isDeletingCategory === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                <Button variant="secondary" size="sm" disabled={isReopening === recon.id}>
+                                                    {isReopening === recon.id ? (
+                                                        <Loader2 className="animate-spin mr-2" />
+                                                    ) : (
+                                                        <Unlock className="mr-2" />
+                                                    )}
+                                                    Reabrir
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent>
                                                 <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Eliminar la categoría "{cat.name}"?</AlertDialogTitle>
+                                                <AlertDialogTitle>¿Reabrir el arqueo del {formatDateFns(parseISO(recon.id), "d 'de' MMMM", { locale: es })}?</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    Esta acción no se puede deshacer. Los productos de esta categoría perderán su asignación, pero no serán eliminados.
+                                                    Esta acción permitirá que se realicen modificaciones en los ingresos y egresos de esta fecha. Podrás volver a cerrarlo más tarde.
                                                 </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter>
                                                 <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handleDeleteCategory(cat)}>
-                                                    Confirmar Eliminación
+                                                <AlertDialogAction onClick={() => handleReopenReconciliation(recon.id)}>
+                                                    Confirmar
                                                 </AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
@@ -358,10 +290,89 @@ export default function SettingsPage() {
                                 ))}
                             </ul>
                         )}
-                    </div>
-                </div>
-            </CardContent>
-        </Card>
+                    </CardContent>
+                </Card>
+
+                <Card className="md:col-span-2">
+                    <CardHeader>
+                        <CardTitle>Gestionar Categorías de Productos</CardTitle>
+                        <CardDescription>
+                        Crea y elimina categorías para organizar tus productos en el punto de venta.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid gap-6 md:grid-cols-2">
+                            <div>
+                            <Form {...categoryForm}>
+                                <form onSubmit={categoryForm.handleSubmit(onCategorySubmit)} className="space-y-4">
+                                <FormField
+                                    control={categoryForm.control}
+                                    name="newCategoryName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                        <FormLabel>Nueva Categoría</FormLabel>
+                                        <FormControl>
+                                        <div className="flex gap-2">
+                                            <Input placeholder="Ej. Bebidas" {...field} disabled={isCategorySubmitting} />
+                                            <Button type="submit" disabled={isCategorySubmitting}>
+                                                {isCategorySubmitting ? <Loader2 className="animate-spin" /> : <PlusCircle />}
+                                            </Button>
+                                        </div>
+                                        </FormControl>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    />
+                                </form>
+                            </Form>
+                            </div>
+                            <div>
+                                <h4 className="font-medium mb-2">Categorías Existentes</h4>
+                                {isCategoryLoading ? (
+                                <div className="space-y-2">
+                                        <Skeleton className="h-10 w-full" />
+                                        <Skeleton className="h-10 w-full" />
+                                    </div>
+                                ) : categories.length === 0 ? (
+                                    <p className="text-sm text-muted-foreground text-center py-4 border rounded-md">
+                                        No hay categorías creadas.
+                                    </p>
+                                ) : (
+                                    <ul className="space-y-2">
+                                        {categories.map(cat => (
+                                            <li key={cat.id} className="flex items-center justify-between p-2 border rounded-md">
+                                                <span className="font-medium">{cat.name}</span>
+                                                <AlertDialog>
+                                                    <AlertDialogTrigger asChild>
+                                                        <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" disabled={isDeletingCategory === cat.id}>
+                                                            {isDeletingCategory === cat.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                                                        </Button>
+                                                    </AlertDialogTrigger>
+                                                    <AlertDialogContent>
+                                                        <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Eliminar la categoría "{cat.name}"?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción no se puede deshacer. Los productos de esta categoría perderán su asignación, pero no serán eliminados.
+                                                        </AlertDialogDescription>
+                                                        </AlertDialogHeader>
+                                                        <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={() => handleDeleteCategory(cat)}>
+                                                            Confirmar Eliminación
+                                                        </AlertDialogAction>
+                                                        </AlertDialogFooter>
+                                                    </AlertDialogContent>
+                                                </AlertDialog>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </>
+        )}
       </main>
     </div>
   );
