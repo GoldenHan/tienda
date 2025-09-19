@@ -1,58 +1,81 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // --- Funciones de Ayuda ---
+
+    // -------------------
+    // Funciones de ayuda
+    // -------------------
     function isMemberOfCompany(companyId) {
-      return request.auth.token.companyId == companyId;
+      return request.auth != null && request.auth.token.companyId == companyId;
     }
 
     function isAdmin() {
-      return request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin';
+      return request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
     }
 
     function isEmployee() {
-      return request.auth.token.role == 'employee';
+      return request.auth != null && request.auth.token.role == 'employee';
     }
 
-    // --- Reglas Globales ---
-    
-    // Nadie puede leer/escribir la colección de empresas directamente.
+    // -------------------
+    // Colección de empresas (metadatos)
+    // -------------------
+    // Nadie puede leer/escribir directamente los documentos de la empresa.
+    // Solo las funciones de servidor pueden hacerlo.
     match /companies/{companyId} {
       allow read, write: if false;
     }
 
-    // Regla para la colección de USUARIOS
+    // -------------------
+    // Colección de usuarios
+    // -------------------
     match /users/{userId} {
-      // Un usuario solo puede leer/actualizar su propio documento.
-      allow get, update: if request.auth.uid == userId;
-      // Los administradores pueden listar todos los usuarios de su propia empresa.
-      allow list: if isMemberOfCompany(resource.data.companyId) && isAdmin();
-      // Nadie puede crear o eliminar usuarios directamente, debe hacerse desde el servidor.
+      // Un usuario puede leer su propio documento.
+      allow get: if request.auth != null && request.auth.uid == userId;
+
+      // Un usuario puede actualizar su propio nombre o datos no críticos.
+      // No pueden cambiar su rol o companyId.
+      allow update: if request.auth != null && request.auth.uid == userId
+                      && !(request.resource.data.role != resource.data.role)
+                      && !(request.resource.data.companyId != resource.data.companyId);
+
+      // Los admins de la misma empresa pueden listar todos los usuarios.
+      allow list: if isAdmin() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId == resource.data.companyId;
+
+      // La creación y eliminación son manejadas por funciones de servidor, no directamente.
       allow create, delete: if false;
     }
 
-    // --- Reglas para Subcolecciones de Empresa ---
-    
-    // Regla general para administradores: acceso total a todo dentro de su empresa.
+    // ---------------------------------
+    // Subcolecciones de la empresa (Regla general para admins)
+    // ---------------------------------
+    // Los administradores tienen acceso total a todos los datos dentro de su empresa.
     match /companies/{companyId}/{document=**} {
-      allow read, write: if isMemberOfCompany(companyId) && isAdmin();
+      allow read, write: if isAdmin() && isMemberOfCompany(companyId);
     }
-
-    // Reglas específicas para EMPLEADOS, que anulan la regla general anterior si son más específicas.
     
-    // Los empleados pueden leer productos y categorías para el POS.
+    // ---------------------------------
+    // Reglas específicas y más restrictivas para empleados
+    // (Estas anulan la regla general para los empleados en estas rutas específicas)
+    // ---------------------------------
+    
+    // Los empleados pueden LEER productos para el TPV.
     match /companies/{companyId}/products/{productId} {
-      allow read: if isMemberOfCompany(companyId) && isEmployee();
-    }
-    match /companies/{companyId}/categories/{categoryId} {
-      allow read: if isMemberOfCompany(companyId) && isEmployee();
+      allow read: if isEmployee() && isMemberOfCompany(companyId);
+      // La escritura se hereda de la regla general de admin, los empleados no pueden escribir.
     }
 
-    // Los empleados pueden crear nuevas ventas. No pueden leer, actualizar o eliminar.
+    // Los empleados pueden LEER categorías para el TPV.
+    match /companies/{companyId}/categories/{categoryId} {
+      allow read: if isEmployee() && isMemberOfCompany(companyId);
+    }
+
+    // Los empleados pueden CREAR ventas, pero no leerlas ni modificarlas.
     match /companies/{companyId}/sales/{saleId} {
-      allow create: if isMemberOfCompany(companyId) && isEmployee();
+      allow create: if isEmployee() && isMemberOfCompany(companyId);
+      // Los admins pueden leer/actualizar/eliminar por la regla general.
+      // Los empleados no tienen permisos de lectura/actualización/eliminación aquí.
+      allow read, update, delete: if isAdmin() && isMemberOfCompany(companyId);
     }
   }
 }
