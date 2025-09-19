@@ -1,42 +1,16 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Allow unauthenticated reads only for the main company document.
-    // This is required for the initial setup check on the registration page.
-    match /company/main {
-      allow get: if true;
-      allow write: if request.auth != null; // Only authenticated users can modify.
+
+    // Allow read access to company info for registration check
+    match /company/{companyId} {
+      allow read: if true;
     }
 
-    // All other collections require authentication for any access.
-    match /users/{userId} {
+    // Secure all other collections: only authenticated users can read/write
+    match /{document=**} {
       allow read, write: if request.auth != null;
-    }
-
-    match /products/{productId} {
-       allow read, write: if request.auth != null;
-    }
-
-    match /categories/{categoryId} {
-       allow read, write: if request.auth != null;
-    }
-
-    match /sales/{saleId} {
-       allow read, write: if request.auth != null;
-    }
-
-    match /cash_outflows/{outflowId} {
-        allow read, write: if request.auth != null;
-    }
-
-    match /inflows/{inflowId} {
-        allow read, write: if request.auth != null;
-    }
-    
-    match /reconciliations/{reconId} {
-        allow read, write: if request.auth != null;
     }
   }
 }
