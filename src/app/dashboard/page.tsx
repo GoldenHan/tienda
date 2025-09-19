@@ -21,15 +21,13 @@ export default function DashboardPage() {
     setLoading(true);
     let productsData: Product[] = [];
     let salesData: Sale[] = [];
-    let fetchError = false;
-
+    
     try {
         productsData = await getProducts(companyId);
         setProducts(productsData);
     } catch (error) {
         console.error("Dashboard fetch error (Products):", error);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los productos.' });
-        fetchError = true;
     }
 
     try {
@@ -38,14 +36,8 @@ export default function DashboardPage() {
     } catch (error) {
         console.error("Dashboard fetch error (Sales):", error);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las ventas.' });
-        fetchError = true;
     }
     
-    if(!fetchError) {
-        setProducts(productsData);
-        setSales(salesData);
-    }
-
     setLoading(false);
 
   }, [toast]);

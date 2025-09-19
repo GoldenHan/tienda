@@ -87,11 +87,9 @@ export const addEmployee = async (companyId: string, employeeData: EmployeeData)
 export const getProducts = async (companyId: string): Promise<Product[]> => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "companies", companyId, "products");
-  const q = query(productsCollectionRef, orderBy("name"));
+  // Filter out placeholder documents
+  const q = query(productsCollectionRef, where("name", "!=", null));
   const snapshot = await getDocs(q);
-  if (snapshot.empty) {
-    return [];
-  }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
 };
 
@@ -117,11 +115,9 @@ export const deleteProduct = async (companyId: string, id: string) => {
 export const getSales = async (companyId: string): Promise<Sale[]> => {
   const firestore = getDbOrThrow();
   const salesCollectionRef = collection(firestore, "companies", companyId, "sales");
-  const q = query(salesCollectionRef, orderBy("date", "desc"));
+  // Filter out placeholder documents and order
+  const q = query(salesCollectionRef, where("date", "!=", null), orderBy("date", "desc"));
   const snapshot = await getDocs(q);
-  if (snapshot.empty) {
-    return [];
-  }
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
 };
 
