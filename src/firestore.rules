@@ -3,62 +3,66 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- Helper Functions ---
-    function isSignedIn() {
-      return request.auth != null;
-    }
+    // =========================
+    // Helpers
+    // =========================
 
+    // Devuelve los datos del usuario autenticado. Si no existe, retorna un objeto vacío.
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return userDoc.exists() ? userDoc.data : {};
     }
 
-    function isCompanyMember(companyId) {
-      return isSignedIn() && getUserData().companyId == companyId;
-    }
-
+    // Verifica el rol del usuario
     function isRole(role) {
-      return isSignedIn() && getUserData().role == role;
+      return getUserData().role == role;
     }
-    
-    // --- Rules ---
 
-    // Root users collection
+    // Verifica si el usuario pertenece a la empresa
+    function isCompanyMember(companyId) {
+      return getUserData().companyId == companyId;
+    }
+
+    // =========================
+    // Users
+    // =========================
     match /users/{userId} {
-      allow read, create, update: if isSignedIn() && request.auth.uid == userId;
-      allow delete: if false;
+      // Cada usuario solo puede leer/escribir su propio documento
+      allow read, write: if request.auth.uid == userId;
     }
 
-    // Companies collection
+    // =========================
+    // Companies
+    // =========================
     match /companies/{companyId} {
+      // Crear empresa: cualquier usuario autenticado
+      allow create: if request.auth != null;
+
+      // Lectura: solo miembros
       allow read: if isCompanyMember(companyId);
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.adminUid;
-      allow update: if isRole('admin') && isCompanyMember(companyId);
-      allow delete: if false;
-    }
 
-    // Products subcollection:
-    match /companies/{companyId}/products/{productId} {
-      // SOLUCIÓN: Permite a los miembros de la compañía LISTAR la colección.
-      allow list: if isCompanyMember(companyId);
-      
-      // Mantiene la lógica original para OBTENER un solo documento.
-      allow get: if isCompanyMember(companyId) && resource.data.initialized != true;
+      // Actualización: solo admins
+      allow update: if isCompanyMember(companyId) && isRole('admin');
 
-      // Permisos de escritura sin cambios.
-      allow create, update, delete: if isRole('admin') && isCompanyMember(companyId);
-    }
-    
-    // Sales subcollection:
-    match /companies/{companyId}/sales/{saleId} {
-      // SOLUCIÓN: Permite a los miembros de la compañía LISTAR la colección.
-      allow list: if isCompanyMember(companyId);
+      // =========================
+      // Subcollections
+      // =========================
 
-      // Mantiene la lógica original para OBTENER un solo documento.
-      allow get: if isCompanyMember(companyId) && resource.data.initialized != true;
+      // Products
+      match /products/{productId} {
+        allow list, get: if isCompanyMember(companyId);
+        allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
+      }
 
-      // Permisos de escritura sin cambios.
-      allow create: if isCompanyMember(companyId);
-      allow update, delete: if isRole('admin') && isCompanyMember(companyId);
+      // Sales
+      match /sales/{saleId} {
+        allow list, get: if isCompanyMember(companyId);
+        allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
+        allow update: if isCompanyMember(companyId) && isRole('admin');
+        allow delete: if false; // no se puede eliminar desde cliente
+      }
+
+      // Aquí puedes agregar más subcolecciones según tu modelo de datos
     }
   }
 }
