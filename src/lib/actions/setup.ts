@@ -1,8 +1,8 @@
+
 'use server';
 
 import { getFirestore, FieldValue, DocumentReference } from "firebase-admin/firestore";
 import type { InitialAdminData, User, Category, EmployeeData } from "@/lib/types";
-import { collection, doc, getDoc, setDoc, writeBatch, query, where, orderBy, getDocs } from "firebase-admin/firestore";
 import { getAuth } from "firebase-admin/auth";
 import adminApp from "../firebase/server";
 
@@ -24,9 +24,9 @@ const getAdminAuthOrThrow = () => {
 
 const getCompanyIdForUser = async (userId: string): Promise<string> => {
     const db = getAdminDbOrThrow();
-    const userRef = doc(db, "users", userId);
-    const userSnap = await getDoc(userRef);
-    if (!userSnap.exists() || !userSnap.data()?.companyId) {
+    const userRef = db.doc(`users/${userId}`);
+    const userSnap = await userRef.get();
+    if (!userSnap.exists || !userSnap.data()?.companyId) {
         throw new Error("Usuario no asociado a ninguna empresa.");
     }
     return userSnap.data()!.companyId;
@@ -37,8 +37,8 @@ const getCompanyIdForUser = async (userId: string): Promise<string> => {
 // -----------------
 export const isInitialSetupRequired = async (): Promise<boolean> => {
   const db = getAdminDbOrThrow();
-  const companiesCol = collection(db, "companies");
-  const snapshot = await getDocs(query(companiesCol, orderBy("createdAt")));
+  const companiesCol = db.collection("companies");
+  const snapshot = await companiesCol.limit(1).get();
   return snapshot.empty;
 };
 
@@ -55,7 +55,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
 
   const db = getAdminDbOrThrow();
   const auth = getAdminAuthOrThrow();
-  const companyRef = doc(collection(db, "companies")) as DocumentReference;
+  const companyRef = db.collection("companies").doc();
   const userRecord = await auth.createUser({
     email: data.email,
     password: data.password,
@@ -67,7 +67,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     companyId: companyRef.id,
   });
 
-  const batch = writeBatch(db);
+  const batch = db.batch();
 
   batch.set(companyRef, {
     id: companyRef.id,
@@ -76,7 +76,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  const userRef = doc(db, `users/${userRecord.uid}`);
+  const userRef = db.doc(`users/${userRecord.uid}`);
   batch.set(userRef, {
     uid: userRecord.uid,
     name: data.adminName,
@@ -108,8 +108,8 @@ export const addEmployee = async (employeeData: EmployeeData, adminUserId: strin
         
         await auth.setCustomUserClaims(userRecord.uid, { role: 'employee', companyId });
 
-        const newEmployeeDocRef = doc(db, `users/${userRecord.uid}`);
-        await setDoc(newEmployeeDocRef, {
+        const newEmployeeDocRef = db.doc(`users/${userRecord.uid}`);
+        await newEmployeeDocRef.set({
             uid: userRecord.uid,
             name: employeeData.name,
             email: employeeData.email,
@@ -133,9 +133,9 @@ export const getUsers = async (userId: string): Promise<User[]> => {
   const db = getAdminDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
 
-  const usersCol = collection(db, "users");
-  const q = query(usersCol, where("companyId", "==", companyId), orderBy("name"));
-  const snapshot = await getDocs(q);
+  const usersCol = db.collection("users");
+  const q = usersCol.where("companyId", "==", companyId).orderBy("name");
+  const snapshot = await q.get();
 
   return snapshot.docs.map(doc => {
       const data = doc.data();
@@ -151,8 +151,8 @@ export const getUsers = async (userId: string): Promise<User[]> => {
 export const getCategories = async (userId: string): Promise<Category[]> => {
   const db = getAdminDbOrThrow();
   const companyId = await getCompanyIdForUser(userId);
-  const categoriesCol = collection(db, `companies/${companyId}/categories`);
-  const q = query(categoriesCol, orderBy("name"));
-  const snapshot = await getDocs(q);
+  const categoriesCol = db.collection(`companies/${companyId}/categories`);
+  const q = categoriesCol.orderBy("name");
+  const snapshot = await q.get();
   return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Category));
 };
