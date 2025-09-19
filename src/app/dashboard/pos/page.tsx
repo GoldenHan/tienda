@@ -133,6 +133,8 @@ export default function POSPage() {
       date: new Date().toISOString(),
       items: newSaleItems,
       grandTotal: newSaleItems.reduce((acc, item) => acc + item.total, 0),
+      employeeId: user.uid,
+      employeeName: user.name,
     };
 
     try {

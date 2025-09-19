@@ -36,12 +36,16 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       return;
     }
     
-    // Check if the user is an employee and trying to access an admin-only route or the main dashboard
     const isEmployee = user.role === 'employee';
-    const isAdminRoute = ADMIN_ONLY_ROUTES.includes(pathname) || pathname === '/dashboard';
+    const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.includes(pathname);
 
-    if (isEmployee && isAdminRoute) {
-        router.replace('/dashboard/pos');
+    if (isEmployee && isAdminOnlyRoute) {
+        toast({
+            variant: "destructive",
+            title: "Acceso Denegado",
+            description: "No tienes permiso para acceder a esta sección.",
+        });
+        router.replace('/dashboard');
         return;
     }
 

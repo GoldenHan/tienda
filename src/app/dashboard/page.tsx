@@ -10,11 +10,11 @@ import { DollarSign, Package, AlertTriangle, ShoppingCart, Shield, ShieldCheck }
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { SalesChart } from '@/components/dashboard/sales-chart';
-import { subDays, format, isAfter, startOfDay } from 'date-fns';
+import { subDays, format, isAfter, startOfDay, isToday } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -22,6 +22,8 @@ export default function DashboardPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+
+  const isAdmin = user?.role === 'admin' || user?.role === 'primary-admin';
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -49,49 +51,67 @@ export default function DashboardPage() {
     }
   }, [user, authLoading, fetchData]);
 
-  const totalRevenue = useMemo(() => sales.reduce((acc, sale) => acc + sale.grandTotal, 0), [sales]);
-  const totalSalesCount = sales.length;
+  const {
+    totalRevenue,
+    totalProfit,
+    totalSalesCount,
+    lowStockItems,
+    last7DaysSalesData,
+    employeeTodaySales
+  } = useMemo(() => {
+    // Admin calculations
+    let totalRevenue = 0;
+    let totalProfit = 0;
+    let totalSalesCount = 0;
+    let lowStockItems = 0;
+    let last7DaysSalesData: { name: string; total: number }[] = [];
 
-  const totalProfit = useMemo(() => {
-    const productsMap = new Map(products.map(p => [p.id, p]));
-    return sales.reduce((acc, sale) => {
-        const saleProfit = sale.items.reduce((itemAcc, item) => {
-            const product = productsMap.get(item.productId);
-            if (product) {
-                const purchaseCost = typeof product.purchaseCost === 'number' ? product.purchaseCost : 0;
-                return itemAcc + (item.total - (purchaseCost * item.quantity));
-            }
-            return itemAcc;
+    if (isAdmin) {
+        totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
+        totalSalesCount = sales.length;
+        lowStockItems = products.filter(p => p.quantity <= p.lowStockThreshold).length;
+
+        const productsMap = new Map(products.map(p => [p.id, p]));
+        totalProfit = sales.reduce((acc, sale) => {
+            const saleProfit = sale.items.reduce((itemAcc, item) => {
+                const product = productsMap.get(item.productId);
+                if (product) {
+                    const purchaseCost = typeof product.purchaseCost === 'number' ? product.purchaseCost : 0;
+                    return itemAcc + (item.total - (purchaseCost * item.quantity));
+                }
+                return itemAcc;
+            }, 0);
+            return acc + saleProfit;
         }, 0);
-        return acc + saleProfit;
-    }, 0);
-  }, [sales, products]);
 
-  const lowStockItems = useMemo(() => products.filter(p => p.quantity <= p.lowStockThreshold).length, [products]);
+        const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), i));
+        last7DaysSalesData = last7Days.map(day => ({
+            name: format(day, 'EEE', { locale: es }),
+            total: 0,
+        })).reverse();
 
-  const last7DaysSalesData = useMemo(() => {
-    const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), i));
-    const salesData = last7Days.map(day => ({
-        name: format(day, 'EEE', { locale: es }),
-        total: 0,
-    })).reverse(); // Reverse to have the oldest day first
-
-    const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
-
-    sales.forEach(sale => {
-        const saleDate = new Date(sale.date);
-        if (isAfter(saleDate, sevenDaysAgo)) {
-            const dayName = format(saleDate, 'EEE', { locale: es });
-            const dayData = salesData.find(d => d.name.toLowerCase() === dayName.toLowerCase());
-            if (dayData) {
-                dayData.total += sale.grandTotal;
+        const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
+        sales.forEach(sale => {
+            const saleDate = new Date(sale.date);
+            if (isAfter(saleDate, sevenDaysAgo)) {
+                const dayName = format(saleDate, 'EEE', { locale: es });
+                const dayData = last7DaysSalesData.find(d => d.name.toLowerCase() === dayName.toLowerCase());
+                if (dayData) {
+                    dayData.total += sale.grandTotal;
+                }
             }
-        }
-    });
+        });
+    }
 
-    return salesData;
-  }, [sales]);
-  
+    // Employee calculations
+    const employeeTodaySales = sales.filter(sale => 
+        sale.employeeId === user?.uid && isToday(new Date(sale.date))
+    );
+
+    return { totalRevenue, totalProfit, totalSalesCount, lowStockItems, last7DaysSalesData, employeeTodaySales };
+
+  }, [sales, products, isAdmin, user]);
+
   if (loading) {
     return (
       <div className="flex flex-col p-4 sm:p-6 space-y-6">
@@ -137,6 +157,85 @@ export default function DashboardPage() {
     return null;
   }
 
+  const renderAdminDashboard = () => (
+    <>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          title="Ingresos Totales"
+          value={totalRevenue.toLocaleString('es-NI', { style: 'currency', currency: 'NIO' })}
+          icon={DollarSign}
+          description="Ingresos totales de todas las ventas"
+        />
+        <StatCard
+          title="Beneficio Total"
+          value={totalProfit.toLocaleString('es-NI', { style: 'currency', currency: 'NIO' })}
+          icon={DollarSign}
+          description="Beneficio total de todas las ventas"
+          variant="secondary"
+        />
+        <StatCard
+          title="Ventas Totales"
+          value={totalSalesCount.toString()}
+          icon={ShoppingCart}
+          description="Número total de transacciones de venta"
+        />
+        <StatCard
+          title="Artículos con Poco Stock"
+          value={lowStockItems.toString()}
+          icon={AlertTriangle}
+          description="Artículos que necesitan ser reabastecidos pronto"
+          variant={lowStockItems > 0 ? 'destructive' : 'default'}
+        />
+      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Ventas de la Última Semana</CardTitle>
+          <CardDescription>Un resumen de los ingresos por ventas de los últimos 7 días.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SalesChart data={last7DaysSalesData} />
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  const renderEmployeeDashboard = () => (
+    <Card>
+      <CardHeader>
+        <CardTitle>Mis Ventas de Hoy</CardTitle>
+        <CardDescription>Un resumen de las ventas que has realizado hoy.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>ID de Transacción</TableHead>
+              <TableHead className="text-right">Total</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {employeeTodaySales.length > 0 ? (
+              employeeTodaySales.map(sale => (
+                <TableRow key={sale.id}>
+                  <TableCell className="font-medium truncate max-w-[200px]">{sale.id}</TableCell>
+                  <TableCell className="text-right">
+                    {sale.grandTotal.toLocaleString('es-NI', { style: 'currency', currency: 'NIO' })}
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={2} className="h-24 text-center">
+                  Aún no has realizado ninguna venta hoy.
+                </TableCell>
+              </TableRow>
+            )}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
@@ -147,58 +246,15 @@ export default function DashboardPage() {
           {renderRoleIcon()}
         </div>
         <p className="text-muted-foreground">
-          Aquí tienes un resumen de la actividad de tu negocio.
+          {isAdmin 
+            ? "Aquí tienes un resumen de la actividad de tu negocio."
+            : "Aquí tienes un resumen de tu actividad de hoy."
+          }
         </p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0 space-y-6">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard
-            title="Ingresos Totales"
-            value={totalRevenue.toLocaleString('es-NI', {
-                style: 'currency',
-                currency: 'NIO',
-            })}
-            icon={DollarSign}
-            description="Ingresos totales de todas las ventas"
-            />
-            <StatCard
-            title="Beneficio Total"
-            value={totalProfit.toLocaleString('es-NI', {
-                style: 'currency',
-                currency: 'NIO',
-            })}
-            icon={DollarSign}
-            description="Beneficio total de todas las ventas"
-            variant="secondary"
-            />
-            <StatCard
-            title="Ventas Totales"
-            value={totalSalesCount.toString()}
-            icon={ShoppingCart}
-            description="Número total de transacciones de venta"
-            />
-            <StatCard
-            title="Artículos con Poco Stock"
-            value={lowStockItems.toString()}
-            icon={AlertTriangle}
-            description="Artículos que necesitan ser reabastecidos pronto"
-            variant={lowStockItems > 0 ? 'destructive' : 'default'}
-            />
-        </div>
-
-        <Card>
-            <CardHeader>
-                <CardTitle>Ventas de la Última Semana</CardTitle>
-                <CardDescription>
-                    Un resumen de los ingresos por ventas de los últimos 7 días.
-                </CardDescription>
-            </CardHeader>
-            <CardContent>
-                <SalesChart data={last7DaysSalesData} />
-            </CardContent>
-        </Card>
+        {isAdmin ? renderAdminDashboard() : renderEmployeeDashboard()}
       </main>
     </div>
   );
 }
-

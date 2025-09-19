@@ -27,6 +27,8 @@ export type Sale = {
   date: string;
   items: SaleItem[];
   grandTotal: number;
+  employeeId: string;
+  employeeName: string;
 };
 
 export type Inflow = {
