@@ -7,29 +7,25 @@ import { getFirestore, FieldValue } from "firebase-admin/firestore";
 
 let app: App;
 
-// This logic is to prevent re-initialization of the app in serverless environments
 if (!getApps().length) {
   try {
-    const serviceAccount = {
-      projectId: process.env.FIREBASE_PROJECT_ID,
-      clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    };
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 
-    if (!serviceAccount.projectId || !serviceAccount.clientEmail || !serviceAccount.privateKey) {
-      throw new Error("Firebase server credentials are not set in .env file");
+    if (!serviceAccountJson) {
+      throw new Error("La variable de entorno FIREBASE_SERVICE_ACCOUNT_JSON no está configurada. Pega el contenido de tu archivo JSON de cuenta de servicio en el archivo .env.");
     }
+
+    const serviceAccount = JSON.parse(serviceAccountJson);
 
     app = initializeApp({
       credential: cert(serviceAccount),
     });
-  } catch (error) {
-    console.error("Firebase Admin Initialization Error:", error);
-    // We don't want to throw here during build, but we should be aware of the error.
-    // The app will likely fail on server-side calls if this setup fails.
+  } catch (error: any) {
+    console.error("Error de Inicialización de Firebase Admin:", error.message);
+    // Lanzamos el error para que el problema sea visible durante el desarrollo.
+    throw new Error("No se pudo inicializar Firebase Admin. Revisa tus credenciales en FIREBASE_SERVICE_ACCOUNT_JSON en el archivo .env. El error fue: " + error.message);
   }
 } else {
-  // If the app is already initialized, use the existing instance
   app = getApps()[0]!;
 }
 
