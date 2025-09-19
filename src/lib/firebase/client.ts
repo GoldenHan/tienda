@@ -13,9 +13,27 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Singleton pattern to initialize Firebase app safely
-const app: FirebaseApp = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// Function to initialize Firebase app, ensures it's a singleton.
+function getFirebaseApp(): FirebaseApp {
+  // Check if all required client-side environment variables are present.
+  if (
+    !firebaseConfig.apiKey ||
+    !firebaseConfig.authDomain ||
+    !firebaseConfig.projectId
+  ) {
+    throw new Error(
+      "Firebase client credentials are not set. Please check your NEXT_PUBLIC_* variables in the .env file."
+    );
+  }
+  
+  if (!getApps().length) {
+    return initializeApp(firebaseConfig);
+  } else {
+    return getApp();
+  }
+}
 
+const app: FirebaseApp = getFirebaseApp();
 const auth: Auth = getAuth(app);
 const db: Firestore = getFirestore(app);
 const storage: FirebaseStorage = getStorage(app);
