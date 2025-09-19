@@ -2,65 +2,78 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-  
-    // Helper Functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
 
+    // =========================
+    // Helpers
+    // =========================
+
+    // Devuelve los datos del usuario autenticado de forma segura
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return (request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
+             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+             : { role: null, companyId: null };
     }
-    
-    function isCompanyMember(companyId) {
-      return isSignedIn() && getUserData().companyId == companyId;
-    }
-    
+
+    // Verifica el rol del usuario
     function isRole(role) {
-       return isSignedIn() && getUserData().role == role;
+      return getUserData().role == role;
     }
 
-    // --- Root Collections ---
+    // Verifica si el usuario pertenece a la empresa
+    function isCompanyMember(companyId) {
+      return getUserData().companyId == companyId;
+    }
 
-    // USERS: 
-    // - Anyone can create their own user document (during sign-up).
-    // - A user can read/update their own data.
-    // - Admins can read user data within their own company.
+    // =========================
+    // Users
+    // =========================
     match /users/{userId} {
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow read, update: if isSignedIn() && request.auth.uid == userId;
-      allow list: if isRole('admin'); // Admins can list users for management.
+      // Cada usuario solo puede leer/escribir su propio documento
+      allow read, write: if request.auth != null && request.auth.uid == userId;
     }
 
-    // COMPANIES:
-    // - Any signed-in user can create a company (initial registration).
-    // - Only company members can read their own company's data.
-    // - Only admins can update their company's data.
+    // =========================
+    // Companies
+    // =========================
     match /companies/{companyId} {
-      allow create: if isSignedIn();
-      allow get: if isCompanyMember(companyId);
+      // Crear empresa: cualquier usuario autenticado
+      allow create: if request.auth != null;
+
+      // Lectura: solo miembros y empresa debe existir
+      allow read: if isCompanyMember(companyId) && exists(/databases/$(database)/documents/companies/$(companyId));
+
+      // Actualización: solo admins
       allow update: if isCompanyMember(companyId) && isRole('admin');
-    }
 
-    // --- Subcollections ---
+      // =========================
+      // Subcollections
+      // =========================
 
-    // PRODUCTS:
-    // - Admins can create, update, and delete products.
-    // - All company members can read the product list and individual products.
-    match /companies/{companyId}/products/{productId} {
-      allow list: if isCompanyMember(companyId);
-      allow get: if isCompanyMember(companyId);
-      allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
-    }
+      // Products
+      match /products/{productId} {
+        // Listar y obtener solo productos que existen y pertenecen a la empresa
+        allow list, get: if isCompanyMember(companyId) &&
+                           exists(/databases/$(database)/documents/companies/$(companyId)/products/$(productId));
 
-    // SALES:
-    // - Admins and employees can create sales.
-    // - Admins can read, update, and delete sales.
-    // - Employees can only read sales (but create them via POS).
-    match /companies/{companyId}/sales/{saleId} {
-       allow list, get: if isCompanyMember(companyId);
-       allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
-       allow update, delete: if isCompanyMember(companyId) && isRole('admin');
+        // Crear/actualizar/eliminar solo admins
+        allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
+      }
+
+      // Sales
+      match /sales/{saleId} {
+        // Listar y obtener solo ventas que existen y pertenecen a la empresa
+        allow list, get: if isCompanyMember(companyId) &&
+                           exists(/databases/$(database)/documents/companies/$(companyId)/sales/$(saleId));
+
+        // Crear: admins o empleados
+        allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
+
+        // Actualizar: solo admins
+        allow update: if isCompanyMember(companyId) && isRole('admin');
+
+        // Eliminar: prohibido desde cliente
+        allow delete: if false;
+      }
     }
   }
 }
