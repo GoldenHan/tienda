@@ -41,20 +41,19 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
         password: data.password,
         displayName: data.adminName,
     });
-    const newUser = userRecord;
     
     // Set custom claim for role-based access
-    await adminAuth.setCustomUserClaims(newUser.uid, { role: 'admin' });
+    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'admin' });
 
     const batch = writeBatch(adminDb);
 
-    // Create user document in Firestore which will trigger the Cloud Function
-    const userDocRef = doc(adminDb, "users", newUser.uid);
+    // Create user document in Firestore
+    const userDocRef = doc(adminDb, "users", userRecord.uid);
     batch.set(userDocRef, {
-        uid: newUser.uid,
+        uid: userRecord.uid,
         name: data.adminName,
         email: data.email,
-        role: "admin", // This field triggers the function to set claims
+        role: "admin",
         createdAt: serverTimestamp(),
     });
     
@@ -62,7 +61,7 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     const companyDocRef = doc(adminDb, "company", "main");
     batch.set(companyDocRef, {
         name: data.companyName,
-        ownerUid: newUser.uid,
+        ownerUid: userRecord.uid,
         createdAt: serverTimestamp(),
     });
 
@@ -96,7 +95,7 @@ export const getUsers = async (): Promise<User[]> => {
       const data = doc.data();
       // Firestore Timestamps are not serializable, convert them to strings
       const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString();
-      return { id: doc.id, ...data, createdAt } as User;
+      return { ...data, id: doc.id, uid: doc.id, createdAt } as User;
     });
 };
 
@@ -107,15 +106,14 @@ export const addEmployee = async (employeeData: EmployeeData) => {
       password: employeeData.password,
       displayName: employeeData.name,
     });
-    const newUser = userRecord;
     
     // Set custom claim for role-based access
-    await adminAuth.setCustomUserClaims(newUser.uid, { role: 'employee' });
+    await adminAuth.setCustomUserClaims(userRecord.uid, { role: 'employee' });
 
-    // Create the user document in Firestore. This will also trigger the function to set claims again, which is fine.
-    const newEmployeeDocRef = doc(adminDb, "users", newUser.uid);
+    // Create the user document in Firestore.
+    const newEmployeeDocRef = doc(adminDb, "users", userRecord.uid);
     await setDoc(newEmployeeDocRef, {
-      uid: newUser.uid,
+      uid: userRecord.uid,
       name: employeeData.name,
       email: employeeData.email,
       role: "employee",
@@ -141,7 +139,7 @@ export const getProducts = async (): Promise<Product[]> => {
     return snapshot.docs.map(doc => {
         const data = doc.data();
         const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : undefined;
-        return { id: doc.id, ...data, createdAt } as Product;
+        return { ...data, id: doc.id, createdAt } as Product;
     });
   } catch (error) {
     console.error(`Error fetching products:`, error);
@@ -152,7 +150,9 @@ export const getProducts = async (): Promise<Product[]> => {
 export const addProduct = async (productData: Omit<Product, 'id'>) => {
   const firestore = getDbOrThrow();
   const productsCollectionRef = collection(firestore, "products");
-  await addDoc(productsCollectionRef, { ...productData, createdAt: serverTimestamp() });
+  const docRef = await addDoc(productsCollectionRef, { ...productData, createdAt: serverTimestamp() });
+  // Update the document with its own ID
+  await updateDoc(docRef, { id: docRef.id });
 };
 
 export const updateProduct = async (id: string, updates: Partial<Product>) => {
@@ -176,7 +176,7 @@ export const getSales = async (): Promise<Sale[]> => {
   try {
     const snapshot = await getDocs(q);
     // The 'date' field is already an ISO string, so no conversion is needed here.
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sale));
   } catch (error) {
     console.error(`Error fetching sales:`, error);
     throw error;
@@ -186,19 +186,32 @@ export const getSales = async (): Promise<Sale[]> => {
 
 export const addSale = async (saleData: Omit<Sale, 'id'>, cartItems: (Product & { quantityInCart: number })[]) => {
   const firestore = getDbOrThrow();
-  const batch = writeBatch(firestore);
+  
+  // Use a transaction to ensure atomicity
+  await runTransaction(firestore, async (transaction) => {
+    const salesCollectionRef = collection(firestore, "sales");
+    const newSaleRef = doc(salesCollectionRef);
+    
+    // Set the sale data, and immediately add the ID
+    transaction.set(newSaleRef, { ...saleData, id: newSaleRef.id });
 
-  const salesCollectionRef = collection(firestore, "sales");
-  const newSaleRef = doc(salesCollectionRef);
-  batch.set(newSaleRef, saleData);
+    for (const item of cartItems) {
+      const productRef = doc(firestore, "products", item.id);
+      const productDoc = await transaction.get(productRef);
 
-  for (const item of cartItems) {
-    const productRef = doc(firestore, "products", item.id);
-    const newQuantity = item.quantity - item.quantityInCart;
-    batch.update(productRef, { quantity: newQuantity });
-  }
+      if (!productDoc.exists()) {
+        throw new Error(`Producto con ID ${item.id} no fue encontrado durante la transacción.`);
+      }
+      
+      const currentQuantity = productDoc.data().quantity;
+      if (currentQuantity < item.quantityInCart) {
+        throw new Error(`Stock insuficiente para ${item.name}. Solo quedan ${currentQuantity}.`);
+      }
 
-  await batch.commit();
+      const newQuantity = currentQuantity - item.quantityInCart;
+      transaction.update(productRef, { quantity: newQuantity });
+    }
+  });
 };
 
 export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: Sale) => {
