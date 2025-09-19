@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale } from '@/lib/types';
 import { getProducts, getSales } from '@/lib/firestore-helpers';
@@ -19,27 +19,19 @@ export default function DashboardPage() {
 
   const fetchData = useCallback(async (companyId: string) => {
     setLoading(true);
-    let productsData: Product[] = [];
-    let salesData: Sale[] = [];
-    
     try {
-        productsData = await getProducts(companyId);
+        const [productsData, salesData] = await Promise.all([
+            getProducts(companyId),
+            getSales(companyId)
+        ]);
         setProducts(productsData);
-    } catch (error) {
-        console.error("Dashboard fetch error (Products):", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los productos.' });
-    }
-
-    try {
-        salesData = await getSales(companyId);
         setSales(salesData);
     } catch (error) {
-        console.error("Dashboard fetch error (Sales):", error);
-        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las ventas.' });
+        console.error("Dashboard fetch error:", error);
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos del panel de control.' });
+    } finally {
+        setLoading(false);
     }
-    
-    setLoading(false);
-
   }, [toast]);
 
   useEffect(() => {
@@ -52,22 +44,25 @@ export default function DashboardPage() {
     }
   }, [user, authLoading, fetchData]);
 
-  const totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
+  const totalRevenue = useMemo(() => sales.reduce((acc, sale) => acc + sale.grandTotal, 0), [sales]);
   const totalSalesCount = sales.length;
 
-  const totalProfit = sales.reduce((acc, sale) => {
-    const saleProfit = sale.items.reduce((itemAcc, item) => {
-      const product = products.find(p => p.id === item.productId);
-      if (product) {
-        const purchaseCost = typeof product.purchaseCost === 'number' ? product.purchaseCost : 0;
-        return itemAcc + (item.total - purchaseCost * item.quantity);
-      }
-      return itemAcc;
+  const totalProfit = useMemo(() => {
+    const productsMap = new Map(products.map(p => [p.id, p]));
+    return sales.reduce((acc, sale) => {
+        const saleProfit = sale.items.reduce((itemAcc, item) => {
+            const product = productsMap.get(item.productId);
+            if (product) {
+                const purchaseCost = typeof product.purchaseCost === 'number' ? product.purchaseCost : 0;
+                return itemAcc + (item.total - (purchaseCost * item.quantity));
+            }
+            return itemAcc;
+        }, 0);
+        return acc + saleProfit;
     }, 0);
-    return acc + saleProfit;
-  }, 0);
+  }, [sales, products]);
 
-  const lowStockItems = products.filter(p => p.quantity <= p.lowStockThreshold).length;
+  const lowStockItems = useMemo(() => products.filter(p => p.quantity <= p.lowStockThreshold).length, [products]);
   
   if (loading) {
     return (

@@ -1,73 +1,64 @@
-
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    
+
     // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
 
+    // Function to get the user's data from the /users collection
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Function to check if a user belongs to a specific company
     function isCompanyMember(companyId) {
       return isSignedIn() && getUserData().companyId == companyId;
     }
 
+    // Function to check if a user has a specific role
     function isRole(role) {
       return isSignedIn() && getUserData().role == role;
     }
 
     // --- Rules ---
 
-    // /users/{userId} - Root collection for user roles and company mapping
+    // /users/{userId}
+    // Users can create and read their own user document.
     match /users/{userId} {
-      // A user can read their own data to know their role and company.
-      allow read: if isSignedIn() && request.auth.uid == userId;
-      // A new user can create their own document during sign-up.
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      // Allow users to update their own data (e.g. profile changes).
-      allow update: if isSignedIn() && request.auth.uid == userId;
-       // Deleting user documents is a sensitive operation, disable for now.
-      allow delete: if false;
+      allow read, create, update: if isSignedIn() && request.auth.uid == userId;
+      allow delete: if false; // Prevent users from deleting their own account record
     }
 
-    // /companies/{companyId} - Main collection for all company data.
+    // /companies/{companyId}
+    // Company documents can be read by their members and updated by admins.
     match /companies/{companyId} {
-      // A user can read their own company's document.
       allow read: if isCompanyMember(companyId);
-      // Anyone signed in can create a company (during registration).
-      // Security is enforced by the client ensuring the adminUid is correct.
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.adminUid;
-      // Only an admin of that company can update company details.
       allow update: if isRole('admin') && isCompanyMember(companyId);
-       // Deleting company documents is a sensitive operation, disable for now.
-      allow delete: if false;
+      allow delete: if false; // Prevent companies from being deleted
 
-      // --- Subcollections ---
-
-      // Products subcollection
+      // /companies/{companyId}/products/{productId}
       match /products/{productId} {
-        // Any member of the company can view the product list.
+        // Allow any member of the company to list the products
         allow list: if isCompanyMember(companyId);
-        // Any member of the company can read a single product.
+        // Allow any member of the company to get a specific product
         allow get: if isCompanyMember(companyId);
-        // Only admins can create, update, or delete products.
+        // Only admins can create, update, or delete products
         allow create, update, delete: if isRole('admin') && isCompanyMember(companyId);
       }
-      
-      // Sales subcollection
+
+      // /companies/{companyId}/sales/{saleId}
       match /sales/{saleId} {
-        // Any member of the company can view sales history (UI will restrict based on role).
+        // Allow any member of the company to list sales
         allow list: if isCompanyMember(companyId);
-         // Any member of the company can read a single sale.
+        // Allow any member of the company to get a specific sale
         allow get: if isCompanyMember(companyId);
-        // Any member of the company can create a new sale (e.g., from POS).
+        // Any member of the company can create a sale
         allow create: if isCompanyMember(companyId);
-        // Only admins can update or delete sales records.
+        // Only admins can update or delete sales records
         allow update, delete: if isRole('admin') && isCompanyMember(companyId);
       }
     }
