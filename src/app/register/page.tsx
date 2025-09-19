@@ -10,6 +10,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { isInitialSetupRequired, createInitialAdminUser } from "@/lib/actions/setup";
 import { useToast } from "@/hooks/use-toast";
 import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +25,7 @@ const formSchema = z.object({
   adminName: z.string().min(2, { message: "Tu nombre es requerido." }),
   email: z.string().email({ message: "Por favor, introduce un email válido." }),
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
+  secretCode: z.string().min(1, { message: "El código secreto es requerido." }),
 });
 
 export default function RegisterPage() {
@@ -44,7 +46,6 @@ export default function RegisterPage() {
             title: "Error de Verificación",
             description: "No se pudo comprobar el estado de la configuración. Revisa las reglas de Firestore y la conexión."
         });
-        // If the check fails (e.g. permission error on a fresh DB), assume setup IS required.
         setSetupRequired(true);
       }
     }
@@ -58,6 +59,7 @@ export default function RegisterPage() {
       adminName: "",
       email: "",
       password: "",
+      secretCode: "",
     },
   });
 
@@ -66,15 +68,11 @@ export default function RegisterPage() {
     try {
       await createInitialAdminUser(values);
 
-      // --- TOKEN REFRESH LOGIC ---
-      // This is crucial to get the custom claims on the client right after registration.
-      const auth = getAuth();
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       if (userCredential.user) {
-        await userCredential.user.getIdToken(true); // Force refresh
+        await userCredential.user.getIdToken(true);
       }
-      await signOut(auth); // Sign out silently
-      // --- END TOKEN REFRESH LOGIC ---
+      await signOut(auth);
 
       toast({
         title: "¡Empresa Registrada!",
@@ -161,6 +159,17 @@ export default function RegisterPage() {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Contraseña</FormLabel>
+                      <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                 <FormField
+                  control={form.control}
+                  name="secretCode"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Código Secreto de Registro</FormLabel>
                       <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>

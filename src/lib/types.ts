@@ -54,15 +54,13 @@ export type InventoryData = {
   value: number;
 };
 
-// This represents the document in the root /users/{userId} collection
-// It is the source of truth for authorization
 export type User = {
   uid: string;
   id: string;
   name: string;
   email: string;
   role: 'admin' | 'employee';
-  companyId: string; // Added to associate user with a company
+  companyId: string;
   createdAt: string;
 };
 
@@ -77,6 +75,7 @@ export type InitialAdminData = {
   adminName: string;
   email: string;
   password: string;
+  secretCode: string;
 };
 
 export type Reconciliation = {
