@@ -1,3 +1,4 @@
+
 "use client"
 
 import { useState } from "react"
@@ -24,15 +25,16 @@ import {
 } from "@/components/ui/alert-dialog"
 import { ProductForm } from "./product-form"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
-import type { Product } from "@/lib/types"
+import type { Product, Category } from "@/lib/types"
 
 interface DataTableRowActionsProps {
   row: Row<Product>
   onUpdateProduct: (product: Product) => void
   onDeleteProduct: (productId: string) => void
+  categories: Category[]
 }
 
-export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: DataTableRowActionsProps) {
+export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct, categories }: DataTableRowActionsProps) {
   const product = row.original
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
@@ -77,6 +79,7 @@ export function DataTableRowActions({ row, onUpdateProduct, onDeleteProduct }: D
           </DialogHeader>
           <ProductForm 
             product={product} 
+            categories={categories}
             onSubmit={(data) => {
               // We merge the updated data with the existing product data
               // This is important because the form only contains a subset of fields

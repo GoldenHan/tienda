@@ -28,7 +28,7 @@ import { Product, Category } from "@/lib/types"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ProductForm } from "./product-form"
 
-interface ProductsTableProps extends ProductColumnActions {
+interface ProductsTableProps extends Omit<ProductColumnActions, 'categories'> {
   data: Product[];
   categories: Category[];
   onAddProduct: (product: Omit<Product, 'id'>) => void;
@@ -40,8 +40,8 @@ export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct,
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
 
   const columns = React.useMemo(
-    () => getColumns({ onUpdateProduct, onDeleteProduct }),
-    [onUpdateProduct, onDeleteProduct]
+    () => getColumns({ onUpdateProduct, onDeleteProduct, categories }),
+    [onUpdateProduct, onDeleteProduct, categories]
   );
   
   const table = useReactTable({
