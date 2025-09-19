@@ -95,3 +95,5 @@ export type Company = {
     ownerUid: string;
     createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
 }
+
+    
