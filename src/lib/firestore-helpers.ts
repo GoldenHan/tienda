@@ -5,7 +5,7 @@ import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy,
 import { db } from "./firebase";
 import { adminDb, adminAuth } from "./firebase-admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow } from "./types";
+import { Product, Sale, User, EmployeeData, InitialAdminData, CashOutflow, Inflow } from "./types";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -280,7 +280,7 @@ export const updateSaleAndAdjustStock = async (updatedSale: Sale, originalSale: 
 };
 
 
-// --- Cash Outflows (Egresos) Management ---
+// --- Cash Flow Management ---
 
 export const getCashOutflows = async (): Promise<CashOutflow[]> => {
   const firestore = getDbOrThrow();
@@ -299,11 +299,25 @@ export const addCashOutflow = async (outflowData: Omit<CashOutflow, 'id'>) => {
   const firestore = getDbOrThrow();
   const outflowsCollectionRef = collection(firestore, "cash_outflows");
   const docRef = await addDoc(outflowsCollectionRef, { ...outflowData });
-  // Update the document with its own ID
   await updateDoc(docRef, { id: docRef.id });
 };
 
+export const getInflows = async (): Promise<Inflow[]> => {
+  const firestore = getDbOrThrow();
+  const inflowsCollectionRef = collection(firestore, "inflows");
+  const q = query(inflowsCollectionRef, orderBy("date", "desc"));
+  try {
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Inflow));
+  } catch (error) {
+    console.error(`Error fetching inflows. This is normal if the collection doesn't exist yet.`, error);
+    return [];
+  }
+};
 
-
-
-    
+export const addInflow = async (inflowData: Omit<Inflow, 'id'>) => {
+  const firestore = getDbOrThrow();
+  const inflowsCollectionRef = collection(firestore, "inflows");
+  const docRef = await addDoc(inflowsCollectionRef, { ...inflowData });
+  await updateDoc(docRef, { id: docRef.id });
+};

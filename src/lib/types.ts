@@ -28,9 +28,7 @@ export type Sale = {
 
 export type Inflow = {
   id:string;
-  productName: string;
-  quantity: number;
-  purchaseCost: number;
+  reason: string;
   total: number;
   date: string;
 };

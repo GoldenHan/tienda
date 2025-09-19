@@ -6,7 +6,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@/hooks/use-toast";
-import { addCashOutflow } from "@/lib/firestore-helpers";
+import { addInflow } from "@/lib/firestore-helpers";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,50 +14,50 @@ import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 
 const formSchema = z.object({
-  amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
+  total: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
   reason: z.string().min(3, "El motivo es requerido (mín. 3 caracteres)."),
 });
 
-type OutflowFormData = z.infer<typeof formSchema>;
+type InflowFormData = z.infer<typeof formSchema>;
 
-interface OutflowFormProps {
-  onOutflowAdded: () => void;
+interface InflowFormProps {
+  onInflowAdded: () => void;
   date: Date;
 }
 
-export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
+export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const form = useForm<OutflowFormData>({
+  const form = useForm<InflowFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amount: 0,
+      total: 0,
       reason: "",
     },
   });
 
-  const handleFormSubmit = async (data: OutflowFormData) => {
+  const handleFormSubmit = async (data: InflowFormData) => {
     setIsSubmitting(true);
     try {
-      const newOutflow = {
+      const newInflow = {
         date: date.toISOString(),
-        amount: data.amount,
+        total: data.total,
         reason: data.reason,
       };
-      await addCashOutflow(newOutflow);
+      await addInflow(newInflow);
       toast({
-        title: "Egreso Registrado",
-        description: `Se registró una salida de C$${data.amount}.`,
+        title: "Ingreso Registrado",
+        description: `Se registró un ingreso de C$${data.total}.`,
       });
       form.reset();
-      onOutflowAdded();
+      onInflowAdded();
     } catch (error) {
-      console.error("Error al registrar egreso:", error);
+      console.error("Error al registrar ingreso:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudo registrar el egreso.",
+        description: "No se pudo registrar el ingreso.",
       });
     } finally {
       setIsSubmitting(false);
@@ -69,12 +69,12 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pt-4">
         <FormField
         control={form.control}
-        name="amount"
+        name="total"
         render={({ field }) => (
             <FormItem>
             <FormLabel>Monto (C$)</FormLabel>
             <FormControl>
-                <Input type="number" step="0.01" placeholder="Ej. 150.50" {...field} disabled={isSubmitting} />
+                <Input type="number" step="0.01" placeholder="Ej. 500.00" {...field} disabled={isSubmitting} />
             </FormControl>
             <FormMessage />
             </FormItem>
@@ -85,16 +85,16 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
         name="reason"
         render={({ field }) => (
             <FormItem>
-            <FormLabel>Motivo del Egreso</FormLabel>
+            <FormLabel>Motivo del Ingreso</FormLabel>
             <FormControl>
-                <Textarea placeholder="Ej. Compra de agua para la oficina" {...field} disabled={isSubmitting} />
+                <Textarea placeholder="Ej. Aporte de capital" {...field} disabled={isSubmitting} />
             </FormControl>
             <FormMessage />
             </FormItem>
         )}
         />
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-        {isSubmitting ? <Loader2 className="animate-spin" /> : "Registrar Egreso"}
+        {isSubmitting ? <Loader2 className="animate-spin" /> : "Registrar Ingreso"}
         </Button>
     </form>
     </Form>

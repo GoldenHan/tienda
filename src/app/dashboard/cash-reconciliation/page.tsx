@@ -4,14 +4,18 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { getSales, getCashOutflows } from '@/lib/firestore-helpers';
-import { Sale, CashOutflow } from '@/lib/types';
-import { isToday } from 'date-fns';
+import { getSales, getCashOutflows, getInflows } from '@/lib/firestore-helpers';
+import { Sale, CashOutflow, Inflow } from '@/lib/types';
+import { isSameDay, startOfDay } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { ArrowDown, ArrowUp, Scale } from 'lucide-react';
 import { OutflowForm } from '@/components/cash-reconciliation/outflow-form';
-import { OutflowsTable } from '@/components/cash-reconciliation/outflows-table';
+import { InflowForm } from '@/components/cash-reconciliation/inflow-form';
+import { ReconciliationTable } from '@/components/cash-reconciliation/reconciliation-table';
+import { DatePicker } from '@/components/ui/date-picker';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 
 const formatCurrency = (amount: number) =>
     new Intl.NumberFormat("es-NI", {
@@ -23,18 +27,24 @@ export default function CashReconciliationPage() {
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
+  const [inflows, setInflows] = useState<Inflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
+  const [isOutflowDialogOpen, setIsOutflowDialogOpen] = useState(false);
+  const [isInflowDialogOpen, setIsInflowDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [salesData, outflowsData] = await Promise.all([
+      const [salesData, outflowsData, inflowsData] = await Promise.all([
         getSales(),
         getCashOutflows(),
+        getInflows(),
       ]);
       setSales(salesData);
       setOutflows(outflowsData);
+      setInflows(inflowsData);
     } catch (error) {
       console.error("Cash reconciliation fetch error:", error);
       toast({
@@ -55,18 +65,29 @@ export default function CashReconciliationPage() {
     }
   }, [user, fetchData]);
 
-  const { todaySalesTotal, todayOutflowsTotal, todayBalance, todayOutflows } = useMemo(() => {
-    const todaySales = sales.filter(sale => isToday(new Date(sale.date)));
-    const todayOutflows = outflows.filter(outflow => isToday(new Date(outflow.date)));
+  const { dailySalesTotal, dailyInflowsTotal, dailyOutflowsTotal, dailyBalance, dailyItems } = useMemo(() => {
+    const dailySales = sales.filter(sale => isSameDay(new Date(sale.date), selectedDate));
+    const dailyOutflows = outflows.filter(outflow => isSameDay(new Date(outflow.date), selectedDate));
+    const dailyManualInflows = inflows.filter(inflow => isSameDay(new Date(inflow.date), selectedDate));
 
-    const todaySalesTotal = todaySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
-    const todayOutflowsTotal = todayOutflows.reduce((acc, outflow) => acc + outflow.amount, 0);
+    const dailySalesTotal = dailySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
+    const dailyInflowsTotal = dailyManualInflows.reduce((acc, inflow) => acc + inflow.total, 0);
+    const totalIncome = dailySalesTotal + dailyInflowsTotal;
+
+    const dailyOutflowsTotal = dailyOutflows.reduce((acc, outflow) => acc + outflow.amount, 0);
     
-    const todayBalance = todaySalesTotal - todayOutflowsTotal;
+    const dailyBalance = totalIncome - dailyOutflowsTotal;
 
-    return { todaySalesTotal, todayOutflowsTotal, todayBalance, todayOutflows };
-  }, [sales, outflows]);
+    const saleItems = dailySales.flatMap(sale => 
+      sale.items.map(item => ({...item, type: 'sale' as const, date: sale.date }))
+    );
+    const outflowItems = dailyOutflows.map(outflow => ({...outflow, type: 'outflow' as const}));
+    const inflowItems = dailyManualInflows.map(inflow => ({...inflow, type: 'inflow' as const}));
 
+    const dailyItems = [...saleItems, ...outflowItems, ...inflowItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return { dailySalesTotal: totalIncome, dailyInflowsTotal, dailyOutflowsTotal, dailyBalance, dailyItems };
+  }, [sales, outflows, inflows, selectedDate]);
 
   if (loading) {
     return (
@@ -80,10 +101,7 @@ export default function CashReconciliationPage() {
             <Skeleton className="h-28" />
             <Skeleton className="h-28" />
         </div>
-        <div className="grid gap-6 lg:grid-cols-5">
-            <div className="lg:col-span-2"><Skeleton className="h-64" /></div>
-            <div className="lg:col-span-3"><Skeleton className="h-64" /></div>
-        </div>
+        <div className="lg:col-span-3"><Skeleton className="h-96" /></div>
       </div>
     );
   }
@@ -92,17 +110,63 @@ export default function CashReconciliationPage() {
     <div className="flex flex-col">
        <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">Arqueo de Caja Diario</h1>
-        <p className="text-muted-foreground">Resume los ingresos y egresos del día.</p>
+        <p className="text-muted-foreground">Selecciona una fecha para ver el resumen de ingresos y egresos.</p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          <DatePicker date={selectedDate} onDateChange={(date) => date && setSelectedDate(startOfDay(date))} />
+           <div className="flex gap-2">
+                <Dialog open={isInflowDialogOpen} onOpenChange={setIsInflowDialogOpen}>
+                  <DialogTrigger asChild>
+                     <Button variant="outline">Añadir Ingreso</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Registrar Ingreso Manual</DialogTitle>
+                      <DialogDescription>
+                        Añade un ingreso de dinero que no provenga de una venta de producto.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <InflowForm 
+                        onInflowAdded={() => {
+                            fetchData();
+                            setIsInflowDialogOpen(false);
+                        }} 
+                        date={selectedDate}
+                    />
+                  </DialogContent>
+                </Dialog>
+                <Dialog open={isOutflowDialogOpen} onOpenChange={setIsOutflowDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="destructive-outline">Añadir Egreso</Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Registrar Egreso</DialogTitle>
+                      <DialogDescription>
+                        Añade un nuevo gasto o salida de dinero de la caja para el día seleccionado.
+                      </DialogDescription>
+                    </DialogHeader>
+                     <OutflowForm 
+                        onOutflowAdded={() => {
+                            fetchData();
+                            setIsOutflowDialogOpen(false);
+                        }}
+                        date={selectedDate}
+                    />
+                  </DialogContent>
+                </Dialog>
+           </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-3 mb-6">
             <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Ingresos por Ventas (Hoy)</CardTitle>
+                    <CardTitle className="text-sm font-medium">Ingresos Totales (Hoy)</CardTitle>
                     <ArrowUp className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(todaySalesTotal)}</div>
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(dailySalesTotal)}</div>
                 </CardContent>
             </Card>
             <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
@@ -111,7 +175,7 @@ export default function CashReconciliationPage() {
                     <ArrowDown className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(todayOutflowsTotal)}</div>
+                    <div className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(dailyOutflowsTotal)}</div>
                 </CardContent>
             </Card>
             <Card>
@@ -120,27 +184,20 @@ export default function CashReconciliationPage() {
                     <Scale className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(todayBalance)}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(dailyBalance)}</div>
                 </CardContent>
             </Card>
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-5">
-            <div className="lg:col-span-2">
-                 <OutflowForm onOutflowAdded={fetchData} />
-            </div>
-            <div className="lg:col-span-3">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Lista de Egresos de Hoy</CardTitle>
-                        <CardDescription>Todos los gastos registrados en el día actual.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                       <OutflowsTable outflows={todayOutflows} />
-                    </CardContent>
-                 </Card>
-            </div>
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle>Movimientos del Día</CardTitle>
+                <CardDescription>Detalle de todas las transacciones para la fecha seleccionada.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <ReconciliationTable items={dailyItems} />
+            </CardContent>
+        </Card>
       </main>
     </div>
   );
