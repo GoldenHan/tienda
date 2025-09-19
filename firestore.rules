@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -18,38 +19,39 @@ service cloud.firestore {
     }
 
     // -------------------
-    // Colección de empresas (Registro)
+    // Colección de empresas
     // -------------------
-    // Permitir crear la compañía solo si no existe ninguna.
     match /companies/{companyId} {
       allow create: if !exists(/databases/$(database)/documents/companies/$(companyId));
-      allow read, update, delete: if false; // No se puede leer ni modificar directamente después
+      allow read, update, delete: if false;
     }
 
     // -------------------
     // Colección de usuarios
     // -------------------
     match /users/{userId} {
-      // El usuario puede leer su propio documento
+      // Cada usuario puede leer su propio documento
       allow get: if request.auth != null && request.auth.uid == userId;
 
-      // El usuario puede actualizar su propia contraseña (no se maneja aquí, sino en la app)
-      // La creación de usuarios se hace con funciones de admin, así que se restringe aquí
-      allow create, update, delete, list: if false;
+      // Los admins pueden listar todos los usuarios de su empresa
+      allow list: if isAdmin() && isMemberOfCompany(request.auth.token.companyId);
+
+      // Nadie puede crear/actualizar/eliminar directamente usuarios
+      allow create, update, delete: if false;
     }
 
-     // -------------------
-    // REGLAS GENERALES PARA SUBCOLECCIONES DE LA EMPRESA
+    // -------------------
+    // Subcolecciones de la empresa
     // -------------------
     match /companies/{companyId}/{collection}/{docId} {
-      // 1. Los administradores pueden hacer todo dentro de su empresa
+      // Admins pueden todo dentro de su empresa
       allow read, write: if isAdmin() && isMemberOfCompany(companyId);
 
-      // 2. Los empleados tienen permisos específicos y limitados
-      // Empleados pueden LEER productos y categorías
-      allow read: if isEmployee() && isMemberOfCompany(companyId) && (collection == 'products' || collection == 'categories');
+      // Empleados pueden leer productos y categorías
+      allow read: if isEmployee() && isMemberOfCompany(companyId) &&
+                  (collection == 'products' || collection == 'categories');
 
-      // Empleados pueden CREAR ventas
+      // Empleados pueden crear ventas
       allow create: if isEmployee() && isMemberOfCompany(companyId) && collection == 'sales';
     }
   }
