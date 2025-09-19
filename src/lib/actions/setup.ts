@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, EmployeeData } from "@/lib/types";
+import type { InitialAdminData, User, Category, EmployeeData, Product, Sale } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -126,3 +126,166 @@ export const addEmployee = async (employeeData: EmployeeData, adminUserId: strin
     }
 };
 
+// -----------------
+// Category Management
+// -----------------
+export async function addCategory(categoryName: string, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const categoryCollection = db.collection(`companies/${companyId}/categories`);
+    await categoryCollection.add({ name: categoryName });
+};
+
+export async function deleteCategory(categoryId: string, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    
+    const categoryRef = db.doc(`companies/${companyId}/categories/${categoryId}`);
+    const productsRef = db.collection(`companies/${companyId}/products`);
+    
+    // Find products in this category
+    const productsQuery = productsRef.where('categoryId', '==', categoryId);
+    const productsSnapshot = await productsQuery.get();
+    
+    const batch = db.batch();
+    
+    // Unset categoryId from products
+    productsSnapshot.forEach(doc => {
+      batch.update(doc.ref, { categoryId: FieldValue.delete() });
+    });
+    
+    // Delete the category
+    batch.delete(categoryRef);
+    
+    await batch.commit();
+};
+
+
+// -----------------
+// Product Management
+// -----------------
+export async function addProduct(productData: Omit<Product, 'id'>, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const productCollection = db.collection(`companies/${companyId}/products`);
+    await productCollection.add({
+        ...productData,
+        createdAt: FieldValue.serverTimestamp(),
+    });
+};
+
+export async function updateProduct(productId: string, productData: Partial<Product>, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const productRef = db.doc(`companies/${companyId}/products/${productId}`);
+    await productRef.update(productData);
+};
+
+export async function deleteProduct(productId: string, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const productRef = db.doc(`companies/${companyId}/products/${productId}`);
+    await productRef.delete();
+};
+
+// -----------------
+// Sales Management
+// -----------------
+export async function addSale(newSale: Omit<Sale, 'id'>, cart: (Product & { quantityInCart: number; })[], userId: string): Promise<string> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const salesCollection = db.collection(`companies/${companyId}/sales`);
+    
+    const saleId = await db.runTransaction(async (transaction) => {
+        const saleRef = salesCollection.doc();
+        transaction.set(saleRef, newSale);
+
+        for (const cartItem of cart) {
+            const productRef = db.doc(`companies/${companyId}/products/${cartItem.id}`);
+            const productDoc = await transaction.get(productRef);
+
+            if (!productDoc.exists) {
+                throw new Error(`Producto ${cartItem.name} no encontrado.`);
+            }
+
+            const currentStock = productDoc.data()?.quantity || 0;
+            const newStock = currentStock - cartItem.quantityInCart;
+
+            if (newStock < 0) {
+                throw new Error(`Stock insuficiente para ${cartItem.name}.`);
+            }
+            transaction.update(productRef, { quantity: newStock });
+        }
+        return saleRef.id;
+    });
+
+    return saleId;
+};
+
+export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: Sale, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    
+    await db.runTransaction(async (transaction) => {
+        const saleRef = db.doc(`companies/${companyId}/sales/${updatedSale.id}`);
+        transaction.update(saleRef, {
+            items: updatedSale.items,
+            grandTotal: updatedSale.grandTotal,
+        });
+
+        const productQuantityChanges: { [productId: string]: number } = {};
+
+        // Calculate deltas
+        originalSale.items.forEach(item => {
+            productQuantityChanges[item.productId] = (productQuantityChanges[item.productId] || 0) + item.quantity;
+        });
+
+        updatedSale.items.forEach(item => {
+            productQuantityChanges[item.productId] = (productQuantityChanges[item.productId] || 0) - item.quantity;
+        });
+
+        for (const productId in productQuantityChanges) {
+            const delta = productQuantityChanges[productId];
+            if (delta !== 0) {
+                const productRef = db.doc(`companies/${companyId}/products/${productId}`);
+                const productDoc = await transaction.get(productRef);
+                const currentStock = productDoc.data()?.quantity || 0;
+                
+                if (currentStock + delta < 0) {
+                    const productName = productDoc.data()?.name || productId;
+                    throw new Error(`No se puede completar la actualización. El stock de "${productName}" sería negativo.`);
+                }
+
+                transaction.update(productRef, { quantity: FieldValue.increment(delta) });
+            }
+        }
+    });
+};
+
+// -----------------
+// Cash Flow & Reconciliation
+// -----------------
+
+export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const outflowsCollection = db.collection(`companies/${companyId}/cash_outflows`);
+    await outflowsCollection.add(outflow);
+};
+
+export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const inflowsCollection = db.collection(`companies/${companyId}/inflows`);
+    await inflowsCollection.add(inflow);
+};
+
+export async function updateReconciliationStatus(dateId: string, status: 'open' | 'closed', userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const reconRef = db.doc(`companies/${companyId}/reconciliations/${dateId}`);
+    await reconRef.set({
+        status: status,
+        updatedAt: FieldValue.serverTimestamp()
+    }, { merge: true });
+};

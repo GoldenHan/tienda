@@ -3,7 +3,7 @@
 
 import { getApps, initializeApp, cert, App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getFirestore } from "firebase-admin/firestore";
 
 let app: App;
 
@@ -37,4 +37,4 @@ if (!getApps().length) {
 const adminAuth = getAuth(app);
 const adminDb = getFirestore(app);
 
-export { adminAuth, adminDb, FieldValue };
+export { adminAuth, adminDb };
