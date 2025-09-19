@@ -43,8 +43,8 @@ export default function RegisterPage() {
             title: "Error de Verificación",
             description: "No se pudo comprobar el estado de la configuración. Revisa las reglas de Firestore y la conexión."
         });
-        // We assume setup is not required to prevent locking out users if there's a misconfiguration.
-        setSetupRequired(false);
+        // If the check fails (e.g. permission error on a fresh DB), assume setup IS required.
+        setSetupRequired(true);
       }
     }
     checkSetup();
