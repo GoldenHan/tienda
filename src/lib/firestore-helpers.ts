@@ -111,17 +111,6 @@ export const addEmployee = async (employeeData: EmployeeData) => {
   }
   
   try {
-    const adminAuth = getAuth();
-    if (!adminAuth.currentUser) {
-        throw new Error("Authentication required to add an employee.");
-    }
-    const userDocRef = doc(firestore, "users", adminAuth.currentUser.uid);
-    const adminUserDoc = await getDoc(userDocRef);
-    
-    if (!adminUserDoc.exists() || adminUserDoc.data().role !== 'admin') {
-        throw new Error("Only admins can add new employees.");
-    }
-
     const userCredential = await createUserWithEmailAndPassword(secondaryAuth, employeeData.email, employeeData.password);
     const newUser = userCredential.user;
 
