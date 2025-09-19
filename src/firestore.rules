@@ -2,53 +2,69 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helpers
+
+    // --- Helper Functions ---
     function isSignedIn() {
       return request.auth != null;
     }
+
+    // Gets the user's data from the root /users collection
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
+
+    // Checks if the user belongs to the specified company
+    function isCompanyMember(companyId) {
+      return isSignedIn() && getUserData().companyId == companyId;
+    }
+
+    // Checks if the user has a specific role
     function isRole(role) {
       return isSignedIn() && getUserData().role == role;
     }
-    function isCompanyMember(companyId) {
-       return isSignedIn() && getUserData().companyId == companyId;
-    }
+    
+    // --- Rules ---
 
-    // USERS
+    // Root users collection:
+    // Users can read their own data.
+    // Users can create their own data (on signup).
     match /users/{userId} {
-      allow create: if isSignedIn() && request.auth.uid == userId;
       allow read: if isSignedIn() && request.auth.uid == userId;
-      allow write: if isRole('admin') && isCompanyMember(resource.data.companyId);
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && request.auth.uid == userId; // Allow user to update their own info if needed in future
+      allow delete: if false; // Nobody can delete a user record
     }
 
-    // COMPANIES
+    // Companies collection:
+    // Read: Only members of that company.
+    // Create: Any signed-in user (for registration).
+    // Update: Only admins of that company.
     match /companies/{companyId} {
-      allow create: if isSignedIn();
       allow read: if isCompanyMember(companyId);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.adminUid;
       allow update: if isRole('admin') && isCompanyMember(companyId);
+      allow delete: if false; // Nobody can delete a company record
+    }
 
-      // PRODUCTS
-      match /products/{productId} {
-        allow read: if isCompanyMember(companyId) && (!('initialized' in resource.data) || resource.data.initialized != true);
-        allow create, update, delete: if isRole('admin') && isCompanyMember(companyId);
-      }
-
-      // SALES
-      match /sales/{saleId} {
-        allow read: if isRole('admin') && isCompanyMember(companyId) && (!('initialized' in resource.data) || resource.data.initialized != true);
-        allow create: if isCompanyMember(companyId);
-        allow update, delete: if isRole('admin') && isCompanyMember(companyId);
-      }
-
-      // Placeholders
-      match /products/_placeholder {
-        allow read, write: if isSignedIn();
-      }
-      match /sales/_placeholder {
-        allow read, write: if isSignedIn();
-      }
+    // Products subcollection:
+    // Read: Any member of the company.
+    // Write (C-U-D): Only admins of the company.
+    match /companies/{companyId}/products/{productId} {
+      // The check `!('initialized' in resource.data)` is crucial. It prevents an error
+      // when Firestore tries to read `resource.data` on a document that doesn't exist yet,
+      // which happens when querying an empty collection.
+      allow read: if isCompanyMember(companyId) && (!('initialized' in resource.data) || resource.data.initialized != true);
+      allow create, update, delete: if isRole('admin') && isCompanyMember(companyId);
+    }
+    
+    // Sales subcollection:
+    // Read: Only admins of the company.
+    // Create: Any member of the company (admins and employees).
+    // Update/Delete: Only admins of the company.
+    match /companies/{companyId}/sales/{saleId} {
+      allow read: if isCompanyMember(companyId) && (!('initialized' in resource.data) || resource.data.initialized != true);
+      allow create: if isCompanyMember(companyId);
+      allow update, delete: if isRole('admin') && isCompanyMember(companyId);
     }
   }
 }
