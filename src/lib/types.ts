@@ -8,6 +8,7 @@ export type Product = {
   lowStockThreshold: number;
   imageUrl: string;
   imageHint: string;
+  createdAt?: string; // Changed from any to string
 };
 
 export type SaleItem = {
@@ -53,7 +54,7 @@ export type User = {
   name: string;
   email: string;
   role: 'admin' | 'employee';
-  createdAt: any;
+  createdAt: string | null; // Changed from any to string
 };
 
 export type EmployeeData = {

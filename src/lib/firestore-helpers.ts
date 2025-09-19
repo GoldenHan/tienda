@@ -2,10 +2,9 @@
 "use server";
 
 import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc, query, orderBy, writeBatch, runTransaction, setDoc, getDoc, serverTimestamp, limit } from "firebase/firestore";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
-import { db } from "./firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { db, secondaryAuth } from "./firebase";
 import { Product, Sale, User, EmployeeData, InitialAdminData } from "./types";
-import { initializeApp, getApps, getApp } from "firebase/app";
 
 // --- Prerequisite Check ---
 function getDbOrThrow() {
@@ -14,21 +13,6 @@ function getDbOrThrow() {
   }
   return db;
 }
-
-const secondaryAppConfig = {
-      apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-      authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-      projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-      storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-      appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-    };
-
-const secondaryApp = secondaryAppConfig.apiKey ? (!getApps().find(app => app.name === 'secondary')
-  ? initializeApp(secondaryAppConfig, "secondary")
-  : getApp("secondary")) : null;
-
-const secondaryAuth = secondaryApp ? getAuth(secondaryApp) : null;
 
 
 // --- Initial Setup and Company Info ---
@@ -47,21 +31,24 @@ export const isInitialSetupRequired = async (): Promise<boolean> => {
 
 export const createInitialAdminUser = async (data: InitialAdminData) => {
     const firestore = getDbOrThrow();
-    const auth = getAuth();
-
-    // Double-check to prevent race conditions
+    if (!secondaryAuth) {
+        throw new Error("Firebase secondary auth for user creation is not initialized.");
+    }
+    
     const isSetupNeeded = await isInitialSetupRequired();
     if (!isSetupNeeded) {
         throw new Error("Setup is not required. An admin user already exists.");
     }
     
     // Create Auth user
-    const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+    const userCredential = await createUserWithEmailAndPassword(secondaryAuth, data.email, data.password);
     const newUser = userCredential.user;
+
+    const batch = writeBatch(firestore);
 
     // Create user document in Firestore
     const userDocRef = doc(firestore, "users", newUser.uid);
-    await setDoc(userDocRef, {
+    batch.set(userDocRef, {
         uid: newUser.uid,
         name: data.adminName,
         email: data.email,
@@ -71,11 +58,13 @@ export const createInitialAdminUser = async (data: InitialAdminData) => {
     
     // Create company document in Firestore
     const companyDocRef = doc(firestore, "company", "main");
-    await setDoc(companyDocRef, {
+    batch.set(companyDocRef, {
         name: data.companyName,
         ownerUid: newUser.uid,
         createdAt: serverTimestamp(),
     });
+
+    await batch.commit();
 };
 
 
@@ -101,7 +90,12 @@ export const getUsers = async (): Promise<User[]> => {
   const usersCollectionRef = collection(firestore, "users");
   const q = query(usersCollectionRef, orderBy("name"));
   const snapshot = await getDocs(q);
-  return snapshot.docs.map(doc => doc.data() as User);
+  return snapshot.docs.map(doc => {
+      const data = doc.data();
+      // Firestore Timestamps are not serializable, convert them to strings
+      const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : null;
+      return { ...data, createdAt } as User;
+    });
 };
 
 export const addEmployee = async (employeeData: EmployeeData) => {
@@ -139,7 +133,11 @@ export const getProducts = async (): Promise<Product[]> => {
   const q = query(productsCollectionRef, orderBy("name"));
   try {
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Product));
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        const createdAt = data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : undefined;
+        return { id: doc.id, ...data, createdAt } as Product;
+    });
   } catch (error) {
     console.error(`Error fetching products:`, error);
     throw error;
@@ -172,6 +170,7 @@ export const getSales = async (): Promise<Sale[]> => {
   const q = query(salesCollectionRef, orderBy("date", "desc"));
   try {
     const snapshot = await getDocs(q);
+    // The 'date' field is already an ISO string, so no conversion is needed here.
     return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Sale));
   } catch (error) {
     console.error(`Error fetching sales:`, error);
