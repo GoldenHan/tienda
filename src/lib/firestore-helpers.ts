@@ -15,6 +15,17 @@ function getDbOrThrow() {
   return db;
 }
 
+const getUserDoc = async (uid: string): Promise<User | null> => {
+  const firestore = getDbOrThrow();
+  const userDocRef = doc(firestore, "users", uid);
+  const userDocSnap = await getDoc(userDocRef);
+  if (userDocSnap.exists()) {
+    return userDocSnap.data() as User;
+  }
+  return null;
+}
+
+
 // --- Secondary App for User Creation ---
 const secondaryAppConfig = {
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -117,6 +128,7 @@ export const deleteProduct = async (companyId: string, id: string) => {
   const productDocRef = doc(firestore, "companies", companyId, "products", id);
   await deleteDoc(productDocRef);
 };
+
 
 // --- Sales Management ---
 export const getSales = async (companyId: string): Promise<Sale[]> => {
