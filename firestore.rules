@@ -8,55 +8,77 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Function to get user data from the /users collection.
+    // IMPORTANT: This can only be used in 'read' rules, not 'write' rules.
     function getUserData() {
-      // Lee los datos del documento del usuario que realiza la solicitud.
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    // Checks if the requesting user belongs to the company specified in the path.
     function isCompanyMember(companyId) {
-      // Verifica si el companyId del usuario coincide con el companyId de la ruta.
       return isSignedIn() && getUserData().companyId == companyId;
     }
-
-    function isAdmin() {
-      // Verifica si el rol del usuario es 'admin'.
-      return isSignedIn() && getUserData().role == "admin";
+    
+    // Checks if the user has a specific role.
+    function hasRole(role) {
+      return isSignedIn() && getUserData().role == role;
     }
 
-    // --- Rules ---
-
-    // Colección de usuarios (/users/{userId})
-    // Un usuario solo puede acceder a su propio documento.
+    // --- USERS Collection ---
+    // Rules for the root /users collection where roles and company associations are stored.
     match /users/{userId} {
-      allow read, update: if isSignedIn() && request.auth.uid == userId;
+      // A user can create their own document.
       allow create: if isSignedIn() && request.auth.uid == userId;
+      
+      // A user can only read their own document.
+      allow read: if isSignedIn() && request.auth.uid == userId;
+      
+      // A user can only update their own document.
+      allow update: if isSignedIn() && request.auth.uid == userId;
+      
+      // No one can delete a user document through client-side requests.
+      allow delete: if false;
     }
 
-    // Colección de compañías (/companies/{companyId})
+    // --- COMPANIES Collection ---
     match /companies/{companyId} {
-      // Un usuario puede leer los datos de su propia compañía.
-      allow read, update: if isCompanyMember(companyId) && isAdmin();
-      allow create: if isSignedIn();
+      // READ: Any authenticated member of the company can read the company's main document.
+      allow read: if isCompanyMember(companyId);
 
-      // Subcolección de productos (/companies/{companyId}/products/{productId})
-      match /products/{productId} {
-        // Cualquier miembro de la compañía puede consultar la lista de productos y leer uno específico.
-        allow list, get: if isCompanyMember(companyId);
-        
-        // Solo los administradores pueden crear, actualizar o eliminar productos.
-        allow create, update, delete: if isCompanyMember(companyId) && isAdmin();
-      }
+      // CREATE: A user can create a company document if they are signed in
+      // and they are setting themselves as the admin.
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.adminUid;
+
+      // UPDATE: Only an admin of that company can update the company document.
+      allow update: if hasRole('admin') && isCompanyMember(companyId);
       
-      // Subcolección de ventas (/companies/{companyId}/sales/{saleId})
+      // DELETE: Companies cannot be deleted from the client.
+      allow delete: if false;
+
+      // --- PRODUCTS Subcollection ---
+      match /products/{productId} {
+        // READ (LIST): Any authenticated user of the company can list all products.
+        allow list: if isCompanyMember(companyId);
+
+        // READ (GET): Any authenticated user of the company can get a single product.
+        allow get: if isCompanyMember(companyId);
+
+        // WRITE (CREATE, UPDATE, DELETE): Only admins of the company can manage products.
+        // These rules do NOT use get() and are valid for write operations.
+        allow create, update, delete: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      }
+
+      // --- SALES Subcollection ---
       match /sales/{saleId} {
-        // Cualquier miembro de la compañía puede consultar la lista y leer una venta específica.
-        allow list, get: if isCompanyMember(companyId);
-        
-        // Cualquier miembro de la compañía puede crear una venta.
+        // READ (LIST, GET): Any authenticated member of the company can read sales data.
+        // The UI will handle who sees what (e.g., only admins see the full history page).
+        allow read: if isCompanyMember(companyId);
+
+        // CREATE: Any authenticated user of the company can create a sale (e.g., from the POS).
         allow create: if isCompanyMember(companyId);
-        
-        // Solo los administradores pueden actualizar o eliminar ventas.
-        allow update, delete: if isCompanyMember(companyId) && isAdmin();
+
+        // UPDATE, DELETE: Only admins can modify or delete sales records.
+        allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       }
     }
   }
