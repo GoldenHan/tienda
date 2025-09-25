@@ -1,4 +1,3 @@
-
 'use client'
 
 import Link from 'next/link'
@@ -30,14 +29,17 @@ import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 
 const allLinks = [
-  { href: '/dashboard', label: 'Panel de Control', icon: LayoutDashboard, adminOnly: true },
+  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
   { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
   { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, adminOnly: true },
   { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart, adminOnly: true },
   { href: '/dashboard/cash-reconciliation', label: 'Arqueos', icon: PiggyBank, adminOnly: true },
   { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3, adminOnly: true },
   { href: '/dashboard/users', label: 'Usuarios', icon: Users, adminOnly: true },
-  { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: false },
+]
+
+const bottomLinks = [
+    { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: false },
 ]
 
 interface AppSidebarProps {
@@ -50,6 +52,7 @@ export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
   const { logout } = useAuth();
 
   const visibleLinks = allLinks.filter(link => !link.adminOnly || isAdmin);
+  const visibleBottomLinks = bottomLinks.filter(link => !link.adminOnly || isAdmin);
 
   return (
     <Sidebar>
@@ -61,7 +64,7 @@ export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
           )}
         >
           <Warehouse className="h-6 w-6 text-primary" />
-          <h2 className="font-headline text-lg font-semibold tracking-tight">
+          <h2 className="font-semibold text-lg tracking-tight">
             {companyName}
           </h2>
         </div>
@@ -89,6 +92,20 @@ export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
       </SidebarContent>
       <SidebarFooter>
         <SidebarMenu>
+            {visibleBottomLinks.map(link => (
+                <SidebarMenuItem key={link.href}>
+                    <Link href={link.href} className="w-full">
+                        <SidebarMenuButton
+                        isActive={pathname === link.href}
+                        tooltip={{ children: link.label }}
+                        className="justify-start"
+                        >
+                        <link.icon />
+                        <span>{link.label}</span>
+                        </SidebarMenuButton>
+                    </Link>
+                </SidebarMenuItem>
+            ))}
           <SidebarMenuItem asChild>
             <SidebarMenuButton onClick={logout} className="justify-start w-full">
               <LogOut />

@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -18,28 +17,27 @@ interface StatCardProps {
 
 export default function StatCard({ title, value, icon: Icon, description, variant = 'default' }: StatCardProps) {
   const cardClasses = cn(
-    "transition-transform hover:-translate-y-1",
+    "transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-primary/10",
     {
       "bg-card text-card-foreground": variant === "default",
-      "bg-destructive/10 border-destructive/50": variant === "destructive",
-      "bg-secondary/50": variant === "secondary",
+      "bg-destructive/10 border-destructive/30 text-destructive": variant === "destructive",
+      "bg-secondary": variant === "secondary",
     }
   );
 
-  const iconClasses = cn({
-    "text-muted-foreground": variant !== "destructive",
+  const iconClasses = cn("text-muted-foreground", {
     "text-destructive": variant === "destructive",
   });
 
-  const valueClasses = cn("text-2xl font-bold font-headline", {
-    "text-destructive": variant === "destructive",
+  const valueClasses = cn("text-2xl font-bold", {
+     "text-destructive": variant === "destructive",
   });
 
   return (
     <Card className={cardClasses}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        <Icon className="h-4 w-4 text-muted-foreground" />
+        <Icon className={cn("h-4 w-4", iconClasses)} />
       </CardHeader>
       <CardContent>
         <div className={valueClasses}>{value}</div>
