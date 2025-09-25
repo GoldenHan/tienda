@@ -175,7 +175,7 @@ export function SalesReport({ allSales, allProducts }: SalesReportProps) {
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExportToCSV}>
               <FileDown className="mr-2" />
-              Exportar a Excel (CSV)
+              Exportar a Excel (XLSX)
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleExportToHTML}>
               <FileDown className="mr-2" />

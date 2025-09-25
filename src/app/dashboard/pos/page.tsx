@@ -7,9 +7,11 @@ import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { getProducts, addSale, getCategories } from "@/lib/firestore-helpers";
+import { getProducts, addSale, getCategories, getCompanyName } from "@/lib/firestore-helpers";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Invoice } from "@/components/pos/invoice";
 
 export type CartItem = Product & { quantityInCart: number };
 
@@ -21,17 +23,23 @@ export default function POSPage() {
   const [loading, setLoading] = useState(true);
   const [isCompletingSale, setIsCompletingSale] = useState(false);
   const { toast } = useToast();
+  
+  const [lastSale, setLastSale] = useState<Sale | null>(null);
+  const [companyName, setCompanyName] = useState<string>("");
+  const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [productsData, categoriesData] = await Promise.all([
+      const [productsData, categoriesData, companyNameData] = await Promise.all([
         getProducts(user.uid),
         getCategories(user.uid),
+        getCompanyName(user.uid),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
+      setCompanyName(companyNameData);
     } catch (error) {
       console.error("POS fetch error:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
@@ -129,7 +137,7 @@ export default function POSPage() {
       total: cartItem.salePrice * cartItem.quantityInCart,
     }));
     
-    const newSale: Omit<Sale, 'id'> = {
+    const saleData: Omit<Sale, 'id'> = {
       date: new Date().toISOString(),
       items: newSaleItems,
       grandTotal: newSaleItems.reduce((acc, item) => acc + item.total, 0),
@@ -138,10 +146,14 @@ export default function POSPage() {
     };
 
     try {
-      await addSale(newSale, cart, user.uid);
+      const saleId = await addSale(saleData, cart, user.uid);
       
       setCart([]);
-      await fetchData(); // Re-fetch products with updated stock
+      await fetchData(); 
+
+      const completedSale = { ...saleData, id: saleId };
+      setLastSale(completedSale);
+      setIsInvoiceDialogOpen(true);
 
       toast({
         title: "Venta completada",
@@ -155,6 +167,44 @@ export default function POSPage() {
       setIsCompletingSale(false);
     }
   };
+
+  const handlePrint = () => {
+    const printContent = document.getElementById("invoice-to-print");
+    if (!printContent) return;
+    
+    const styles = `
+        body, html {
+            margin: 0;
+            padding: 0;
+            background-color: #fff;
+        }
+        @media print {
+            body > *:not(#print-container) {
+                display: none;
+            }
+            #print-container {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+            }
+        }
+    `;
+
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (!printWindow) return;
+    
+    printWindow.document.write('<html><head><title>Factura</title>');
+    printWindow.document.write(`<style>${styles}</style>`);
+    printWindow.document.write('</head><body><div id="print-container">');
+    printWindow.document.write(printContent.innerHTML);
+    printWindow.document.write('</div></body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+};
+
 
   const categoryTabs = useMemo(() => [{ id: 'all', name: 'Todos' }, ...categories], [categories]);
 
@@ -192,6 +242,7 @@ export default function POSPage() {
 
 
   return (
+    <>
     <div className="flex h-full flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">
@@ -214,5 +265,23 @@ export default function POSPage() {
         </div>
       </main>
     </div>
+    <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+        <DialogContent className="max-w-lg">
+            <DialogHeader>
+                <DialogTitle>Venta Realizada con Éxito</DialogTitle>
+                <DialogDescription>
+                    La venta ha sido registrada. Puedes imprimir la factura a continuación.
+                </DialogDescription>
+            </DialogHeader>
+            {lastSale && companyName && (
+                <Invoice
+                    sale={lastSale}
+                    companyName={companyName}
+                    onPrint={handlePrint}
+                />
+            )}
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }

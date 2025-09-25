@@ -8,6 +8,9 @@ import { getSales, getProducts } from "@/lib/firestore-helpers";
 import { Sale, Product } from "@/lib/types";
 import { SalesReport } from "@/components/reports/sales-report";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { InventoryReport } from "@/components/reports/inventory-report";
+
 
 export default function ReportsPage() {
   const { user } = useAuth();
@@ -55,7 +58,7 @@ export default function ReportsPage() {
             Generador de Reportes
           </h1>
           <p className="text-muted-foreground">
-            Filtra y exporta tus reportes de ventas.
+            Filtra y exporta tus reportes de ventas, beneficios e inventario.
           </p>
         </header>
         <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
@@ -78,11 +81,22 @@ export default function ReportsPage() {
           Generador de Reportes
         </h1>
         <p className="text-muted-foreground">
-          Filtra y exporta tus reportes de ventas y beneficios.
+          Filtra y exporta tus reportes de ventas, beneficios e inventario.
         </p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-        <SalesReport allSales={sales} allProducts={products} />
+         <Tabs defaultValue="sales">
+            <TabsList>
+                <TabsTrigger value="sales">Ventas y Beneficios</TabsTrigger>
+                <TabsTrigger value="inventory">Inventario</TabsTrigger>
+            </TabsList>
+            <TabsContent value="sales" className="mt-4">
+                <SalesReport allSales={sales} allProducts={products} />
+            </TabsContent>
+            <TabsContent value="inventory" className="mt-4">
+                <InventoryReport allProducts={products} />
+            </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
