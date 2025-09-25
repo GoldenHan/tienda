@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow } from "@/lib/types";
+import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -70,6 +70,7 @@ export async function createInitialAdminUser(data: InitialAdminData) {
     id: companyRef.id,
     name: data.companyName,
     ownerUid: userRecord.uid,
+    exchangeRate: 36.5, // Default exchange rate
     createdAt: FieldValue.serverTimestamp(),
   });
 
@@ -87,6 +88,14 @@ export async function createInitialAdminUser(data: InitialAdminData) {
 
   return { uid: userRecord.uid, companyId: companyRef.id };
 };
+
+export async function updateExchangeRate(rate: number, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const companyRef = db.doc(`companies/${companyId}`);
+    await companyRef.update({ exchangeRate: rate });
+}
+
 
 // -----------------
 // Gestión de usuarios

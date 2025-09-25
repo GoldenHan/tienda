@@ -13,10 +13,12 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { useAuth } from "@/context/auth-context";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
   reason: z.string().min(3, "El motivo es requerido (mín. 3 caracteres)."),
+  currency: z.enum(["NIO", "USD"], { required_error: "Debes seleccionar una moneda." }),
 });
 
 type OutflowFormData = z.infer<typeof formSchema>;
@@ -36,6 +38,7 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
     defaultValues: {
       amount: 0,
       reason: "",
+      currency: "NIO",
     },
   });
 
@@ -47,11 +50,12 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
         date: date.toISOString(),
         amount: data.amount,
         reason: data.reason,
+        currency: data.currency,
       };
       await addCashOutflow(newOutflow, user.uid);
       toast({
         title: "Egreso Registrado",
-        description: `Se registró una salida de C$${data.amount}.`,
+        description: `Se registró una salida de ${data.currency === 'USD' ? '$' : 'C$'}${data.amount}.`,
       });
       form.reset();
       onOutflowAdded();
@@ -71,11 +75,38 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
     <Form {...form}>
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pt-4">
         <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+                <FormItem className="space-y-3">
+                <FormLabel>Moneda del Egreso</FormLabel>
+                <FormControl>
+                    <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex space-x-4"
+                    disabled={isSubmitting}
+                    >
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="NIO" /></FormControl>
+                        <FormLabel className="font-normal">Córdobas (C$)</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="USD" /></FormControl>
+                        <FormLabel className="font-normal">Dólares ($)</FormLabel>
+                    </FormItem>
+                    </RadioGroup>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
         control={form.control}
         name="amount"
         render={({ field }) => (
             <FormItem>
-            <FormLabel>Monto (C$)</FormLabel>
+            <FormLabel>Monto</FormLabel>
             <FormControl>
                 <Input type="number" step="0.01" placeholder="Ej. 150.50" {...field} disabled={isSubmitting} />
             </FormControl>

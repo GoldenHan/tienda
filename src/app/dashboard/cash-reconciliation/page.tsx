@@ -5,12 +5,12 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { getSales, getCashOutflows, getInflows, getReconciliationStatus, updateReconciliationStatus } from '@/lib/firestore-helpers';
-import { Sale, CashOutflow, Inflow, Reconciliation } from '@/lib/types';
+import { getSales, getCashOutflows, getInflows, getReconciliationStatus, updateReconciliationStatus, getCompany } from '@/lib/firestore-helpers';
+import { Sale, CashOutflow, Inflow, Reconciliation, Company, Currency } from '@/lib/types';
 import { isSameDay, startOfDay, format as formatDateFns } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowDown, ArrowUp, Scale, Lock, Unlock, ChevronDown, PackagePlus, DollarSign } from 'lucide-react';
+import { ArrowDown, ArrowUp, Scale, Lock, Unlock, ChevronDown, PackagePlus, DollarSign, Repeat } from 'lucide-react';
 import { OutflowForm } from '@/components/cash-reconciliation/outflow-form';
 import { InflowForm } from '@/components/cash-reconciliation/inflow-form';
 import { ReconciliationTable } from '@/components/cash-reconciliation/reconciliation-table';
@@ -22,10 +22,10 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 
-const formatCurrency = (amount: number) =>
+const formatCurrency = (amount: number, currency: Currency) =>
     new Intl.NumberFormat("es-NI", {
       style: "currency",
-      currency: "NIO",
+      currency: currency,
     }).format(amount);
 
 export default function CashReconciliationPage() {
@@ -34,6 +34,7 @@ export default function CashReconciliationPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [inflows, setInflows] = useState<Inflow[]>([]);
+  const [company, setCompany] = useState<Company | null>(null);
   const [reconciliationStatus, setReconciliationStatus] = useState<Reconciliation['status']>('open');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,16 +49,18 @@ export default function CashReconciliationPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [salesData, outflowsData, inflowsData, statusData] = await Promise.all([
+      const [salesData, outflowsData, inflowsData, statusData, companyData] = await Promise.all([
         getSales(user.uid),
         getCashOutflows(user.uid),
         getInflows(user.uid),
         getReconciliationStatus(formattedDateId, user.uid),
+        getCompany(user.uid)
       ]);
       setSales(salesData);
       setOutflows(outflowsData);
       setInflows(inflowsData);
       setReconciliationStatus(statusData);
+      setCompany(companyData);
 
     } catch (error) {
       console.error("Cash reconciliation fetch error:", error);
@@ -102,29 +105,45 @@ export default function CashReconciliationPage() {
   }
 
 
-  const { dailySalesTotal, dailyInflowsTotal, dailyOutflowsTotal, dailyBalance, dailyItems } = useMemo(() => {
-    const dailySales = sales.filter(sale => isSameDay(new Date(sale.date), selectedDate));
-    const dailyOutflows = outflows.filter(outflow => isSameDay(new Date(outflow.date), selectedDate));
-    const dailyManualInflows = inflows.filter(inflow => isSameDay(new Date(inflow.date), selectedDate));
+  const { 
+      dailyNioIncomes, dailyUsdIncomes, 
+      dailyNioOutflows, dailyUsdOutflows, 
+      dailyNioBalance, dailyUsdBalance,
+      dailyItems, consolidatedNioBalance
+  } = useMemo(() => {
+    const dayFilter = (item: { date: string }) => isSameDay(new Date(item.date), selectedDate);
 
-    const dailySalesTotal = dailySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
-    const dailyInflowsTotal = dailyManualInflows.reduce((acc, inflow) => acc + inflow.total, 0);
-    const totalIncome = dailySalesTotal + dailyInflowsTotal;
+    const dailySales = sales.filter(dayFilter);
+    const dailyOutflows = outflows.filter(dayFilter);
+    const dailyManualInflows = inflows.filter(dayFilter);
 
-    const dailyOutflowsTotal = dailyOutflows.reduce((acc, outflow) => acc + outflow.amount, 0);
+    const dailyNioIncomes = 
+      dailySales.filter(s => s.paymentCurrency === 'NIO').reduce((acc, s) => acc + s.grandTotal, 0) +
+      dailyManualInflows.filter(i => i.currency === 'NIO').reduce((acc, i) => acc + i.total, 0);
     
-    const dailyBalance = totalIncome - dailyOutflowsTotal;
+    const dailyUsdIncomes =
+      dailySales.filter(s => s.paymentCurrency === 'USD').reduce((acc, s) => acc + s.grandTotal, 0) +
+      dailyManualInflows.filter(i => i.currency === 'USD').reduce((acc, i) => acc + i.total, 0);
 
-    const saleItems = dailySales.flatMap(sale => 
-      sale.items.map(item => ({...item, type: 'sale' as const, date: sale.date }))
-    );
-    const outflowItems = dailyOutflows.map(outflow => ({...outflow, type: 'outflow' as const}));
-    const inflowItems = dailyManualInflows.map(inflow => ({...inflow, type: 'inflow' as const}));
+    const dailyNioOutflows = dailyOutflows.filter(o => o.currency === 'NIO').reduce((acc, o) => acc + o.amount, 0);
+    const dailyUsdOutflows = dailyOutflows.filter(o => o.currency === 'USD').reduce((acc, o) => acc + o.amount, 0);
 
-    const dailyItems = [...saleItems, ...outflowItems, ...inflowItems].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    const dailyNioBalance = dailyNioIncomes - dailyNioOutflows;
+    const dailyUsdBalance = dailyUsdIncomes - dailyUsdOutflows;
 
-    return { dailySalesTotal: totalIncome, dailyInflowsTotal, dailyOutflowsTotal, dailyBalance, dailyItems };
-  }, [sales, outflows, inflows, selectedDate]);
+    const allItems = [...dailySales, ...dailyOutflows, ...dailyManualInflows];
+    const dailyItems = allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+    const exchangeRate = company?.exchangeRate || 36.5;
+    const consolidatedNioBalance = dailyNioBalance + (dailyUsdBalance * exchangeRate);
+
+    return { 
+        dailyNioIncomes, dailyUsdIncomes, 
+        dailyNioOutflows, dailyUsdOutflows, 
+        dailyNioBalance, dailyUsdBalance, 
+        dailyItems, consolidatedNioBalance 
+    };
+  }, [sales, outflows, inflows, selectedDate, company]);
 
   const isClosed = reconciliationStatus === 'closed';
 
@@ -135,7 +154,8 @@ export default function CashReconciliationPage() {
           <h1 className="text-2xl font-bold tracking-tight font-headline">Arqueo de Caja Diario</h1>
           <p className="text-muted-foreground">Resume los ingresos y egresos del día.</p>
         </header>
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-28" />
             <Skeleton className="h-28" />
             <Skeleton className="h-28" />
             <Skeleton className="h-28" />
@@ -171,32 +191,17 @@ export default function CashReconciliationPage() {
           <DatePicker date={selectedDate} onDateChange={(date) => date && setSelectedDate(startOfDay(date))} />
            <div className="flex gap-2">
                 <Dialog open={isInflowDialogOpen} onOpenChange={setIsInflowDialogOpen}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
+                  <DialogTrigger asChild>
                       <Button variant="outline" disabled={isClosed}>
                         Añadir Ingreso
-                        <ChevronDown className="ml-2" />
+                        <DollarSign className="ml-2" />
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DialogTrigger asChild>
-                        <DropdownMenuItem>
-                          <DollarSign className="mr-2" />
-                          Ingreso de Efectivo
-                        </DropdownMenuItem>
-                      </DialogTrigger>
-                      <DropdownMenuItem onClick={() => router.push('/dashboard/inventory')}>
-                        <PackagePlus className="mr-2" />
-                        Añadir/Actualizar Productos
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
+                  </DialogTrigger>
                   <DialogContent>
                     <DialogHeader>
                       <DialogTitle>Registrar Ingreso de Efectivo</DialogTitle>
                       <DialogDescription>
-                        Añade un ingreso de dinero que no provenga de una venta. (Ej. Aporte de capital)
+                        Añade un ingreso de dinero que no provenga de una venta (Ej. Aporte de capital).
                       </DialogDescription>
                     </DialogHeader>
                     <InflowForm 
@@ -252,32 +257,71 @@ export default function CashReconciliationPage() {
            </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3 mb-6">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 mb-6">
             <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Ingresos Totales ({formatDateFns(selectedDate, 'dd/MM')})</CardTitle>
+                    <CardTitle className="text-sm font-medium">Ingresos Totales (C$)</CardTitle>
                     <ArrowUp className="h-4 w-4 text-green-600" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(dailySalesTotal)}</div>
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(dailyNioIncomes, 'NIO')}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Ingresos Totales ($)</CardTitle>
+                    <ArrowUp className="h-4 w-4 text-green-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(dailyUsdIncomes, 'USD')}</div>
                 </CardContent>
             </Card>
             <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Egresos ({formatDateFns(selectedDate, 'dd/MM')})</CardTitle>
+                    <CardTitle className="text-sm font-medium">Egresos (C$)</CardTitle>
                     <ArrowDown className="h-4 w-4 text-red-600" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(dailyOutflowsTotal)}</div>
+                    <div className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(dailyNioOutflows, 'NIO')}</div>
+                </CardContent>
+            </Card>
+            <Card className="bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Egresos ($)</CardTitle>
+                    <ArrowDown className="h-4 w-4 text-red-600" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(dailyUsdOutflows, 'USD')}</div>
+                </CardContent>
+            </Card>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-3 mb-6">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Balance en Caja (C$)</CardTitle>
+                    <Scale className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(dailyNioBalance, 'NIO')}</div>
                 </CardContent>
             </Card>
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">Balance en Caja ({formatDateFns(selectedDate, 'dd/MM')})</CardTitle>
+                    <CardTitle className="text-sm font-medium">Balance en Caja ($)</CardTitle>
                     <Scale className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(dailyBalance)}</div>
+                    <div className="text-2xl font-bold">{formatCurrency(dailyUsdBalance, 'USD')}</div>
+                </CardContent>
+            </Card>
+             <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                <CardHeader className="pb-2">
+                    <CardDescription>Balance Consolidado (C$)</CardDescription>
+                    <CardTitle className="text-3xl font-bold text-blue-700 dark:text-blue-400">{formatCurrency(consolidatedNioBalance, 'NIO')}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-xs text-muted-foreground">Total en córdobas más el equivalente de dólares. Tasa de cambio: {company?.exchangeRate || 'N/A'}</p>
                 </CardContent>
             </Card>
         </div>

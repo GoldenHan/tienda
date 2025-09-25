@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Product, Sale, SaleItem, Category } from "@/lib/types";
+import { Product, Sale, SaleItem, Category, Currency } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Invoice } from "@/components/pos/invoice";
 
 export type CartItem = Product & { quantityInCart: number };
+export type { Currency };
 
 export default function POSPage() {
   const { user } = useAuth();
@@ -102,7 +103,7 @@ export default function POSPage() {
             toast({
                 variant: "destructive",
                 title: "Stock insuficiente",
-                description: `Solo hay ${productInStock.quantity} unidades de ${productInstock.name}.`,
+                description: `Solo hay ${productInStock.quantity} unidades de ${productInStock.name}.`,
             });
             return prevCart.map(item => item.id === productId ? { ...item, quantityInCart: productInStock.quantity } : item);
         }
@@ -116,7 +117,7 @@ export default function POSPage() {
   };
 
 
-  const handleCompleteSale = async () => {
+  const handleCompleteSale = async (paymentCurrency: Currency) => {
     if (!user) return;
     if (cart.length === 0) {
       toast({
@@ -143,6 +144,7 @@ export default function POSPage() {
       grandTotal: newSaleItems.reduce((acc, item) => acc + item.total, 0),
       employeeId: user.uid,
       employeeName: user.name,
+      paymentCurrency: paymentCurrency,
     };
 
     try {

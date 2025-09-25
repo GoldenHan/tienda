@@ -9,10 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { SaleItem, CashOutflow, Inflow } from "@/lib/types";
+import type { Sale, CashOutflow, Inflow, Currency } from "@/lib/types";
 import { Badge } from "../ui/badge";
 
-type ReconciliationItem = (SaleItem & { type: 'sale', date: string }) | (CashOutflow & { type: 'outflow' }) | (Inflow & { type: 'inflow' });
+type ReconciliationItem = Sale | CashOutflow | Inflow;
 
 
 interface ReconciliationTableProps {
@@ -20,11 +20,11 @@ interface ReconciliationTableProps {
 }
 
 export function ReconciliationTable({ items }: ReconciliationTableProps) {
-    const formatCurrency = (amount: number) =>
-    new Intl.NumberFormat("es-NI", {
-      style: "currency",
-      currency: "NIO",
-    }).format(amount);
+    const formatCurrency = (amount: number, currency: Currency) =>
+        new Intl.NumberFormat("es-NI", {
+          style: "currency",
+          currency: currency,
+        }).format(amount);
 
     const formatDate = (dateString: string) => {
         return new Date(dateString).toLocaleTimeString('es-NI', {
@@ -34,53 +34,55 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
     };
 
     const renderRow = (item: ReconciliationItem, index: number) => {
-        const key = `item-${item.type}-${'id' in item ? item.id : ''}-${index}`;
-
-        if (item.type === 'sale') {
-            return (
-                <TableRow key={key}>
+        if ('items' in item) { // Is a Sale
+            return item.items.map((saleItem, i) => (
+                <TableRow key={`${item.id}-${i}`}>
                     <TableCell className="font-medium flex items-center gap-2">
                         <Badge variant="secondary">Venta</Badge>
-                        <span>{item.productName}</span>
+                        <span>{saleItem.productName}</span>
                     </TableCell>
-                    <TableCell className="text-center">{item.quantity}</TableCell>
+                    <TableCell className="text-center">{saleItem.quantity}</TableCell>
                     <TableCell className="text-right text-green-600 dark:text-green-500">
-                        {formatCurrency(item.total)}
+                        {formatCurrency(saleItem.total, item.paymentCurrency)}
                     </TableCell>
+                    <TableCell className="text-center">{item.paymentCurrency}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(item.date)}</TableCell>
                 </TableRow>
-            )
+            ));
         }
-        if (item.type === 'inflow') {
+        if ('total' in item) { // Is an Inflow
             return (
-                <TableRow key={key}>
+                <TableRow key={item.id}>
                     <TableCell className="font-medium flex items-center gap-2">
                         <Badge>Ingreso Manual</Badge>
                         <span>{item.reason}</span>
                     </TableCell>
                     <TableCell className="text-center">-</TableCell>
                     <TableCell className="text-right text-green-600 dark:text-green-500">
-                        {formatCurrency(item.total)}
+                        {formatCurrency(item.total, item.currency)}
                     </TableCell>
+                    <TableCell className="text-center">{item.currency}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(item.date)}</TableCell>
                 </TableRow>
             )
         }
-        if (item.type === 'outflow') {
+        if ('amount' in item) { // Is a CashOutflow
             return (
-                 <TableRow key={key}>
+                 <TableRow key={item.id}>
                     <TableCell className="font-medium flex items-center gap-2">
                         <Badge variant="destructive">Egreso</Badge>
                         <span>{item.reason}</span>
                     </TableCell>
                     <TableCell className="text-center">-</TableCell>
                     <TableCell className="text-right text-red-600 dark:text-red-500">
-                        -{formatCurrency(item.amount)}
+                        -{formatCurrency(item.amount, item.currency)}
                     </TableCell>
+                    <TableCell className="text-center">{item.currency}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(item.date)}</TableCell>
                 </TableRow>
             )
         }
+        return null;
     }
 
 
@@ -92,6 +94,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
             <TableHead>Descripción</TableHead>
             <TableHead className="text-center">Cantidad</TableHead>
             <TableHead className="text-right">Monto</TableHead>
+            <TableHead className="text-center">Moneda</TableHead>
             <TableHead className="text-right">Hora</TableHead>
           </TableRow>
         </TableHeader>
@@ -100,7 +103,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
             items.map(renderRow)
           ) : (
             <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 No hay movimientos para la fecha seleccionada.
               </TableCell>
             </TableRow>

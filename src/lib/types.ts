@@ -22,6 +22,8 @@ export type SaleItem = {
   total: number;
 };
 
+export type Currency = 'NIO' | 'USD';
+
 export type Sale = {
   id: string;
   date: string;
@@ -29,6 +31,7 @@ export type Sale = {
   grandTotal: number;
   employeeId: string;
   employeeName: string;
+  paymentCurrency: Currency;
 };
 
 export type Inflow = {
@@ -36,6 +39,7 @@ export type Inflow = {
   reason: string;
   total: number;
   date: string;
+  currency: Currency;
 };
 
 export type CashOutflow = {
@@ -43,6 +47,7 @@ export type CashOutflow = {
   date: string;
   amount: number;
   reason: string;
+  currency: Currency;
 };
 
 export type SalesData = {
@@ -99,6 +104,7 @@ export type Company = {
     id: string;
     name: string;
     ownerUid: string;
+    exchangeRate: number;
     createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
 }
 

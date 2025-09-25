@@ -13,10 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { useAuth } from "@/context/auth-context";
+import { Currency } from "@/lib/types";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 
 const formSchema = z.object({
   total: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
   reason: z.string().min(3, "El motivo es requerido (mín. 3 caracteres)."),
+  currency: z.enum(["NIO", "USD"], { required_error: "Debes seleccionar una moneda." }),
 });
 
 type InflowFormData = z.infer<typeof formSchema>;
@@ -36,6 +39,7 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
     defaultValues: {
       total: 0,
       reason: "",
+      currency: "NIO",
     },
   });
 
@@ -47,11 +51,12 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
         date: date.toISOString(),
         total: data.total,
         reason: data.reason,
+        currency: data.currency,
       };
       await addInflow(newInflow, user.uid);
       toast({
         title: "Ingreso Registrado",
-        description: `Se registró un ingreso de C$${data.total}.`,
+        description: `Se registró un ingreso de ${data.currency === 'USD' ? '$' : 'C$'}${data.total}.`,
       });
       form.reset();
       onInflowAdded();
@@ -71,11 +76,38 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
     <Form {...form}>
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pt-4">
         <FormField
+            control={form.control}
+            name="currency"
+            render={({ field }) => (
+                <FormItem className="space-y-3">
+                <FormLabel>Moneda del Ingreso</FormLabel>
+                <FormControl>
+                    <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex space-x-4"
+                    disabled={isSubmitting}
+                    >
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="NIO" /></FormControl>
+                        <FormLabel className="font-normal">Córdobas (C$)</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="USD" /></FormControl>
+                        <FormLabel className="font-normal">Dólares ($)</FormLabel>
+                    </FormItem>
+                    </RadioGroup>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
+        <FormField
         control={form.control}
         name="total"
         render={({ field }) => (
             <FormItem>
-            <FormLabel>Monto (C$)</FormLabel>
+            <FormLabel>Monto</FormLabel>
             <FormControl>
                 <Input type="number" step="0.01" placeholder="Ej. 500.00" {...field} disabled={isSubmitting} />
             </FormControl>

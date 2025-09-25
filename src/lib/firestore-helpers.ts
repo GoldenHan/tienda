@@ -3,7 +3,7 @@ import {
   collection, getDocs, doc, getDoc, query, orderBy, where
 } from "firebase/firestore";
 import { firestore as db } from "./firebase/client"; 
-import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category } from "./types";
+import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category, Company } from "./types";
 import { getCompanyIdForUser } from './actions/setup';
 
 
@@ -21,6 +21,22 @@ const getClientDbOrThrow = () => {
 // -----------------
 // Company Helpers
 // -----------------
+export async function getCompany(userId: string): Promise<Company | null> {
+  const db = getClientDbOrThrow();
+  try {
+    const companyId = await getCompanyIdForUser(userId);
+    const companyDocRef = doc(db, "companies", companyId);
+    const docSnap = await getDoc(companyDocRef);
+    if (docSnap.exists()) {
+      return docSnap.data() as Company;
+    }
+    return null;
+  } catch (error) {
+    console.error("Error al obtener los datos de la empresa:", error);
+    return null;
+  }
+}
+
 
 export async function getCompanyName(userId: string): Promise<string> {
   const db = getClientDbOrThrow(); // Lectura simple desde el cliente

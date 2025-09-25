@@ -15,8 +15,9 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Unlock, Trash2, PlusCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getClosedReconciliations, updateReconciliationStatus, getCategories, addCategory, deleteCategory } from "@/lib/firestore-helpers";
-import { Reconciliation, Category } from "@/lib/types";
+import { getClosedReconciliations, updateReconciliationStatus, getCategories, addCategory, deleteCategory, getCompany } from "@/lib/firestore-helpers";
+import { updateExchangeRate } from "@/lib/actions/setup";
+import { Reconciliation, Category, Company } from "@/lib/types";
 import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -31,6 +32,9 @@ const categoryFormSchema = z.object({
   newCategoryName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
 });
 
+const exchangeRateFormSchema = z.object({
+    exchangeRate: z.coerce.number().min(0, "La tasa de cambio debe ser un número positivo."),
+});
 
 export default function SettingsPage() {
   const { user } = useAuth();
@@ -39,6 +43,9 @@ export default function SettingsPage() {
   const [closedReconciliations, setClosedReconciliations] = useState<Reconciliation[]>([]);
   const [isReconLoading, setIsReconLoading] = useState(true);
   const [isReopening, setIsReopening] = useState<string | null>(null);
+
+  const [company, setCompany] = useState<Company | null>(null);
+  const [isCompanyLoading, setIsCompanyLoading] = useState(true);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [isCategoryLoading, setIsCategoryLoading] = useState(true);
@@ -49,47 +56,53 @@ export default function SettingsPage() {
 
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema),
-    defaultValues: {
-      currentPassword: "",
-      newPassword: "",
-    },
+    defaultValues: { currentPassword: "", newPassword: "" },
   });
 
   const categoryForm = useForm<z.infer<typeof categoryFormSchema>>({
     resolver: zodResolver(categoryFormSchema),
     defaultValues: { newCategoryName: "" },
   });
+  
+  const exchangeRateForm = useForm<z.infer<typeof exchangeRateFormSchema>>({
+    resolver: zodResolver(exchangeRateFormSchema),
+  });
 
   const fetchPageData = useCallback(async () => {
-    if (!user || !isAdmin) {
+    if (!user) return;
+
+    if (isAdmin) {
+        setIsReconLoading(true);
+        setIsCategoryLoading(true);
+        setIsCompanyLoading(true);
+        try {
+          const [closedData, categoriesData, companyData] = await Promise.all([
+            getClosedReconciliations(user.uid),
+            getCategories(user.uid),
+            getCompany(user.uid),
+          ]);
+          setClosedReconciliations(closedData);
+          setCategories(categoriesData);
+          setCompany(companyData);
+          exchangeRateForm.setValue('exchangeRate', companyData?.exchangeRate || 36.5);
+        } catch (error) {
+          console.error("Error fetching admin settings page data:", error);
+          toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
+        } finally {
+          setIsReconLoading(false);
+          setIsCategoryLoading(false);
+          setIsCompanyLoading(false);
+        }
+    } else {
         setIsReconLoading(false);
         setIsCategoryLoading(false);
-        return;
-    };
-
-    setIsReconLoading(true);
-    setIsCategoryLoading(true);
-    try {
-      const [closedData, categoriesData] = await Promise.all([
-        getClosedReconciliations(user.uid),
-        getCategories(user.uid),
-      ]);
-      setClosedReconciliations(closedData);
-      setCategories(categoriesData);
-    } catch (error) {
-      console.error("Error fetching settings page data:", error);
-      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
-    } finally {
-      setIsReconLoading(false);
-      setIsCategoryLoading(false);
+        setIsCompanyLoading(false);
     }
-  }, [toast, user, isAdmin]);
+  }, [toast, user, isAdmin, exchangeRateForm]);
 
   useEffect(() => {
-    if(user){
-      fetchPageData();
-    }
-  }, [fetchPageData, user]);
+    fetchPageData();
+  }, [fetchPageData]);
 
   async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
     if (!user || !user.email) {
@@ -120,6 +133,21 @@ export default function SettingsPage() {
       });
     } finally {
       setIsPasswordLoading(false);
+    }
+  }
+
+   async function onExchangeRateSubmit(values: z.infer<typeof exchangeRateFormSchema>) {
+    if (!user) return;
+    try {
+      await updateExchangeRate(values.exchangeRate, user.uid);
+      toast({
+        title: "Tasa de Cambio Actualizada",
+        description: `La nueva tasa es 1 USD = ${values.exchangeRate} NIO.`,
+      });
+      await fetchPageData();
+    } catch (error: any) {
+      console.error("Error updating exchange rate:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo actualizar la tasa de cambio." });
     }
   }
 
@@ -178,7 +206,6 @@ export default function SettingsPage() {
     }
   };
 
-
   return (
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
@@ -236,6 +263,39 @@ export default function SettingsPage() {
 
         {isAdmin && (
             <>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Configuración de la Empresa</CardTitle>
+                        <CardDescription>
+                            Define parámetros globales para tu negocio.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {isCompanyLoading ? <Skeleton className="h-20 w-full"/> : (
+                           <Form {...exchangeRateForm}>
+                            <form onSubmit={exchangeRateForm.handleSubmit(onExchangeRateSubmit)} className="space-y-4">
+                                <FormField
+                                control={exchangeRateForm.control}
+                                name="exchangeRate"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Tasa de Cambio (1 USD a NIO)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" step="0.01" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <Button type="submit" disabled={exchangeRateForm.formState.isSubmitting}>
+                                    {exchangeRateForm.formState.isSubmitting ? <Loader2 className="animate-spin" /> : "Guardar Tasa de Cambio"}
+                                </Button>
+                            </form>
+                           </Form>
+                        )}
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader>
                         <CardTitle>Gestión de Arqueos Consolidados</CardTitle>
@@ -377,5 +437,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
