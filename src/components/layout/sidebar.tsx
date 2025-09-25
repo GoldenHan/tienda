@@ -30,7 +30,7 @@ import { useAuth } from '@/context/auth-context'
 import { ThemeToggle } from './theme-toggle'
 
 const allLinks = [
-  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
+  { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: false },
   { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
   { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, adminOnly: true },
   { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart, adminOnly: true },
