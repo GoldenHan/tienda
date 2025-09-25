@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -6,7 +7,7 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale } from '@/lib/types';
 import { getProducts, getSales } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, PackagePlus, Eye } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, PackagePlus, Eye, BarChart3 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -77,7 +78,7 @@ export default function DashboardPage() {
     const lowStockProducts = products.filter(p => p.quantity <= p.lowStockThreshold).sort((a,b) => a.quantity - b.quantity);
     const lowStockItems = lowStockProducts.length;
 
-    const recentSales = sales.slice(0, 3);
+    const recentSales = sales.slice(0, 5);
     
     const employeeTodaySales = sales.filter(sale => 
         sale.employeeId === user?.uid && isToday(new Date(sale.date))
@@ -89,7 +90,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col p-4 sm:p-6 space-y-6">
+      <div className="flex flex-col p-4 sm:p-6 lg:p-8 space-y-6">
         <header>
            <Skeleton className="h-8 w-48" />
            <Skeleton className="h-4 w-72 mt-2" />
@@ -111,12 +112,12 @@ export default function DashboardPage() {
     );
   }
 
-  const welcomeMessage = user ? `Bienvenido, ${user.name.split(' ')[0]}` : "Dashboard";
-  const welcomeDescription = "Aquí tienes un resumen de tu tienda.";
+  const welcomeMessage = user ? `Bienvenido de nuevo, ${user.name.split(' ')[0]}` : "Dashboard";
+  const welcomeDescription = "Aquí tienes un resumen de la actividad de tu tienda.";
 
   const renderAdminDashboard = () => (
     <>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
           title="Ventas de Hoy"
           value={formatCurrency(todayRevenue)}
@@ -127,103 +128,127 @@ export default function DashboardPage() {
           title="Total Productos"
           value={totalProducts.toString()}
           icon={Package}
-          description="En inventario"
+          description="Tipos de producto en inventario"
         />
         <StatCard
-          title="Stock Bajo"
+          title="Alerta de Stock"
           value={lowStockItems.toString()}
           icon={AlertTriangle}
-          description={`Productos con < 10 unidades`}
+          description={`Productos con bajo stock`}
           variant={lowStockItems > 0 ? 'destructive' : 'default'}
         />
          <StatCard
           title="Transacciones"
           value={todaySalesCount.toString()}
           icon={ShoppingCart}
-          description="Ventas de hoy"
+          description="Ventas realizadas hoy"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          <Card className="lg:col-span-2 backdrop-blur-sm bg-background/50">
               <CardHeader>
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="text-destructive h-5 w-5" />
-                    <CardTitle className="text-lg">Productos con Stock Bajo</CardTitle>
+                    <CardTitle className="text-lg font-semibold">Productos con Stock Bajo</CardTitle>
                   </div>
-                  <CardDescription>Productos que necesitan reabastecimiento.</CardDescription>
+                  <CardDescription>Estos productos necesitan reabastecimiento pronto.</CardDescription>
               </CardHeader>
               <CardContent>
                   {lowStockProducts.length > 0 ? (
                       <div className="space-y-4">
                           {lowStockProducts.slice(0,4).map(p => (
-                              <div key={p.id} className="flex justify-between items-center">
+                              <div key={p.id} className="flex justify-between items-center hover:bg-muted/50 p-2 rounded-md transition-colors">
                                   <div>
                                       <p className="font-medium">{p.name}</p>
                                       <p className="text-sm text-muted-foreground">{formatCurrency(p.salePrice)}</p>
                                   </div>
-                                  <Badge variant="destructive">{p.quantity} unidades</Badge>
+                                  <Badge variant="destructive">{p.quantity} restantes</Badge>
                               </div>
                           ))}
                       </div>
                   ) : (
-                      <p className="text-sm text-muted-foreground text-center py-8">¡Excelente! No hay productos con bajo stock.</p>
+                      <div className="text-sm text-muted-foreground text-center py-8">
+                        <Package className="mx-auto h-8 w-8 mb-2" />
+                        ¡Excelente! No hay productos con bajo stock.
+                      </div>
                   )}
               </CardContent>
           </Card>
-          <Card>
+          <Card className="lg:col-span-3 backdrop-blur-sm bg-background/50">
               <CardHeader>
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="text-green-600 h-5 w-5" />
-                    <CardTitle className="text-lg">Ventas Recientes</CardTitle>
+                    <TrendingUp className="text-primary h-5 w-5" />
+                    <CardTitle className="text-lg font-semibold">Actividad Reciente</CardTitle>
                   </div>
-                  <CardDescription>Últimas transacciones realizadas.</CardDescription>
+                  <CardDescription>Últimas transacciones realizadas en la tienda.</CardDescription>
               </CardHeader>
               <CardContent>
                    {recentSales.length > 0 ? (
-                      <div className="space-y-4">
+                      <div className="space-y-1">
                           {recentSales.map(sale => (
-                              <div key={sale.id} className="flex justify-between items-center">
+                              <div key={sale.id} className="flex justify-between items-center p-2 rounded-md hover:bg-muted/50 transition-colors">
                                   <div>
-                                      <p className="font-medium">Venta #{sale.id.substring(0, 6)}</p>
-                                      <p className="text-sm text-muted-foreground">{format(new Date(sale.date), "dd/MM, HH:mm", { locale: es })}</p>
+                                      <p className="font-medium">Venta <span className="text-muted-foreground font-mono text-xs">#{sale.id.substring(0, 6)}</span></p>
+                                      <p className="text-sm text-muted-foreground">{format(new Date(sale.date), "dd MMM, HH:mm", { locale: es })}hs</p>
                                   </div>
-                                  <p className="font-semibold text-green-600 dark:text-green-500">{formatCurrency(sale.grandTotal)}</p>
+                                  <p className="font-semibold text-primary">{formatCurrency(sale.grandTotal)}</p>
                               </div>
                           ))}
                       </div>
                   ) : (
-                       <p className="text-sm text-muted-foreground text-center py-8">Aún no se han realizado ventas.</p>
+                       <div className="text-sm text-muted-foreground text-center py-8">
+                         <ShoppingCart className="mx-auto h-8 w-8 mb-2" />
+                         Aún no se han realizado ventas.
+                       </div>
                   )}
               </CardContent>
           </Card>
       </div>
 
-      <Card>
+      <Card className="backdrop-blur-sm bg-background/50">
         <CardHeader>
           <CardTitle>Acciones Rápidas</CardTitle>
-          <CardDescription>Tareas comunes para gestionar tu tienda.</CardDescription>
+          <CardDescription>Tareas comunes para gestionar tu tienda de forma eficiente.</CardDescription>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <Button variant="outline" className="h-24 flex-col gap-2 text-base" onClick={() => router.push('/dashboard/inventory')}>
-              <PackagePlus className="h-8 w-8 text-primary" />
-              Agregar Producto
-            </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2 text-base" onClick={() => router.push('/dashboard/pos')}>
-              <ShoppingCart className="h-8 w-8 text-primary" />
-              Nueva Venta
-            </Button>
-            <Button variant="outline" className="h-24 flex-col gap-2 text-base" onClick={() => router.push('/dashboard/reports')}>
-              <Eye className="h-8 w-8 text-primary" />
-              Ver Reportes
-            </Button>
+            <div
+              onClick={() => router.push('/dashboard/pos')}
+              className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-blue-500 to-blue-600"
+            >
+              <div className="relative z-10">
+                <ShoppingCart className="h-10 w-10 mb-3" />
+                <h3 className="text-xl font-bold">Nueva Venta</h3>
+                <p className="text-sm opacity-80">Ir al punto de venta</p>
+              </div>
+            </div>
+            <div
+              onClick={() => router.push('/dashboard/inventory')}
+              className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-purple-500 to-purple-600"
+            >
+              <div className="relative z-10">
+                <PackagePlus className="h-10 w-10 mb-3" />
+                <h3 className="text-xl font-bold">Añadir Producto</h3>
+                <p className="text-sm opacity-80">Gestionar inventario</p>
+              </div>
+            </div>
+             <div
+              onClick={() => router.push('/dashboard/reports')}
+              className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-teal-500 to-teal-600"
+            >
+              <div className="relative z-10">
+                <BarChart3 className="h-10 w-10 mb-3" />
+                <h3 className="text-xl font-bold">Ver Reportes</h3>
+                <p className="text-sm opacity-80">Analizar rendimiento</p>
+              </div>
+            </div>
         </CardContent>
       </Card>
     </>
   );
 
   const renderEmployeeDashboard = () => (
-    <Card>
+    <Card className="backdrop-blur-sm bg-background/50">
       <CardHeader>
         <CardTitle>Mis Ventas de Hoy</CardTitle>
         <CardDescription>Un resumen de las ventas que has realizado hoy.</CardDescription>
@@ -260,21 +285,30 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="flex flex-col">
-      <header className="p-4 sm:p-6">
-        <h1 className="text-3xl font-bold tracking-tight">
-            {welcomeMessage}
-        </h1>
-        <p className="text-muted-foreground">
-          {isAdmin 
-            ? welcomeDescription
-            : "Aquí tienes un resumen de tu actividad de hoy."
-          }
-        </p>
-      </header>
-      <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0 space-y-6">
-        {isAdmin ? renderAdminDashboard() : renderEmployeeDashboard()}
-      </main>
+    <div className="relative min-h-full w-full overflow-hidden">
+        {/* Animated background */}
+        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+            <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-blue-400 opacity-20 blur-[100px]"></div>
+        </div>
+
+      <div className="flex flex-col p-4 sm:p-6 lg:p-8">
+        <header className="mb-6">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+              {welcomeMessage}
+          </h1>
+          <p className="text-lg text-muted-foreground">
+            {isAdmin 
+              ? welcomeDescription
+              : "Aquí tienes un resumen de tu actividad de hoy."
+            }
+          </p>
+        </header>
+        <main className="flex-1 space-y-6">
+          {isAdmin ? renderAdminDashboard() : renderEmployeeDashboard()}
+        </main>
+      </div>
     </div>
   );
 }
+
+    

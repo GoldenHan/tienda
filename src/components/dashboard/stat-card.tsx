@@ -1,3 +1,4 @@
+
 import {
   Card,
   CardContent,
@@ -20,10 +21,10 @@ export default function StatCard({ title, value, icon: Icon, description, varian
   const iconColor = variant === 'destructive' ? 'text-destructive' : 'text-primary';
 
   return (
-    <Card className="hover:shadow-lg transition-shadow duration-300">
+    <Card className="transition-all duration-300 hover:shadow-xl hover:-translate-y-1 backdrop-blur-sm bg-background/50">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
-        <div className={cn("flex items-center justify-center rounded-lg p-2", variant === 'destructive' ? 'bg-destructive/10' : 'bg-primary/10')}>
+        <div className={cn("flex items-center justify-center rounded-lg p-2 bg-primary/10", variant === 'destructive' && 'bg-destructive/10')}>
             <Icon className={cn("h-5 w-5", iconColor)} />
         </div>
       </CardHeader>
@@ -34,3 +35,5 @@ export default function StatCard({ title, value, icon: Icon, description, varian
     </Card>
   );
 }
+
+    
