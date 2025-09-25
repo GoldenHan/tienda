@@ -1,11 +1,13 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Inter, Roboto_Mono } from 'next/font/google';
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/context/auth-context";
 import './globals.css';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
+const robotoMono = Roboto_Mono({ subsets: ['latin'], variable: '--font-roboto-mono' });
+
 
 export const metadata: Metadata = {
   title: 'Punto de Venta e Inventario',
@@ -19,13 +21,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning className="dark">
+    <html lang="es" suppressHydrationWarning>
       <head>
-        <meta name="theme-color" content="#09090B" media="(prefers-color-scheme: dark)" />
         <meta name="theme-color" content="#FFFFFF" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#020817" media="(prefers-color-scheme: dark)" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable)}>
+      <body className={cn("min-h-screen bg-background font-sans antialiased", inter.variable, robotoMono.variable)}>
         <AuthProvider>
           {children}
           <Toaster />
