@@ -27,6 +27,7 @@ import {
 import { Warehouse } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
+import { ThemeToggle } from './theme-toggle'
 
 const allLinks = [
   { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: true },
@@ -106,11 +107,16 @@ export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
                     </Link>
                 </SidebarMenuItem>
             ))}
-          <SidebarMenuItem asChild>
-            <SidebarMenuButton onClick={logout} className="justify-start w-full">
-              <LogOut />
-              <span>Cerrar Sesión</span>
-            </SidebarMenuButton>
+          <SidebarMenuItem>
+             <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:justify-center">
+                <SidebarMenuButton onClick={logout} className="justify-start flex-1 group-data-[collapsible=icon]:w-auto">
+                    <LogOut />
+                    <span className="group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
+                </SidebarMenuButton>
+                <div className="group-data-[collapsible=icon]:hidden">
+                    <ThemeToggle />
+                </div>
+            </div>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
