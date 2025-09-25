@@ -102,7 +102,7 @@ export default function POSPage() {
             toast({
                 variant: "destructive",
                 title: "Stock insuficiente",
-                description: `Solo hay ${productInStock.quantity} unidades de ${productInStock.name}.`,
+                description: `Solo hay ${productInStock.quantity} unidades de ${productInstock.name}.`,
             });
             return prevCart.map(item => item.id === productId ? { ...item, quantityInCart: productInStock.quantity } : item);
         }
@@ -171,29 +171,33 @@ export default function POSPage() {
   const handlePrint = () => {
     const printContent = document.getElementById("invoice-to-print");
     if (!printContent) return;
-    
+
     const styles = `
-        body, html {
+      body, html {
+          margin: 0;
+          padding: 0;
+          font-family: 'monospace', sans-serif; /* Monospace for receipt look */
+      }
+      @media print {
+        @page {
             margin: 0;
-            padding: 0;
-            background-color: #fff;
+            size: 80mm auto; /* Adjust width as needed for POS printer */
         }
-        @media print {
-            body > *:not(#print-container) {
-                display: none;
-            }
-            #print-container {
-                position: absolute;
-                left: 0;
-                top: 0;
-                width: 100%;
-            }
+        body > *:not(#print-container) {
+            display: none;
         }
+        #print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+        }
+      }
     `;
 
     const printWindow = window.open('', '', 'height=600,width=800');
     if (!printWindow) return;
-    
+
     printWindow.document.write('<html><head><title>Factura</title>');
     printWindow.document.write(`<style>${styles}</style>`);
     printWindow.document.write('</head><body><div id="print-container">');
@@ -201,8 +205,12 @@ export default function POSPage() {
     printWindow.document.write('</div></body></html>');
     printWindow.document.close();
     printWindow.focus();
-    printWindow.print();
-    printWindow.close();
+    
+    // Use timeout to ensure content is rendered before printing
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
 };
 
 
@@ -266,11 +274,11 @@ export default function POSPage() {
       </main>
     </div>
     <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Venta Realizada con Éxito</DialogTitle>
                 <DialogDescription>
-                    La venta ha sido registrada. Puedes imprimir la factura a continuación.
+                    La venta ha sido registrada. Puedes imprimir el recibo a continuación.
                 </DialogDescription>
             </DialogHeader>
             {lastSale && companyName && (
