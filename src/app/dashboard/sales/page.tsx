@@ -6,7 +6,8 @@ import { SalesHistoryAccordion } from "@/components/sales/sales-history-accordio
 import { Product, Sale } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { getSales, getProducts, updateSaleAndAdjustStock } from "@/lib/firestore-helpers";
+import { getSales, getProducts } from "@/lib/firestore-helpers";
+import { updateSaleAndAdjustStock } from "@/lib/actions/setup";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function SalesPage() {

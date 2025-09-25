@@ -312,5 +312,3 @@ export async function updateReconciliationStatus(dateId: string, status: 'open' 
         updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 };
-
-    
