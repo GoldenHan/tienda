@@ -4,29 +4,34 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { getSales } from "@/lib/firestore-helpers";
-import { Sale } from "@/lib/types";
+import { getSales, getProducts } from "@/lib/firestore-helpers";
+import { Sale, Product } from "@/lib/types";
 import { SalesReport } from "@/components/reports/sales-report";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ReportsPage() {
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const fetchSales = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const salesData = await getSales(user.uid);
+      const [salesData, productsData] = await Promise.all([
+        getSales(user.uid),
+        getProducts(user.uid)
+      ]);
       setSales(salesData);
+      setProducts(productsData);
     } catch (error) {
       console.error("Reports fetch error:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No se pudieron cargar los datos de ventas.",
+        description: "No se pudieron cargar los datos para los reportes.",
       });
     } finally {
       setLoading(false);
@@ -36,11 +41,11 @@ export default function ReportsPage() {
 
   useEffect(() => {
     if (user) {
-      fetchSales();
+      fetchData();
     } else {
       setLoading(false);
     }
-  }, [user, fetchSales]);
+  }, [user, fetchData]);
 
   if (loading) {
     return (
@@ -73,12 +78,14 @@ export default function ReportsPage() {
           Generador de Reportes
         </h1>
         <p className="text-muted-foreground">
-          Filtra y exporta tus reportes de ventas.
+          Filtra y exporta tus reportes de ventas y beneficios.
         </p>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-        <SalesReport allSales={sales} />
+        <SalesReport allSales={sales} allProducts={products} />
       </main>
     </div>
   );
 }
+
+    

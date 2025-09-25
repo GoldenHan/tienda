@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from "react";
@@ -5,7 +6,7 @@ import { addDays, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-
 import type { DateRange } from "react-day-picker";
 import * as XLSX from "xlsx";
 
-import { Sale } from "@/lib/types";
+import { Sale, Product } from "@/lib/types";
 import { DateRangePicker } from "@/components/reports/date-range-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -15,41 +16,50 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChevronDown, FileDown, Printer } from "lucide-react";
-import { ReportTable } from "./report-table";
+import { ReportTable, ReportSaleItem } from "./report-table";
 import { useToast } from "@/hooks/use-toast";
 
 interface SalesReportProps {
   allSales: Sale[];
+  allProducts: Product[];
 }
 
-// Helper to flatten sales data for the report
-const flattenSales = (sales: Sale[]) => {
+const flattenSalesData = (sales: Sale[], products: Product[]): ReportSaleItem[] => {
+  const productsMap = new Map(products.map(p => [p.id, p]));
+  
   return sales.flatMap(sale => 
-    sale.items.map(item => ({
-      id: sale.id, // Transaction ID
-      productName: item.productName,
-      quantity: item.quantity,
-      salePrice: item.salePrice,
-      total: item.total,
-      date: sale.date,
-    }))
+    sale.items.map(item => {
+      const product = productsMap.get(item.productId);
+      const purchaseCost = product?.purchaseCost ?? 0;
+      const profit = item.total - (purchaseCost * item.quantity);
+      
+      return {
+        id: sale.id,
+        productName: item.productName,
+        quantity: item.quantity,
+        salePrice: item.salePrice,
+        purchaseCost: purchaseCost,
+        total: item.total,
+        profit: profit,
+        date: sale.date,
+      };
+    })
   );
 };
 
 
-export function SalesReport({ allSales }: SalesReportProps) {
+export function SalesReport({ allSales, allProducts }: SalesReportProps) {
   const { toast } = useToast();
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
 
-  const flattenedSales = React.useMemo(() => flattenSales(allSales), [allSales]);
+  const flattenedSales = React.useMemo(() => flattenSalesData(allSales, allProducts), [allSales, allProducts]);
 
   const filteredSales = React.useMemo(() => {
     if (!date || !date.from) return [];
     
-    // Ensure we cover the entire day for the start and end dates
     const startDate = startOfDay(date.from);
     const endDate = endOfDay(date.to || date.from);
 
@@ -110,7 +120,9 @@ export function SalesReport({ allSales }: SalesReportProps) {
                 <th>Producto</th>
                 <th>Cantidad</th>
                 <th>Precio Unitario</th>
-                <th>Total</th>
+                <th>Costo Compra</th>
+                <th>Total Venta</th>
+                <th>Beneficio</th>
                 <th>Fecha</th>
               </tr>
             </thead>
@@ -123,7 +135,9 @@ export function SalesReport({ allSales }: SalesReportProps) {
                   <td>${sale.productName}</td>
                   <td>${sale.quantity}</td>
                   <td>${sale.salePrice}</td>
+                  <td>${sale.purchaseCost}</td>
                   <td>${sale.total}</td>
+                  <td>${sale.profit}</td>
                   <td>${new Date(sale.date).toLocaleString('es-NI')}</td>
                 </tr>
               `
@@ -175,3 +189,5 @@ export function SalesReport({ allSales }: SalesReportProps) {
     </div>
   );
 }
+
+    

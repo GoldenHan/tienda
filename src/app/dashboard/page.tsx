@@ -59,12 +59,11 @@ export default function DashboardPage() {
     last7DaysSalesData,
     employeeTodaySales
   } = useMemo(() => {
-    // Admin calculations
     let totalRevenue = 0;
     let totalProfit = 0;
     let totalSalesCount = 0;
     let lowStockItems = 0;
-    let last7DaysSalesData: { name: string; total: number }[] = [];
+    const last7DaysSalesData: { name: string; total: number }[] = [];
 
     if (isAdmin) {
         totalRevenue = sales.reduce((acc, sale) => acc + sale.grandTotal, 0);
@@ -85,10 +84,13 @@ export default function DashboardPage() {
         }, 0);
 
         const last7Days = Array.from({ length: 7 }, (_, i) => subDays(new Date(), i));
-        last7DaysSalesData = last7Days.map(day => ({
-            name: format(day, 'EEE', { locale: es }),
-            total: 0,
-        })).reverse();
+        last7Days.forEach(day => {
+            last7DaysSalesData.push({
+                name: format(day, 'EEE', { locale: es }),
+                total: 0,
+            });
+        });
+        last7DaysSalesData.reverse();
 
         const sevenDaysAgo = startOfDay(subDays(new Date(), 6));
         sales.forEach(sale => {
@@ -103,7 +105,6 @@ export default function DashboardPage() {
         });
     }
 
-    // Employee calculations
     const employeeTodaySales = sales.filter(sale => 
         sale.employeeId === user?.uid && isToday(new Date(sale.date))
     );
@@ -258,3 +259,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
