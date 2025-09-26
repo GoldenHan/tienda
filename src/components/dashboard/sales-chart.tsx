@@ -1,6 +1,7 @@
 "use client"
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts"
+import { useTheme } from "next-themes";
 
 interface SalesChartProps {
   data: {
@@ -10,6 +11,8 @@ interface SalesChartProps {
 }
 
 export function SalesChart({ data }: SalesChartProps) {
+  const { theme } = useTheme();
+
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-NI", {
       style: "currency",
@@ -18,37 +21,51 @@ export function SalesChart({ data }: SalesChartProps) {
       maximumFractionDigits: 0,
     }).format(value);
     
+  // Get HSL values from CSS variables
+  const getCssVarValue = (varName: string) => {
+    if (typeof window === 'undefined') return '';
+    return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  }
+
+  const primaryColor = `hsl(${getCssVarValue('--primary')})`;
+  const mutedForegroundColor = `hsl(${getCssVarValue('--muted-foreground')})`;
+  const cardColor = `hsl(${getCssVarValue('--card')})`;
+  const borderColor = `hsl(${getCssVarValue('--border')})`;
+  const accentColor = `hsl(${getCssVarValue('--accent')})`;
+  const foregroundColor = `hsl(${getCssVarValue('--foreground')})`;
+
+
   return (
     <ResponsiveContainer width="100%" height={350}>
       <BarChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border) / 0.5)" />
+        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={borderColor} opacity={0.5} />
         <XAxis
           dataKey="name"
-          stroke="hsl(var(--muted-foreground))"
+          stroke={mutedForegroundColor}
           fontSize={12}
           tickLine={false}
           axisLine={false}
         />
         <YAxis
-          stroke="hsl(var(--muted-foreground))"
+          stroke={mutedForegroundColor}
           fontSize={12}
           tickLine={false}
           axisLine={false}
           tickFormatter={(value) => formatCurrency(value as number)}
+          width={80}
         />
         <Tooltip
-            cursor={{ fill: 'hsl(var(--accent))', radius: 'var(--radius)' }}
+            cursor={{ fill: accentColor, opacity: 0.5 }}
             contentStyle={{
-                backgroundColor: "hsl(var(--card))",
-                border: "1px solid hsl(var(--border))",
+                backgroundColor: cardColor,
+                border: `1px solid ${borderColor}`,
                 borderRadius: "var(--radius)",
-                boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)",
             }}
-            labelStyle={{ color: "hsl(var(--foreground))", fontWeight: 'bold' }}
+            labelStyle={{ color: foregroundColor, fontWeight: 'bold' }}
             itemStyle={{ fontWeight: 'bold' }}
             formatter={(value) => formatCurrency(value as number)}
         />
-        <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+        <Bar dataKey="total" fill={primaryColor} radius={[4, 4, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

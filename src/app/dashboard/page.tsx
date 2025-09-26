@@ -7,15 +7,15 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale } from '@/lib/types';
 import { getProducts, getSales } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, PackagePlus, Eye, BarChart3 } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { isToday, format } from 'date-fns';
+import { isToday, format, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { SalesChart } from '@/components/dashboard/sales-chart';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -66,25 +66,65 @@ export default function DashboardPage() {
     totalProducts,
     lowStockItems,
     lowStockProducts,
-    recentSales,
-    employeeTodaySales
+    employeeTodaySales,
+    weeklySalesChartData,
+    bestSellingProductsToday,
   } = useMemo(() => {
-    const todaySales = sales.filter(sale => isToday(new Date(sale.date)));
-    
+    // --- General Stats ---
+    const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), new Date()));
     const todayRevenue = todaySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
     const todaySalesCount = todaySales.length;
     
+    // --- Product Stats ---
     const totalProducts = products.length;
     const lowStockProducts = products.filter(p => p.quantity <= p.lowStockThreshold).sort((a,b) => a.quantity - b.quantity);
     const lowStockItems = lowStockProducts.length;
 
-    const recentSales = sales.slice(0, 5);
-    
+    // --- Employee-specific Stats ---
     const employeeTodaySales = sales.filter(sale => 
         sale.employeeId === user?.uid && isToday(new Date(sale.date))
     );
 
-    return { todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, recentSales, employeeTodaySales };
+    // --- Weekly Sales Chart Data ---
+    const today = new Date();
+    const weekStart = startOfWeek(today, { locale: es });
+    const weekDays = eachDayOfInterval({ start: weekStart, end: today });
+    
+    const weeklySalesChartData = weekDays.map(day => {
+        const daySales = sales.filter(sale => isSameDay(new Date(sale.date), day));
+        const total = daySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
+        return {
+            name: format(day, 'EEE', { locale: es }),
+            total,
+        };
+    });
+
+    // --- Best-Selling Products Today ---
+    const productSalesToday: { [key: string]: { name: string; quantity: number; total: number; } } = {};
+    todaySales.forEach(sale => {
+        sale.items.forEach(item => {
+            if (productSalesToday[item.productId]) {
+                productSalesToday[item.productId].quantity += item.quantity;
+                productSalesToday[item.productId].total += item.total;
+            } else {
+                productSalesToday[item.productId] = {
+                    name: item.productName,
+                    quantity: item.quantity,
+                    total: item.total,
+                };
+            }
+        });
+    });
+
+    const bestSellingProductsToday = Object.values(productSalesToday)
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 5);
+
+
+    return { 
+        todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, 
+        employeeTodaySales, weeklySalesChartData, bestSellingProductsToday
+    };
 
   }, [sales, products, user]);
 
@@ -138,15 +178,56 @@ export default function DashboardPage() {
           variant={lowStockItems > 0 ? 'destructive' : 'default'}
         />
          <StatCard
-          title="Transacciones"
+          title="Transacciones Hoy"
           value={todaySalesCount.toString()}
           icon={ShoppingCart}
           description="Ventas realizadas hoy"
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-          <Card className="lg:col-span-2 backdrop-blur-sm bg-background/50">
+       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <Card className="lg:col-span-3 backdrop-blur-sm bg-background/50">
+              <CardHeader>
+                <CardTitle className="text-lg font-semibold">Resumen de Ventas Semanales</CardTitle>
+                <CardDescription>
+                  Ingresos totales de los últimos 7 días.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pl-2">
+                <SalesChart data={weeklySalesChartData} />
+              </CardContent>
+            </Card>
+
+            <Card className="lg:col-span-2 backdrop-blur-sm bg-background/50">
+                <CardHeader>
+                    <div className="flex items-center gap-2">
+                        <Star className="text-amber-400 h-5 w-5" />
+                        <CardTitle className="text-lg font-semibold">Más Vendidos Hoy</CardTitle>
+                    </div>
+                    <CardDescription>Productos con más unidades vendidas hoy.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {bestSellingProductsToday.length > 0 ? (
+                        <div className="space-y-4">
+                            {bestSellingProductsToday.map(p => (
+                                <div key={p.name} className="flex justify-between items-center hover:bg-muted/50 p-2 rounded-md transition-colors">
+                                    <p className="font-medium truncate" title={p.name}>{p.name}</p>
+                                    <Badge variant="secondary">{p.quantity} vendidos</Badge>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-sm text-muted-foreground text-center py-8">
+                            <ShoppingCart className="mx-auto h-8 w-8 mb-2" />
+                            Aún no se han realizado ventas hoy.
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Card className="backdrop-blur-sm bg-background/50">
               <CardHeader>
                   <div className="flex items-center gap-2">
                     <AlertTriangle className="text-destructive h-5 w-5" />
@@ -175,75 +256,45 @@ export default function DashboardPage() {
                   )}
               </CardContent>
           </Card>
-          <Card className="lg:col-span-3 backdrop-blur-sm bg-background/50">
-              <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="text-primary h-5 w-5" />
-                    <CardTitle className="text-lg font-semibold">Actividad Reciente</CardTitle>
-                  </div>
-                  <CardDescription>Últimas transacciones realizadas en la tienda.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                   {recentSales.length > 0 ? (
-                      <div className="space-y-1">
-                          {recentSales.map(sale => (
-                              <div key={sale.id} className="flex justify-between items-center p-2 rounded-md hover:bg-muted/50 transition-colors">
-                                  <div>
-                                      <p className="font-medium">Venta <span className="text-muted-foreground font-mono text-xs">#{sale.id.substring(0, 6)}</span></p>
-                                      <p className="text-sm text-muted-foreground">{format(new Date(sale.date), "dd MMM, HH:mm", { locale: es })}hs</p>
-                                  </div>
-                                  <p className="font-semibold text-primary">{formatCurrency(sale.grandTotal)}</p>
-                              </div>
-                          ))}
-                      </div>
-                  ) : (
-                       <div className="text-sm text-muted-foreground text-center py-8">
-                         <ShoppingCart className="mx-auto h-8 w-8 mb-2" />
-                         Aún no se han realizado ventas.
-                       </div>
-                  )}
-              </CardContent>
-          </Card>
+          <Card className="backdrop-blur-sm bg-background/50">
+            <CardHeader>
+            <CardTitle>Acciones Rápidas</CardTitle>
+            <CardDescription>Tareas comunes para gestionar tu tienda.</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div
+                onClick={() => router.push('/dashboard/pos')}
+                className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-blue-500 to-blue-600"
+                >
+                <div className="relative z-10">
+                    <ShoppingCart className="h-10 w-10 mb-3" />
+                    <h3 className="text-xl font-bold">Nueva Venta</h3>
+                    <p className="text-sm opacity-80">Ir al POS</p>
+                </div>
+                </div>
+                <div
+                onClick={() => router.push('/dashboard/inventory')}
+                className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-purple-500 to-purple-600"
+                >
+                <div className="relative z-10">
+                    <PackagePlus className="h-10 w-10 mb-3" />
+                    <h3 className="text-xl font-bold">Añadir Producto</h3>
+                    <p className="text-sm opacity-80">Ir a Inventario</p>
+                </div>
+                </div>
+                <div
+                onClick={() => router.push('/dashboard/reports')}
+                className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-teal-500 to-teal-600"
+                >
+                <div className="relative z-10">
+                    <BarChart3 className="h-10 w-10 mb-3" />
+                    <h3 className="text-xl font-bold">Ver Reportes</h3>
+                    <p className="text-sm opacity-80">Analizar rendimiento</p>
+                </div>
+                </div>
+            </CardContent>
+        </Card>
       </div>
-
-      <Card className="backdrop-blur-sm bg-background/50">
-        <CardHeader>
-          <CardTitle>Acciones Rápidas</CardTitle>
-          <CardDescription>Tareas comunes para gestionar tu tienda de forma eficiente.</CardDescription>
-        </CardHeader>
-        <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div
-              onClick={() => router.push('/dashboard/pos')}
-              className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-blue-500 to-blue-600"
-            >
-              <div className="relative z-10">
-                <ShoppingCart className="h-10 w-10 mb-3" />
-                <h3 className="text-xl font-bold">Nueva Venta</h3>
-                <p className="text-sm opacity-80">Ir al punto de venta</p>
-              </div>
-            </div>
-            <div
-              onClick={() => router.push('/dashboard/inventory')}
-              className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-purple-500 to-purple-600"
-            >
-              <div className="relative z-10">
-                <PackagePlus className="h-10 w-10 mb-3" />
-                <h3 className="text-xl font-bold">Añadir Producto</h3>
-                <p className="text-sm opacity-80">Gestionar inventario</p>
-              </div>
-            </div>
-             <div
-              onClick={() => router.push('/dashboard/reports')}
-              className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-teal-500 to-teal-600"
-            >
-              <div className="relative z-10">
-                <BarChart3 className="h-10 w-10 mb-3" />
-                <h3 className="text-xl font-bold">Ver Reportes</h3>
-                <p className="text-sm opacity-80">Analizar rendimiento</p>
-              </div>
-            </div>
-        </CardContent>
-      </Card>
     </>
   );
 
@@ -287,13 +338,13 @@ export default function DashboardPage() {
   return (
     <div className="relative min-h-full w-full overflow-hidden">
         {/* Animated background */}
-        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+        <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] dark:bg-neutral-950 dark:bg-[linear-gradient(to_right,#ffffff0d_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0d_1px,transparent_1px)]">
             <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-blue-400 opacity-20 blur-[100px]"></div>
         </div>
 
       <div className="flex flex-col p-4 sm:p-6 lg:p-8">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
               {welcomeMessage}
           </h1>
           <p className="text-lg text-muted-foreground">
@@ -310,5 +361,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

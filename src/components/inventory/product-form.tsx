@@ -16,6 +16,7 @@ import { uploadImage } from "@/lib/storage-helpers";
 import { Textarea } from "../ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import { useAuth } from "@/context/auth-context";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -38,6 +39,7 @@ interface ProductFormProps {
 
 export function ProductForm({ product, categories, onSubmit, isSubmitting }: ProductFormProps) {
   const { toast } = useToast();
+  const { user } = useAuth(); // Needed for uploadImage
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.imageUrl || null);
   const [isUploading, setIsUploading] = useState(false);
@@ -68,25 +70,31 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
   };
 
   const handleFormSubmit = async (data: ProductFormData) => {
+    if (!user) {
+        toast({ variant: "destructive", title: "Error", description: "No se encontró un usuario autenticado." });
+        return;
+    }
+    
     setIsUploading(true);
     let finalImageUrl = product?.imageUrl || "";
     let finalImageHint = product?.imageHint || "producto";
 
     try {
       if (imageFile) {
-        finalImageUrl = await uploadImage(imageFile);
+        finalImageUrl = await uploadImage(imageFile, user.uid); // Pass userId to uploadImage
         finalImageHint = imageFile.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || 'producto';
         toast({
           title: "Imagen Subida",
-          description: "La nueva imagen del producto se ha guardado en Firebase Storage.",
+          description: "La nueva imagen del producto se ha guardado.",
         });
-      } else if (!product) {
+      } else if (!product?.imageUrl) {
+        // Only assign placeholder if it's a new product with no image
         const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
         finalImageUrl = randomPlaceholder.imageUrl;
         finalImageHint = randomPlaceholder.imageHint;
          toast({
           title: "Imagen de Ejemplo Asignada",
-          description: "Se ha asignado una imagen de ejemplo. Puedes cambiarla editando el producto.",
+          description: "Puedes cambiarla subiendo tu propia imagen.",
         });
       }
       
