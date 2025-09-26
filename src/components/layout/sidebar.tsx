@@ -12,6 +12,7 @@ import {
   Tablet,
   Users,
   PiggyBank,
+  PackagePlus,
 } from 'lucide-react'
 
 import {
@@ -33,6 +34,7 @@ const allLinks = [
   { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: false },
   { href: '/dashboard/pos', label: 'Venta', icon: Tablet, adminOnly: false },
   { href: '/dashboard/inventory', label: 'Inventario', icon: Boxes, adminOnly: true },
+  { href: '/dashboard/orders', label: 'Pedidos', icon: PackagePlus, adminOnly: true },
   { href: '/dashboard/sales', label: 'Ventas', icon: ShoppingCart, adminOnly: true },
   { href: '/dashboard/cash-reconciliation', label: 'Arqueos', icon: PiggyBank, adminOnly: true },
   { href: '/dashboard/reports', label: 'Reportes', icon: BarChart3, adminOnly: true },
