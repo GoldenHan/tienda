@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer } from "@/lib/types";
+import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -80,11 +80,26 @@ export async function createInitialAdminUser(data: InitialAdminData) {
   return { uid: userRecord.uid, companyId: companyRef.id };
 };
 
-export async function updateExchangeRate(rate: number, userId: string): Promise<void> {
+// -----------------
+// Company Settings
+// -----------------
+
+export async function updateCompanySettings(settings: Partial<Pick<Company, 'exchangeRate' | 'pettyCashInitial'>>, userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const companyRef = db.doc(`companies/${companyId}`);
-    await companyRef.update({ exchangeRate: rate });
+    
+    const validSettings: { [key: string]: any } = {};
+    if (typeof settings.exchangeRate === 'number') {
+        validSettings.exchangeRate = settings.exchangeRate;
+    }
+    if (typeof settings.pettyCashInitial === 'number') {
+        validSettings.pettyCashInitial = settings.pettyCashInitial;
+    }
+
+    if (Object.keys(validSettings).length > 0) {
+        await companyRef.update(validSettings);
+    }
 }
 
 
@@ -319,5 +334,3 @@ export async function updateReconciliationStatus(dateId: string, status: 'open' 
         updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 };
-
-    

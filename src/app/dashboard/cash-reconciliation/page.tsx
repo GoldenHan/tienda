@@ -122,7 +122,7 @@ export default function CashReconciliationPage() {
     mainCashNioBalance, mainCashUsdBalance,
     consolidatedNioBalance
   } = useMemo(() => {
-    if (!selectedDate) {
+    if (!selectedDate || !company) {
       return { dailyItems: [], pettyCashNioBalance: 0, pettyCashUsdBalance: 0, mainCashNioBalance: 0, mainCashUsdBalance: 0, consolidatedNioBalance: 0 };
     }
 
@@ -135,18 +135,22 @@ export default function CashReconciliationPage() {
     const dailyTransfers = transfers.filter(dayFilter);
 
     // --- Petty Cash Calculations ---
-    const pettyInflowsNio = dailyManualInflows.filter(i => dayFilter(i) && i.cashBox === 'petty' && i.currency === 'NIO').reduce((sum, i) => sum + i.total, 0);
-    const pettyInflowsUsd = dailyManualInflows.filter(i => dayFilter(i) && i.cashBox === 'petty' && i.currency === 'USD').reduce((sum, i) => sum + i.total, 0);
-    const pettyOutflowsNio = dailyOutflows.filter(o => dayFilter(o) && o.cashBox === 'petty' && o.currency === 'NIO').reduce((sum, o) => sum + o.amount, 0);
-    const pettyOutflowsUsd = dailyOutflows.filter(o => dayFilter(o) && o.cashBox === 'petty' && o.currency === 'USD').reduce((sum, o) => sum + o.amount, 0);
-    const transfersToPettyNio = dailyTransfers.filter(t => t.toBox === 'petty' && t.currency === 'NIO').reduce((sum, t) => sum + t.amount, 0);
-    const transfersFromPettyNio = dailyTransfers.filter(t => t.fromBox === 'petty' && t.currency === 'NIO').reduce((sum, t) => sum + t.amount, 0);
-    const transfersToPettyUsd = dailyTransfers.filter(t => t.toBox === 'petty' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
-    const transfersFromPettyUsd = dailyTransfers.filter(t => t.fromBox === 'petty' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
+    let pettyNio = company.pettyCashInitial || 0; // Start with the configured initial amount
+    let pettyUsd = 0; // Assuming initial amount is only in NIO
 
-    const pettyCashNioBalance = pettyInflowsNio - pettyOutflowsNio + transfersToPettyNio - transfersFromPettyNio;
-    const pettyCashUsdBalance = pettyInflowsUsd - pettyOutflowsUsd + transfersToPettyUsd - transfersFromPettyUsd;
+    pettyNio += dailyManualInflows.filter(i => i.cashBox === 'petty' && i.currency === 'NIO').reduce((sum, i) => sum + i.total, 0);
+    pettyUsd += dailyManualInflows.filter(i => i.cashBox === 'petty' && i.currency === 'USD').reduce((sum, i) => sum + i.total, 0);
 
+    pettyNio -= dailyOutflows.filter(o => o.cashBox === 'petty' && o.currency === 'NIO').reduce((sum, o) => sum + o.amount, 0);
+    pettyUsd -= dailyOutflows.filter(o => o.cashBox === 'petty' && o.currency === 'USD').reduce((sum, o) => sum + o.amount, 0);
+    
+    pettyNio += dailyTransfers.filter(t => t.toBox === 'petty' && t.currency === 'NIO').reduce((sum, t) => sum + t.amount, 0);
+    pettyNio -= dailyTransfers.filter(t => t.fromBox === 'petty' && t.currency === 'NIO').reduce((sum, t) => sum + t.amount, 0);
+    pettyUsd += dailyTransfers.filter(t => t.toBox === 'petty' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
+    pettyUsd -= dailyTransfers.filter(t => t.fromBox === 'petty' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
+    
+    const pettyCashNioBalance = pettyNio;
+    const pettyCashUsdBalance = pettyUsd;
 
     // --- Main Cash Calculations (Sales go here by default) ---
     const salesInflowsNio = dailySales.filter(s => s.paymentCurrency === 'NIO').reduce((sum, s) => sum + s.grandTotal, 0);
@@ -379,5 +383,3 @@ export default function CashReconciliationPage() {
     </div>
   );
 }
-
-    

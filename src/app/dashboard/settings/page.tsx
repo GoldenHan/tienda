@@ -10,13 +10,13 @@ import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Unlock, Trash2, PlusCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { getClosedReconciliations, updateReconciliationStatus, getCategories, addCategory, deleteCategory, getCompany } from "@/lib/firestore-helpers";
-import { updateExchangeRate } from "@/lib/actions/setup";
+import { updateCompanySettings } from "@/lib/actions/setup";
 import { Reconciliation, Category, Company } from "@/lib/types";
 import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -32,8 +32,9 @@ const categoryFormSchema = z.object({
   newCategoryName: z.string().min(2, { message: "El nombre debe tener al menos 2 caracteres." }),
 });
 
-const exchangeRateFormSchema = z.object({
+const companySettingsSchema = z.object({
     exchangeRate: z.coerce.number().min(0, "La tasa de cambio debe ser un número positivo."),
+    pettyCashInitial: z.coerce.number().min(0, "El fondo inicial debe ser un número positivo."),
 });
 
 export default function SettingsPage() {
@@ -64,8 +65,8 @@ export default function SettingsPage() {
     defaultValues: { newCategoryName: "" },
   });
   
-  const exchangeRateForm = useForm<z.infer<typeof exchangeRateFormSchema>>({
-    resolver: zodResolver(exchangeRateFormSchema),
+  const companySettingsForm = useForm<z.infer<typeof companySettingsSchema>>({
+    resolver: zodResolver(companySettingsSchema),
   });
 
   const fetchPageData = useCallback(async () => {
@@ -84,7 +85,10 @@ export default function SettingsPage() {
           setClosedReconciliations(closedData);
           setCategories(categoriesData);
           setCompany(companyData);
-          exchangeRateForm.setValue('exchangeRate', companyData?.exchangeRate || 36.5);
+          if (companyData) {
+            companySettingsForm.setValue('exchangeRate', companyData.exchangeRate || 36.5);
+            companySettingsForm.setValue('pettyCashInitial', companyData.pettyCashInitial || 0);
+          }
         } catch (error) {
           console.error("Error fetching admin settings page data:", error);
           toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
@@ -98,7 +102,7 @@ export default function SettingsPage() {
         setIsCategoryLoading(false);
         setIsCompanyLoading(false);
     }
-  }, [toast, user, isAdmin, exchangeRateForm]);
+  }, [toast, user, isAdmin, companySettingsForm]);
 
   useEffect(() => {
     fetchPageData();
@@ -136,18 +140,18 @@ export default function SettingsPage() {
     }
   }
 
-   async function onExchangeRateSubmit(values: z.infer<typeof exchangeRateFormSchema>) {
+   async function onCompanySettingsSubmit(values: z.infer<typeof companySettingsSchema>) {
     if (!user) return;
     try {
-      await updateExchangeRate(values.exchangeRate, user.uid);
+      await updateCompanySettings(values, user.uid);
       toast({
-        title: "Tasa de Cambio Actualizada",
-        description: `La nueva tasa es 1 USD = ${values.exchangeRate} NIO.`,
+        title: "Configuración Guardada",
+        description: `La configuración de la empresa ha sido actualizada.`,
       });
       await fetchPageData();
     } catch (error: any) {
-      console.error("Error updating exchange rate:", error);
-      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo actualizar la tasa de cambio." });
+      console.error("Error updating company settings:", error);
+      toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo guardar la configuración." });
     }
   }
 
@@ -271,11 +275,11 @@ export default function SettingsPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {isCompanyLoading ? <Skeleton className="h-20 w-full"/> : (
-                           <Form {...exchangeRateForm}>
-                            <form onSubmit={exchangeRateForm.handleSubmit(onExchangeRateSubmit)} className="space-y-4">
+                        {isCompanyLoading ? <Skeleton className="h-40 w-full"/> : (
+                           <Form {...companySettingsForm}>
+                            <form onSubmit={companySettingsForm.handleSubmit(onCompanySettingsSubmit)} className="space-y-4">
                                 <FormField
-                                control={exchangeRateForm.control}
+                                control={companySettingsForm.control}
                                 name="exchangeRate"
                                 render={({ field }) => (
                                     <FormItem>
@@ -287,8 +291,22 @@ export default function SettingsPage() {
                                     </FormItem>
                                 )}
                                 />
-                                <Button type="submit" disabled={exchangeRateForm.formState.isSubmitting}>
-                                    {exchangeRateForm.formState.isSubmitting ? <Loader2 className="animate-spin" /> : "Guardar Tasa de Cambio"}
+                                <FormField
+                                control={companySettingsForm.control}
+                                name="pettyCashInitial"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Fondo Inicial de Caja Chica (C$)</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" step="1" {...field} />
+                                    </FormControl>
+                                    <FormDescription>El monto base para gastos menores diarios.</FormDescription>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <Button type="submit" disabled={companySettingsForm.formState.isSubmitting}>
+                                    {companySettingsForm.formState.isSubmitting ? <Loader2 className="animate-spin" /> : "Guardar Configuración"}
                                 </Button>
                             </form>
                            </Form>

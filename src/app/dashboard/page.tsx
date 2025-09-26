@@ -184,7 +184,7 @@ export default function DashboardPage() {
       </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <Card className="lg:col-span-5 backdrop-blur-sm bg-background/50">
+            <Card className="lg:col-span-3 backdrop-blur-sm bg-background/50">
                 <CardHeader>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
@@ -229,39 +229,40 @@ export default function DashboardPage() {
                     )}
                 </CardContent>
             </Card>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card className="backdrop-blur-sm bg-background/50">
-              <CardHeader>
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="text-destructive h-5 w-5" />
-                    <CardTitle className="text-lg font-semibold">Productos con Stock Bajo</CardTitle>
-                  </div>
-                  <CardDescription>Estos productos necesitan reabastecimiento pronto.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                  {lowStockProducts.length > 0 ? (
-                      <div className="space-y-4">
-                          {lowStockProducts.slice(0,4).map(p => (
-                              <div key={p.id} className="flex justify-between items-center hover:bg-muted/50 p-2 rounded-md transition-colors">
-                                  <div>
-                                      <p className="font-medium">{p.name}</p>
-                                      <p className="text-sm text-muted-foreground">{formatCurrency(p.salePrice)}</p>
+            <div className="lg:col-span-2 grid grid-cols-1 gap-6">
+              <Card className="backdrop-blur-sm bg-background/50">
+                  <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <AlertTriangle className="text-destructive h-5 w-5" />
+                        <CardTitle className="text-lg font-semibold">Productos con Stock Bajo</CardTitle>
+                      </div>
+                      <CardDescription>Estos productos necesitan reabastecimiento pronto.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                      {lowStockProducts.length > 0 ? (
+                          <div className="space-y-4">
+                              {lowStockProducts.slice(0,2).map(p => (
+                                  <div key={p.id} className="flex justify-between items-center hover:bg-muted/50 p-2 rounded-md transition-colors">
+                                      <div>
+                                          <p className="font-medium">{p.name}</p>
+                                          <p className="text-sm text-muted-foreground">{formatCurrency(p.salePrice)}</p>
+                                      </div>
+                                      <Badge variant="destructive">{p.quantity} restantes</Badge>
                                   </div>
-                                  <Badge variant="destructive">{p.quantity} restantes</Badge>
-                              </div>
-                          ))}
-                      </div>
-                  ) : (
-                      <div className="text-sm text-muted-foreground text-center py-8">
-                        <Package className="mx-auto h-8 w-8 mb-2" />
-                        ¡Excelente! No hay productos con bajo stock.
-                      </div>
-                  )}
-              </CardContent>
-          </Card>
-          <Card className="backdrop-blur-sm bg-background/50">
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-sm text-muted-foreground text-center py-8">
+                            <Package className="mx-auto h-8 w-8 mb-2" />
+                            ¡Excelente! No hay productos con bajo stock.
+                          </div>
+                      )}
+                  </CardContent>
+              </Card>
+            </div>
+      </div>
+      
+        <Card className="backdrop-blur-sm bg-background/50">
             <CardHeader>
             <CardTitle>Acciones Rápidas</CardTitle>
             <CardDescription>Tareas comunes para gestionar tu tienda.</CardDescription>
@@ -299,7 +300,6 @@ export default function DashboardPage() {
                 </div>
             </CardContent>
         </Card>
-      </div>
     </>
   );
 
@@ -366,7 +366,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
-
-    
