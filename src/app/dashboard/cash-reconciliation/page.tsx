@@ -38,15 +38,20 @@ export default function CashReconciliationPage() {
   const [reconciliationStatus, setReconciliationStatus] = useState<Reconciliation['status']>('open');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(startOfDay(new Date()));
+  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [isOutflowDialogOpen, setIsOutflowDialogOpen] = useState(false);
   const [isInflowDialogOpen, setIsInflowDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const formattedDateId = useMemo(() => formatDateFns(selectedDate, 'yyyy-MM-dd'), [selectedDate]);
+  useEffect(() => {
+    // Set initial date on client-side to avoid hydration mismatch
+    setSelectedDate(startOfDay(new Date()));
+  }, []);
+
+  const formattedDateId = useMemo(() => selectedDate ? formatDateFns(selectedDate, 'yyyy-MM-dd') : '', [selectedDate]);
 
   const fetchData = useCallback(async () => {
-    if (!user) return;
+    if (!user || !formattedDateId) return;
     setLoading(true);
     try {
       const [salesData, outflowsData, inflowsData, statusData, companyData] = await Promise.all([
@@ -75,7 +80,7 @@ export default function CashReconciliationPage() {
   }, [toast, formattedDateId, user]);
 
   useEffect(() => {
-    if (user) {
+    if (user && selectedDate) {
       fetchData();
     } else {
       setLoading(false);
@@ -83,7 +88,7 @@ export default function CashReconciliationPage() {
   }, [user, fetchData, selectedDate]);
 
   const handleCloseReconciliation = async () => {
-    if (!user) return;
+    if (!user || !formattedDateId) return;
     setIsSubmitting(true);
     try {
       await updateReconciliationStatus(formattedDateId, 'closed', user.uid);
@@ -111,6 +116,10 @@ export default function CashReconciliationPage() {
       dailyNioBalance, dailyUsdBalance,
       dailyItems, consolidatedNioBalance
   } = useMemo(() => {
+    if (!selectedDate) {
+        return { dailyNioIncomes: 0, dailyUsdIncomes: 0, dailyNioOutflows: 0, dailyUsdOutflows: 0, dailyNioBalance: 0, dailyUsdBalance: 0, dailyItems: [], consolidatedNioBalance: 0 };
+    }
+
     const dayFilter = (item: { date: string }) => isSameDay(new Date(item.date), selectedDate);
 
     const dailySales = sales.filter(dayFilter);
@@ -147,7 +156,7 @@ export default function CashReconciliationPage() {
 
   const isClosed = reconciliationStatus === 'closed';
 
-  if (loading) {
+  if (loading || !selectedDate) {
     return (
       <div className="flex flex-col p-4 sm:p-6 space-y-6">
         <header>
@@ -339,3 +348,5 @@ export default function CashReconciliationPage() {
     </div>
   );
 }
+
+    
