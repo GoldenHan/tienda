@@ -7,15 +7,15 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale, CashOutflow, Company } from '@/lib/types';
 import { getProducts, getSales, getCashOutflows, getCompany } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, Briefcase } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, Briefcase, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { isToday, format, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { isToday, format, startOfWeek, eachDayOfInterval, isSameDay, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
-import { SalesChart } from '@/components/dashboard/sales-chart';
+import { Button } from '@/components/ui/button';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -73,10 +73,9 @@ export default function DashboardPage() {
     lowStockItems,
     lowStockProducts,
     employeeTodaySales,
-    weeklySalesChartData,
-    bestSellingProductsToday,
     todayProfit,
     pettyCashBalance,
+    recentSales,
   } = useMemo(() => {
     const today = new Date();
     const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), today));
@@ -93,15 +92,6 @@ export default function DashboardPage() {
 
     const weekStart = startOfWeek(today, { locale: es });
     const weekDays = eachDayOfInterval({ start: weekStart, end: today });
-    
-    const weeklySalesChartData = weekDays.map(day => {
-        const daySales = sales.filter(sale => isSameDay(new Date(sale.date), day));
-        const total = daySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
-        return {
-            name: format(day, 'EEE', { locale: es }),
-            total,
-        };
-    });
 
     const productsMap = new Map(products.map(p => [p.id, p]));
     const todayProfit = todaySales.reduce((totalProfit, sale) => {
@@ -112,37 +102,19 @@ export default function DashboardPage() {
         }, 0);
         return totalProfit + saleProfit;
     }, 0);
-
-    const productSalesToday: { [key: string]: { name: string; quantity: number; total: number; } } = {};
-    todaySales.forEach(sale => {
-        sale.items.forEach(item => {
-            if (productSalesToday[item.productId]) {
-                productSalesToday[item.productId].quantity += item.quantity;
-                productSalesToday[item.productId].total += item.total;
-            } else {
-                productSalesToday[item.productId] = {
-                    name: item.productName,
-                    quantity: item.quantity,
-                    total: item.total,
-                };
-            }
-        });
-    });
-
-    const bestSellingProductsToday = Object.values(productSalesToday)
-        .sort((a, b) => b.quantity - a.quantity)
-        .slice(0, 5);
-
+    
     const pettyCashOutflowsToday = outflows
       .filter(o => o.cashBox === 'petty' && isToday(new Date(o.date)))
       .reduce((sum, o) => sum + o.amount, 0);
 
     const pettyCashBalance = (company?.pettyCashInitial || 0) - pettyCashOutflowsToday;
+    
+    const recentSales = [...sales].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0,5);
 
     return { 
         todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, 
-        employeeTodaySales, weeklySalesChartData, bestSellingProductsToday, todayProfit,
-        pettyCashBalance,
+        employeeTodaySales, todayProfit,
+        pettyCashBalance, recentSales
     };
 
   }, [sales, products, user, company, outflows]);
@@ -214,26 +186,45 @@ export default function DashboardPage() {
        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
             <Card className="lg:col-span-5 backdrop-blur-sm bg-background/50">
                 <CardHeader>
-                    <div className="flex items-center gap-2">
-                        <Star className="text-amber-400 h-5 w-5" />
-                        <CardTitle className="text-lg font-semibold">Más Vendidos Hoy</CardTitle>
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                           <ShoppingCart className="text-primary h-5 w-5" />
+                           <CardTitle className="text-lg font-semibold">Últimas Ventas</CardTitle>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => router.push('/dashboard/sales')}>
+                            Ver Todas
+                            <Eye className="ml-2 h-4 w-4" />
+                        </Button>
                     </div>
-                    <CardDescription>Productos con más unidades vendidas hoy.</CardDescription>
+                    <CardDescription>Un vistazo rápido a las transacciones más recientes.</CardDescription>
                 </CardHeader>
                 <CardContent>
-                    {bestSellingProductsToday.length > 0 ? (
+                     {recentSales.length > 0 ? (
                         <div className="space-y-4">
-                            {bestSellingProductsToday.map(p => (
-                                <div key={p.name} className="flex justify-between items-center hover:bg-muted/50 p-2 rounded-md transition-colors">
-                                    <p className="font-medium truncate" title={p.name}>{p.name}</p>
-                                    <Badge variant="secondary">{p.quantity} vendidos</Badge>
+                            {recentSales.map(sale => (
+                                <div key={sale.id} className="flex justify-between items-center hover:bg-muted/50 p-2 rounded-md transition-colors">
+                                    <div className="flex items-center gap-3">
+                                         <div className="p-2 bg-muted rounded-full">
+                                            <ShoppingCart className="h-4 w-4 text-muted-foreground"/>
+                                         </div>
+                                         <div>
+                                            <p className="font-medium text-sm truncate max-w-[200px]" title={sale.id}>Transacción #{sale.id.substring(0, 8)}...</p>
+                                            <p className="text-xs text-muted-foreground">
+                                                {formatDistanceToNow(new Date(sale.date), { addSuffix: true, locale: es })} por {sale.employeeName}
+                                            </p>
+                                         </div>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-sm">{formatCurrency(sale.grandTotal, sale.paymentCurrency)}</p>
+                                        <Badge variant={sale.paymentCurrency === 'USD' ? 'secondary' : 'outline'}>{sale.paymentCurrency}</Badge>
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     ) : (
                         <div className="text-sm text-muted-foreground text-center py-8">
                             <ShoppingCart className="mx-auto h-8 w-8 mb-2" />
-                            Aún no se han realizado ventas hoy.
+                            Aún no se han realizado ventas.
                         </div>
                     )}
                 </CardContent>
@@ -375,5 +366,7 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
 
     
