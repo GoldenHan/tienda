@@ -31,9 +31,12 @@ export default function DashboardPage() {
   const isAdmin = user?.role === 'admin' || user?.role === 'primary-admin';
 
   useEffect(() => {
-    const today = new Date();
-    const formattedDate = format(today, "eeee, d 'de' MMMM 'de' yyyy", { locale: es });
-    setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
+    // Set current date on client-side to avoid hydration mismatch
+    if (typeof window !== 'undefined') {
+        const today = new Date();
+        const formattedDate = format(today, "eeee, d 'de' MMMM 'de' yyyy", { locale: es });
+        setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
+    }
   }, []);
 
   const fetchData = useCallback(async () => {
@@ -385,3 +388,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
