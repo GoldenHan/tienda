@@ -127,7 +127,9 @@ export function AppSidebar({ companyName: initialCompanyName, isAdmin }: AppSide
             ))}
           <SidebarMenuItem>
              <div className="flex items-center justify-between w-full group-data-[collapsible=icon]:justify-center">
-                <SidebarMenuButton onClick={logout} className="justify-start flex-1 group-data-[collapsible=icon]:w-auto">
+                <SidebarMenuButton onClick={logout} className="justify-start flex-1 group-data-[collapsible=icon]:w-auto"
+                tooltip={{children: 'Cerrar Sesión'}}
+                >
                     <LogOut />
                     <span className="group-data-[collapsible=icon]:hidden">Cerrar Sesión</span>
                 </SidebarMenuButton>
@@ -141,3 +143,5 @@ export function AppSidebar({ companyName: initialCompanyName, isAdmin }: AppSide
     </Sidebar>
   )
 }
+
+    
