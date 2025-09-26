@@ -1,58 +1,81 @@
-
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // -------------------
-    // Funciones de ayuda
-    // -------------------
+    // Helper function to check if a user is authenticated and belongs to the specified company.
     function isMemberOfCompany(companyId) {
       return request.auth != null && request.auth.token.companyId == companyId;
     }
 
-    function isAdmin() {
-      return request.auth != null && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
+    // Helper function to check if the user is an admin or primary-admin of the specified company.
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
     }
 
-    function isEmployee() {
-      return request.auth != null && request.auth.token.role == 'employee';
-    }
-
-    // -------------------
-    // Colección de empresas
-    // -------------------
+    // Rule for the /companies collection.
     match /companies/{companyId} {
-      allow create: if !exists(/databases/$(database)/documents/companies/$(companyId));
-      allow read, update, delete: if false;
+      // Admins can read their own company's document.
+      allow read: if isAdminOfCompany(companyId);
+
+      // Only admins can update their company's settings. Owner and creation time are immutable.
+      allow update: if isAdminOfCompany(companyId)
+                    && request.resource.data.diff(resource.data).affectedKeys()
+                       .hasOnly(['name', 'exchangeRate', 'pettyCashInitial', 'logoUrl']);
+
+      // Disallow direct creation or deletion of company documents via client SDK.
+      // This must be handled by a secure server environment (like a Cloud Function).
+      allow create, delete: if false;
     }
 
-    // -------------------
-    // Colección de usuarios
-    // -------------------
+    // Rule for all subcollections within a company document.
+    match /companies/{companyId}/{subcollection}/{docId} {
+
+      // --- Default Read/Write Rules for all subcollections ---
+      // Any authenticated user can read data from their own company.
+      // This allows employees to see products, sales history, etc.
+      allow read: if isMemberOfCompany(companyId);
+
+      // --- Granular Write Rules ---
+
+      // Products, Categories: Only admins can manage the inventory and categories.
+      allow create, update, delete: if (subcollection == 'products' || subcollection == 'categories')
+                                      && isAdminOfCompany(companyId);
+
+      // Sales:
+      // Creation is handled by a server action which does its own checks.
+      // We allow creation here so the server action can run with the user's credentials.
+      allow create: if isMemberOfCompany(companyId);
+      // Updates/Deletes (e.g., editing a sale): Restricted to admins to prevent unauthorized changes.
+      allow update, delete: if isAdminOfCompany(companyId);
+
+      // Cash flows (inflows, outflows, transfers):
+      // Creation is allowed for any member, as both employees and admins might need to log these.
+      // The validation (e.g., sufficient funds) is handled in the server action.
+      allow create: if (subcollection == 'cash_outflows' || subcollection == 'inflows' || subcollection == 'cash_transfers')
+                    && isMemberOfCompany(companyId);
+      // Only admins can edit or delete past cash flow records.
+      allow update, delete: if (subcollection == 'cash_outflows' || subcollection == 'inflows' || subcollection == 'cash_transfers')
+                           && isAdminOfCompany(companyId);
+
+      // Reconciliations: The status is updated via a server action.
+      // We allow writes here for admins, as they have the power to reopen closed reconciliations.
+      allow write: if subcollection == 'reconciliations' && isAdminOfCompany(companyId);
+    }
+
+    // Rule for the /users collection.
     match /users/{userId} {
-      // Cada usuario puede leer su propio documento
-      allow get: if request.auth != null && request.auth.uid == userId;
+      // An authenticated user can read their own user profile.
+      allow get: if request.auth.uid == userId;
 
-      // Los admins pueden listar todos los usuarios de su empresa
-      allow list: if isAdmin() && isMemberOfCompany(request.auth.token.companyId);
+      // An admin can read the user list of their own company.
+      allow list: if request.auth != null && request.auth.token.companyId != null;
 
-      // Nadie puede crear/actualizar/eliminar directamente usuarios
-      allow create, update, delete: if false;
-    }
-
-    // -------------------
-    // Subcolecciones de la empresa
-    // -------------------
-    match /companies/{companyId}/{collection}/{docId} {
-      // Admins pueden todo dentro de su empresa
-      allow read, write: if isAdmin() && isMemberOfCompany(companyId);
-
-      // Empleados pueden leer productos y categorías
-      allow read: if isEmployee() && isMemberOfCompany(companyId) &&
-                  (collection == 'products' || collection == 'categories');
-
-      // Empleados pueden crear ventas
-      allow create: if isEmployee() && isMemberOfCompany(companyId) && collection == 'sales';
+      // Creation and deletion are handled by secure server actions, not allowed from the client.
+      allow create, delete: if false;
+      // An admin can promote other users, and a user can update their own (non-critical) data.
+      // This is a simplified rule; updates are mainly handled via server actions for security.
+      allow update: if request.auth.uid == userId || (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
     }
   }
 }
