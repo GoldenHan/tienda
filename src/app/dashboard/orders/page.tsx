@@ -8,7 +8,7 @@ import { getProducts, getSales, getCashOutflows, getInflows, getCashTransfers, g
 import { Product, Sale, CashOutflow, Inflow, CashTransfer, Company, Currency } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/componentsui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, ShoppingBag, DollarSign, PackagePlus, Trash2, PlusCircle, Search } from 'lucide-react';
@@ -326,3 +326,5 @@ export default function OrdersPage() {
     </div>
   );
 }
+
+    
