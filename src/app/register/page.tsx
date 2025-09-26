@@ -63,9 +63,6 @@ export default function RegisterPage() {
     try {
       await createInitialAdminUser(values);
 
-      // We sign out immediately after registration to force a clean login.
-      await signOut(auth).catch(() => {});
-
       toast({
         title: "¡Empresa Registrada!",
         description: "Has creado la cuenta de administrador. Ahora inicia sesión con tus nuevas credenciales.",
