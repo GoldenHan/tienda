@@ -8,7 +8,7 @@ import { getProducts, getSales, getCashOutflows, getInflows, getCashTransfers, g
 import { Product, Sale, CashOutflow, Inflow, CashTransfer, Company, Currency } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/componentsui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AlertCircle, ShoppingBag, DollarSign, PackagePlus, Trash2, PlusCircle, Search } from 'lucide-react';
@@ -86,7 +86,6 @@ export default function OrdersPage() {
 
     const products = allProducts.filter(p => p.quantity <= p.lowStockThreshold);
 
-    // Calculate main cash box balance for today
     const dailySales = sales.filter(dayFilter);
     const dailyOutflows = outflows.filter(dayFilter);
     const dailyManualInflows = inflows.filter(dayFilter);
@@ -106,7 +105,11 @@ export default function OrdersPage() {
     const nioBalance = (salesInflowsNio + mainInflowsNio) - mainOutflowsNio + transfersToMainNio - transfersFromMainNio;
     const usdBalance = (salesInflowsUsd + mainInflowsUsd) - mainOutflowsUsd + transfersToMainUsd - transfersFromMainUsd;
     
-    return { lowStockProducts: products, mainCashNioBalance: nioBalance, mainCashUsdBalance: usdBalance };
+    return { 
+        lowStockProducts: products, 
+        mainCashNioBalance: Math.max(0, nioBalance), 
+        mainCashUsdBalance: Math.max(0, usdBalance)
+    };
 
   }, [allProducts, sales, outflows, inflows, transfers]);
   

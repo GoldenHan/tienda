@@ -151,15 +151,14 @@ export default function CashReconciliationPage() {
 
     const dayFilter = (item: { date: string }) => isSameDay(new Date(item.date), selectedDate);
 
-    // Filter all transactions for the selected day
     const dailySales = sales.filter(dayFilter);
     const dailyOutflows = outflows.filter(dayFilter);
     const dailyManualInflows = inflows.filter(dayFilter);
     const dailyTransfers = transfers.filter(dayFilter);
 
     // --- Petty Cash Calculations ---
-    let pettyNio = company.pettyCashInitial || 0; // Start with the configured initial amount
-    let pettyUsd = 0; // Assuming initial amount is only in NIO
+    let pettyNio = company.pettyCashInitial || 0;
+    let pettyUsd = 0;
 
     pettyNio += dailyManualInflows.filter(i => i.cashBox === 'petty' && i.currency === 'NIO').reduce((sum, i) => sum + i.total, 0);
     pettyUsd += dailyManualInflows.filter(i => i.cashBox === 'petty' && i.currency === 'USD').reduce((sum, i) => sum + i.total, 0);
@@ -172,8 +171,8 @@ export default function CashReconciliationPage() {
     pettyUsd += dailyTransfers.filter(t => t.toBox === 'petty' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
     pettyUsd -= dailyTransfers.filter(t => t.fromBox === 'petty' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
     
-    const pettyCashNioBalance = pettyNio;
-    const pettyCashUsdBalance = pettyUsd;
+    const pettyCashNioBalance = Math.max(0, pettyNio);
+    const pettyCashUsdBalance = Math.max(0, pettyUsd);
 
     // --- Main Cash Calculations (Sales go here by default) ---
     const salesInflowsNio = dailySales.filter(s => s.paymentCurrency === 'NIO').reduce((sum, s) => sum + s.grandTotal, 0);
@@ -187,8 +186,8 @@ export default function CashReconciliationPage() {
     const transfersToMainUsd = dailyTransfers.filter(t => t.toBox === 'general' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
     const transfersFromMainUsd = dailyTransfers.filter(t => t.fromBox === 'general' && t.currency === 'USD').reduce((sum, t) => sum + t.amount, 0);
     
-    const mainCashNioBalance = (salesInflowsNio + mainInflowsNio) - mainOutflowsNio + transfersToMainNio - transfersFromMainNio;
-    const mainCashUsdBalance = (salesInflowsUsd + mainInflowsUsd) - mainOutflowsUsd + transfersToMainUsd - transfersFromMainUsd;
+    const mainCashNioBalance = Math.max(0, (salesInflowsNio + mainInflowsNio) - mainOutflowsNio + transfersToMainNio - transfersFromMainNio);
+    const mainCashUsdBalance = Math.max(0, (salesInflowsUsd + mainInflowsUsd) - mainOutflowsUsd + transfersToMainUsd - transfersFromMainUsd);
 
     // --- Consolidated Balance ---
     const exchangeRate = company?.exchangeRate || 36.5;
@@ -196,7 +195,6 @@ export default function CashReconciliationPage() {
     const totalUsd = mainCashUsdBalance + pettyCashUsdBalance;
     const consolidatedNioBalance = totalNio + (totalUsd * exchangeRate);
 
-    // --- Combined list for table ---
     const allItems = [...dailySales, ...dailyOutflows, ...dailyManualInflows, ...dailyTransfers];
     const dailyItems = allItems.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
