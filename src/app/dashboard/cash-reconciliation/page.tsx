@@ -290,13 +290,19 @@ export default function CashReconciliationPage() {
                   </DialogDescription>
                 </DialogHeader>
                  <OutflowForm 
+                    date={selectedDate}
+                    balances={{
+                        pettyNio: pettyCashNioBalance,
+                        pettyUsd: pettyCashUsdBalance,
+                        mainNio: mainCashNioBalance,
+                        mainUsd: mainCashUsdBalance,
+                    }}
                     onOutflowAdded={(newOutflow) => {
                         fetchData();
                         setLastOutflow(newOutflow);
                         setIsOutflowDialogOpen(false);
                         setIsReceiptDialogOpen(true);
                     }}
-                    date={selectedDate}
                 />
               </DialogContent>
             </Dialog>

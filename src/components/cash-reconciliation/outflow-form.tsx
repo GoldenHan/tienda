@@ -14,7 +14,7 @@ import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { useAuth } from "@/context/auth-context";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
-import type { CashOutflow } from "@/lib/types";
+import type { CashOutflow, Currency } from "@/lib/types";
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
@@ -25,12 +25,19 @@ const formSchema = z.object({
 
 type OutflowFormData = z.infer<typeof formSchema>;
 
+interface Balances {
+    pettyNio: number;
+    pettyUsd: number;
+    mainNio: number;
+    mainUsd: number;
+}
 interface OutflowFormProps {
   onOutflowAdded: (newOutflow: CashOutflow) => void;
   date: Date;
+  balances: Balances;
 }
 
-export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
+export function OutflowForm({ onOutflowAdded, date, balances }: OutflowFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,9 +51,39 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
       cashBox: "petty",
     },
   });
+  
+  const formatCurrency = (amount: number, currency: Currency) =>
+    new Intl.NumberFormat("es-NI", {
+      style: "currency",
+      currency: currency,
+    }).format(amount);
 
   const handleFormSubmit = async (data: OutflowFormData) => {
     if (!user) return;
+
+    // --- Balance Validation ---
+    const { amount, currency, cashBox } = data;
+    let hasSufficientFunds = false;
+    let availableBalance = 0;
+
+    if (cashBox === 'petty') {
+        availableBalance = currency === 'NIO' ? balances.pettyNio : balances.pettyUsd;
+    } else { // general
+        availableBalance = currency === 'NIO' ? balances.mainNio : balances.mainUsd;
+    }
+    
+    hasSufficientFunds = amount <= availableBalance;
+
+    if (!hasSufficientFunds) {
+        toast({
+            variant: "destructive",
+            title: "Fondos Insuficientes",
+            description: `No se puede registrar el egreso. Saldo disponible en ${cashBox === 'petty' ? 'Caja Chica' : 'Caja General'} (${currency}): ${formatCurrency(availableBalance, currency)}.`,
+        });
+        return;
+    }
+    // --- End Validation ---
+
     setIsSubmitting(true);
     try {
       const newOutflowData = {
@@ -59,7 +96,7 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
       const outflowId = await addCashOutflow(newOutflowData, user.uid);
       toast({
         title: "Egreso Registrado",
-        description: `Se registró una salida de ${data.currency === 'USD' ? '$' : 'C$'}${data.amount} de la caja ${data.cashBox === 'general' ? 'General' : 'Chica'}.`,
+        description: `Se registró una salida de ${formatCurrency(data.amount, data.currency)} de la caja ${data.cashBox === 'general' ? 'General' : 'Chica'}.`,
       });
       form.reset();
       onOutflowAdded({ ...newOutflowData, id: outflowId });
@@ -165,4 +202,3 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
     </Form>
   );
 }
-
