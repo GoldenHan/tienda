@@ -15,6 +15,7 @@ import { OutflowForm } from '@/components/cash-reconciliation/outflow-form';
 import { InflowForm } from '@/components/cash-reconciliation/inflow-form';
 import { CashTransferForm } from '@/components/cash-reconciliation/cash-transfer-form';
 import { ReconciliationTable } from '@/components/cash-reconciliation/reconciliation-table';
+import { OutflowReceipt } from '@/components/cash-reconciliation/outflow-receipt';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -43,6 +44,8 @@ export default function CashReconciliationPage() {
   const [isOutflowDialogOpen, setIsOutflowDialogOpen] = useState(false);
   const [isInflowDialogOpen, setIsInflowDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [lastOutflow, setLastOutflow] = useState<CashOutflow | null>(null);
+  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -114,6 +117,26 @@ export default function CashReconciliationPage() {
       setIsSubmitting(false);
     }
   }
+
+ const handlePrintReceipt = () => {
+    const printContent = document.getElementById("outflow-receipt-to-print");
+    if (!printContent || !window) return;
+
+    const printWindow = window.open('', '', 'height=800,width=800');
+    if (!printWindow) return;
+
+    printWindow.document.write('<html><head><title>Comprobante de Egreso</title>');
+    printWindow.document.write('<style>body { font-family: sans-serif; } @media print { @page { size: auto; margin: 0.5in; } }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(printContent.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
+  };
 
 
  const {
@@ -207,6 +230,7 @@ export default function CashReconciliationPage() {
   }
 
   return (
+    <>
     <div className="flex flex-col">
        <header className="p-4 sm:p-6">
         <div className="flex items-center justify-between">
@@ -266,9 +290,11 @@ export default function CashReconciliationPage() {
                   </DialogDescription>
                 </DialogHeader>
                  <OutflowForm 
-                    onOutflowAdded={() => {
+                    onOutflowAdded={(newOutflow) => {
                         fetchData();
+                        setLastOutflow(newOutflow);
                         setIsOutflowDialogOpen(false);
+                        setIsReceiptDialogOpen(true);
                     }}
                     date={selectedDate}
                 />
@@ -381,5 +407,25 @@ export default function CashReconciliationPage() {
         </Card>
       </main>
     </div>
+    <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+        <DialogContent className="max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Comprobante de Egreso</DialogTitle>
+                <DialogDescription>
+                    El egreso ha sido registrado. Puedes imprimir el comprobante a continuación.
+                </DialogDescription>
+            </DialogHeader>
+            {lastOutflow && user && (
+                <OutflowReceipt
+                    outflow={lastOutflow}
+                    company={company}
+                    employeeName={user.name}
+                    onPrint={handlePrintReceipt}
+                />
+            )}
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
+

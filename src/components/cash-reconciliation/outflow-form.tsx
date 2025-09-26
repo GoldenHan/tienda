@@ -14,6 +14,7 @@ import { Loader2 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import { useAuth } from "@/context/auth-context";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import type { CashOutflow } from "@/lib/types";
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
@@ -25,7 +26,7 @@ const formSchema = z.object({
 type OutflowFormData = z.infer<typeof formSchema>;
 
 interface OutflowFormProps {
-  onOutflowAdded: () => void;
+  onOutflowAdded: (newOutflow: CashOutflow) => void;
   date: Date;
 }
 
@@ -48,20 +49,20 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
     if (!user) return;
     setIsSubmitting(true);
     try {
-      const newOutflow = {
+      const newOutflowData = {
         date: date.toISOString(),
         amount: data.amount,
         reason: data.reason,
         currency: data.currency,
         cashBox: data.cashBox,
       };
-      await addCashOutflow(newOutflow, user.uid);
+      const outflowId = await addCashOutflow(newOutflowData, user.uid);
       toast({
         title: "Egreso Registrado",
         description: `Se registró una salida de ${data.currency === 'USD' ? '$' : 'C$'}${data.amount} de la caja ${data.cashBox === 'general' ? 'General' : 'Chica'}.`,
       });
       form.reset();
-      onOutflowAdded();
+      onOutflowAdded({ ...newOutflowData, id: outflowId });
     } catch (error) {
       console.error("Error al registrar egreso:", error);
       toast({
@@ -165,4 +166,3 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
   );
 }
 
-    

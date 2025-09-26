@@ -168,11 +168,12 @@ export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string) {
     await addDoc(inflowsCollection, inflow);
 }
 
-export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: string) {
+export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: string): Promise<string> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const outflowsCollection = collection(db, `companies/${companyId}/cash_outflows`);
-    await addDoc(outflowsCollection, outflow);
+    const docRef = await addDoc(outflowsCollection, outflow);
+    return docRef.id;
 }
 
 export async function getReconciliationStatus(dateId: string, userId: string): Promise<Reconciliation['status']> {
