@@ -4,18 +4,18 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '@/lib/types';
 import { getUsers } from '@/lib/firestore-helpers';
-import { addUser, promoteToAdmin } from '@/lib/actions/setup';
+import { addUser, promoteToAdmin, deleteUser } from '@/lib/actions/setup';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { UserForm } from '@/components/users/user-form';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { NewUserData } from '@/lib/types';
-import { Shield, ShieldCheck, ShieldPlus, UserPlus, Loader2 } from 'lucide-react';
+import { Shield, ShieldCheck, ShieldPlus, UserPlus, Loader2, Trash2 } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -32,8 +32,7 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const usersData = await getUsers(user.uid);
-      const otherUsers = usersData.filter(u => u.uid !== user?.uid);
-      setUsers(otherUsers);
+      setUsers(usersData);
     } catch (error) {
       console.error("Users fetch error:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los usuarios.' });
@@ -81,6 +80,21 @@ export default function UsersPage() {
       }
   };
 
+  const handleDeleteUser = async (userIdToDelete: string) => {
+      if (!user) return;
+      setIsProcessing(userIdToDelete);
+      try {
+        await deleteUser(userIdToDelete, user.uid);
+        await fetchUsers();
+        toast({ title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado permanentemente.' });
+      } catch (error: any) {
+        console.error("Error al eliminar usuario:", error);
+        toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo eliminar al usuario.' });
+      } finally {
+        setIsProcessing(null);
+      }
+  }
+
   const getInitials = (name: string) => {
     return name?.split(' ').map(n => n[0]).join('').toUpperCase() || '';
   }
@@ -126,12 +140,17 @@ export default function UsersPage() {
                         <Skeleton className="h-3 w-24" />
                     </div>
                 </CardHeader>
+                 <CardFooter>
+                    <Skeleton className="h-9 w-full" />
+                </CardFooter>
             </Card>
           ))}
         </main>
       </div>
     );
   }
+
+  const otherUsers = users.filter(u => u.uid !== user?.uid);
 
   return (
     <TooltipProvider>
@@ -162,16 +181,16 @@ export default function UsersPage() {
         </Dialog>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-        {users.length === 0 ? (
+        {otherUsers.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center p-8 border rounded-lg h-64">
                 <h3 className="text-xl font-semibold">No hay otros usuarios registrados</h3>
                 <p className="text-muted-foreground mt-2">Añade tu primer empleado para empezar a construir tu equipo.</p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {users.map(u => (
-                    <Card key={u.uid}>
-                        <CardHeader className="flex flex-col">
+                {otherUsers.map(u => (
+                    <Card key={u.uid} className="flex flex-col">
+                        <CardHeader>
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-4">
                                     <Avatar>
@@ -184,8 +203,11 @@ export default function UsersPage() {
                                 </div>
                                 {renderRoleBadge(u)}
                             </div>
+                        </CardHeader>
+                        <CardContent className="flex-grow"></CardContent>
+                         <CardFooter className="bg-muted/50 p-3 flex justify-end gap-2">
                              {u.role === 'employee' && (
-                                <div className="flex justify-end mt-4">
+                                <>
                                     <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                             <Button variant="outline" size="sm" disabled={!!isProcessing}>
@@ -206,15 +228,35 @@ export default function UsersPage() {
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
                                     </AlertDialog>
-                                </div>
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                             <Button variant="destructive-outline" size="sm" disabled={!!isProcessing}>
+                                                {isProcessing === u.uid ? <Loader2 className="animate-spin" /> : <Trash2 className="mr-2" />}
+                                                Eliminar
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>¿Eliminar permanentemente a {u.name}?</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    Esta acción no se puede deshacer. Se eliminará la cuenta del usuario y ya no podrá iniciar sesión.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteUser(u.uid)}>Confirmar Eliminación</AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
+                                </>
                             )}
                              {u.role === 'admin' && (
-                                <div className="flex justify-end items-center gap-2 mt-4 text-sm text-purple-600 font-medium h-9">
+                                <div className="flex items-center gap-2 text-sm text-purple-600 font-medium h-9">
                                     <Shield className="h-4 w-4" />
                                     <span>Permisos de Administrador</span>
                                 </div>
                             )}
-                        </CardHeader>
+                        </CardFooter>
                     </Card>
                 ))}
             </div>
@@ -224,5 +266,3 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
-
-    

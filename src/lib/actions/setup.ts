@@ -170,6 +170,28 @@ export async function promoteToAdmin(userIdToPromote: string, currentAdminId: st
     await userToPromoteRef.update({ role: 'admin' });
 }
 
+export async function deleteUser(userIdToDelete: string, currentAdminId: string) {
+    const auth = getAdminAuthOrThrow();
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(currentAdminId);
+
+    // Verify the user being deleted belongs to the same company and is not a primary-admin
+    const userToDeleteRef = db.doc(`users/${userIdToDelete}`);
+    const userDoc = await userToDeleteRef.get();
+
+    if (!userDoc.exists || userDoc.data()?.companyId !== companyId) {
+        throw new Error("El usuario a eliminar no pertenece a tu empresa.");
+    }
+
+    if (userDoc.data()?.role === 'primary-admin') {
+        throw new Error("No se puede eliminar al administrador principal de la empresa.");
+    }
+
+    // Delete user from Firebase Auth and Firestore
+    await auth.deleteUser(userIdToDelete);
+    await userToDeleteRef.delete();
+}
+
 
 // -----------------
 // Category Management
@@ -349,11 +371,12 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
 // Cash Flow & Reconciliation
 // -----------------
 
-export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: string): Promise<void> {
+export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: string): Promise<string> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const outflowsCollection = db.collection(`companies/${companyId}/cash_outflows`);
-    await outflowsCollection.add(outflow);
+    const docRef = await outflowsCollection.add(outflow);
+    return docRef.id;
 };
 
 export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string): Promise<void> {
