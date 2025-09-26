@@ -7,7 +7,7 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale, CashOutflow, Company } from '@/lib/types';
 import { getProducts, getSales, getCashOutflows, getCompany } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, PiggyBank, Briefcase } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -212,19 +212,7 @@ export default function DashboardPage() {
       </div>
 
        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-            <Card className="lg:col-span-3 backdrop-blur-sm bg-background/50">
-              <CardHeader>
-                <CardTitle className="text-lg font-semibold">Resumen de Ventas Semanales</CardTitle>
-                <CardDescription>
-                  Ingresos totales de los últimos 7 días.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="pl-2">
-                <SalesChart data={weeklySalesChartData} />
-              </CardContent>
-            </Card>
-
-            <Card className="lg:col-span-2 backdrop-blur-sm bg-background/50">
+            <Card className="lg:col-span-5 backdrop-blur-sm bg-background/50">
                 <CardHeader>
                     <div className="flex items-center gap-2">
                         <Star className="text-amber-400 h-5 w-5" />
