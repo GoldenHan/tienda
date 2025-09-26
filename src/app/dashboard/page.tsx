@@ -170,31 +170,35 @@ export default function DashboardPage() {
           value={formatCurrency(todayRevenue)}
           icon={TrendingUp}
           description={`${todaySalesCount} transacciones`}
+          variant="success"
         />
         <StatCard
           title="Ventas de Hoy (USD)"
           value={formatCurrency(todaySalesInUSD, 'USD')}
           icon={DollarSign}
           description="Total de ventas en dólares"
+           variant="success"
         />
         <StatCard
             title="Beneficio de Hoy"
             value={formatCurrency(todayProfit)}
             icon={DollarSign}
             description="Ganancia neta estimada"
+            variant="success"
         />
         <StatCard
           title="Total Productos"
           value={totalProducts.toString()}
           icon={Package}
           description="Tipos de producto en inventario"
+          variant="info"
         />
         <StatCard
           title="Alerta de Stock"
           value={lowStockItems.toString()}
           icon={AlertTriangle}
           description={`Productos con bajo stock`}
-          variant={lowStockItems > 0 ? 'destructive' : 'default'}
+          variant={lowStockItems > 0 ? 'destructive' : 'info'}
         />
       </div>
 
