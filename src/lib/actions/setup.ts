@@ -40,15 +40,11 @@ export async function isInitialSetupRequired(): Promise<boolean> {
 };
 
 export async function createInitialAdminUser(data: InitialAdminData) {
-  const secretCode = process.env.REGISTRATION_SECRET_CODE;
-  if (!secretCode || data.secretCode !== secretCode) {
-    throw new Error("El código secreto de registro no es válido.");
-  }
-
-  const setupNeeded = await isInitialSetupRequired();
-  if (!setupNeeded) {
-    throw new Error("La configuración inicial ya se ha realizado. No se pueden registrar más empresas.");
-  }
+  // El código secreto ya no es requerido para el registro
+  // const setupNeeded = await isInitialSetupRequired();
+  // if (!setupNeeded) {
+  //   throw new Error("La configuración inicial ya se ha realizado. No se pueden registrar más empresas.");
+  // }
 
   const db = getAdminDbOrThrow();
   const auth = getAdminAuthOrThrow();

@@ -25,7 +25,6 @@ const formSchema = z.object({
   adminName: z.string().min(2, { message: "Tu nombre es requerido." }),
   email: z.string().email({ message: "Por favor, introduce un email válido." }),
   password: z.string().min(6, { message: "La contraseña debe tener al menos 6 caracteres." }),
-  secretCode: z.string().min(1, { message: "El código secreto es requerido." }),
 });
 
 export default function RegisterPage() {
@@ -35,22 +34,19 @@ export default function RegisterPage() {
   const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
 
   useEffect(() => {
+    // We keep the check to handle UI states, but the backend restriction is removed.
     async function checkSetup() {
       try {
+        // This function is now less critical, but can be used for UI differentiation if needed.
         const required = await isInitialSetupRequired();
         setSetupRequired(required);
       } catch (error) {
         console.error("Error checking setup status:", error);
-        toast({
-            variant: "destructive",
-            title: "Error de Verificación",
-            description: "No se pudo comprobar el estado de la configuración. Revisa las reglas de Firestore y la conexión."
-        });
-        setSetupRequired(true);
+        setSetupRequired(true); // Default to allowing registration if check fails.
       }
     }
     checkSetup();
-  }, [toast]);
+  }, []);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -59,7 +55,6 @@ export default function RegisterPage() {
       adminName: "",
       email: "",
       password: "",
-      secretCode: "",
     },
   });
 
@@ -68,15 +63,12 @@ export default function RegisterPage() {
     try {
       await createInitialAdminUser(values);
 
-      const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
-      if (userCredential.user) {
-        await userCredential.user.getIdToken(true);
-      }
-      await signOut(auth);
+      // We sign out immediately after registration to force a clean login.
+      await signOut(auth).catch(() => {});
 
       toast({
         title: "¡Empresa Registrada!",
-        description: "Has creado la cuenta de administrador. Ahora inicia sesión.",
+        description: "Has creado la cuenta de administrador. Ahora inicia sesión con tus nuevas credenciales.",
       });
       router.push("/login");
     } catch (error: any) {
@@ -105,8 +97,8 @@ export default function RegisterPage() {
       );
     }
 
-    if (setupRequired) {
-      return (
+    // Always show the registration form now.
+    return (
         <>
           <CardHeader className="text-center">
             <div className="mb-4 flex justify-center">
@@ -164,48 +156,20 @@ export default function RegisterPage() {
                     </FormItem>
                   )}
                 />
-                 <FormField
-                  control={form.control}
-                  name="secretCode"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Código Secreto de Registro</FormLabel>
-                      <FormControl><Input type="password" placeholder="••••••••" {...field} /></FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <Button type="submit" className="w-full" disabled={isLoading}>
                   {isLoading ? <Loader2 className="animate-spin" /> : "Crear Empresa y Administrador"}
                 </Button>
               </form>
             </Form>
+            <div className="mt-4 text-center text-sm">
+                ¿Ya tienes una cuenta?{" "}
+                <Link href="/login" className="underline">
+                Inicia Sesión
+                </Link>
+            </div>
           </CardContent>
         </>
       );
-    }
-
-    return (
-      <>
-        <CardHeader className="text-center">
-          <div className="mb-4 flex justify-center">
-            <AlertTriangle className="h-12 w-12 text-destructive" />
-          </div>
-          <CardTitle className="text-2xl font-headline">Registro Deshabilitado</CardTitle>
-          <CardDescription>
-            La empresa principal para esta aplicación ya ha sido configurada. No se permiten nuevos registros.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="mt-4 text-center text-sm">
-            ¿Ya tienes una cuenta?{" "}
-            <Link href="/login" className="underline">
-              Inicia Sesión
-            </Link>
-          </div>
-        </CardContent>
-      </>
-    );
   };
 
   return (

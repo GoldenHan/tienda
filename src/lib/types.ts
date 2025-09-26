@@ -86,7 +86,6 @@ export type InitialAdminData = {
   adminName: string;
   email: string;
   password: string;
-  secretCode: string;
 };
 
 export type Reconciliation = {
