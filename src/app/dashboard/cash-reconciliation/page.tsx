@@ -45,7 +45,9 @@ export default function CashReconciliationPage() {
 
   useEffect(() => {
     // Set initial date on client-side to avoid hydration mismatch
-    setSelectedDate(startOfDay(new Date()));
+    if (typeof window !== 'undefined') {
+      setSelectedDate(startOfDay(new Date()));
+    }
   }, []);
 
   const formattedDateId = useMemo(() => selectedDate ? formatDateFns(selectedDate, 'yyyy-MM-dd') : '', [selectedDate]);
@@ -82,7 +84,7 @@ export default function CashReconciliationPage() {
   useEffect(() => {
     if (user && selectedDate) {
       fetchData();
-    } else {
+    } else if (!user) {
       setLoading(false);
     }
   }, [user, fetchData, selectedDate]);

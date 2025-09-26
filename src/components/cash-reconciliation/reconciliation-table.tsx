@@ -35,20 +35,20 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
 
     const renderRow = (item: ReconciliationItem, index: number) => {
         if ('items' in item) { // Is a Sale
-            return item.items.map((saleItem, i) => (
-                <TableRow key={`${item.id}-${i}`}>
+            return (
+                <TableRow key={`${item.id}-${index}`}>
                     <TableCell className="font-medium flex items-center gap-2">
                         <Badge variant="secondary">Venta</Badge>
-                        <span>{saleItem.productName}</span>
+                        <span>Venta de {item.items.length} tipo(s) de producto</span>
                     </TableCell>
-                    <TableCell className="text-center">{saleItem.quantity}</TableCell>
+                    <TableCell className="text-center">{item.items.reduce((acc, curr) => acc + curr.quantity, 0)}</TableCell>
                     <TableCell className="text-right text-green-600 dark:text-green-500">
-                        {formatCurrency(saleItem.total, item.paymentCurrency)}
+                        {formatCurrency(item.grandTotal, item.paymentCurrency)}
                     </TableCell>
                     <TableCell className="text-center">{item.paymentCurrency}</TableCell>
                     <TableCell className="text-right text-muted-foreground">{formatDate(item.date)}</TableCell>
                 </TableRow>
-            ));
+            );
         }
         if ('total' in item) { // Is an Inflow
             return (
@@ -113,3 +113,5 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
     </div>
   );
 }
+
+    
