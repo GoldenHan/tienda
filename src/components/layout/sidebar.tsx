@@ -4,6 +4,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
+import React from 'react';
 import {
   BarChart3,
   Boxes,
@@ -24,16 +25,15 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarTrigger,
   SidebarFooter,
 } from '@/components/ui/sidebar'
 import { Warehouse } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 import { ThemeToggle } from './theme-toggle'
-import { getCompany } from '@/lib/firestore-helpers'
-import React from 'react'
-import { Company } from '@/lib/types'
+import { getCompany } from '@/lib/firestore-helpers';
+import { Company } from '@/lib/types';
+
 
 const allLinks = [
   { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: false },
@@ -51,11 +51,10 @@ const bottomLinks = [
 ]
 
 interface AppSidebarProps {
-  companyName: string;
   isAdmin: boolean;
 }
 
-export function AppSidebar({ companyName: initialCompanyName, isAdmin }: AppSidebarProps) {
+export function AppSidebar({ isAdmin }: AppSidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth();
   const [company, setCompany] = React.useState<Company | null>(null);
@@ -66,7 +65,7 @@ export function AppSidebar({ companyName: initialCompanyName, isAdmin }: AppSide
     }
   }, [user]);
 
-  const companyName = company?.name || initialCompanyName;
+  const companyName = company?.name || 'Mi Empresa';
   const logoUrl = company?.logoUrl;
 
   const visibleLinks = allLinks.filter(link => !link.adminOnly || isAdmin);
@@ -143,5 +142,3 @@ export function AppSidebar({ companyName: initialCompanyName, isAdmin }: AppSide
     </Sidebar>
   )
 }
-
-    

@@ -7,9 +7,7 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { useAuth } from "@/context/auth-context";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCompany } from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
-import { Company } from "@/lib/types";
 
 const ADMIN_ONLY_ROUTES = [
   "/dashboard/inventory",
@@ -17,14 +15,13 @@ const ADMIN_ONLY_ROUTES = [
   "/dashboard/sales",
   "/dashboard/users",
   "/dashboard/cash-reconciliation",
+  "/dashboard/orders",
 ];
 
 export default function DashboardLayout({ children }: PropsWithChildren) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [company, setCompany] = useState<Company | null>(null);
-  const [companyLoading, setCompanyLoading] = useState(true);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
   const { toast } = useToast();
 
@@ -52,31 +49,10 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
         router.replace('/dashboard');
         return;
     }
-
-    const fetchCompany = async () => {
-      setCompanyLoading(true);
-      try {
-        const companyData = await getCompany(user.uid);
-        setCompany(companyData);
-      } catch (error) {
-        console.error("Error fetching company data:", error);
-        toast({
-          variant: "destructive",
-          title: "Error al cargar la empresa",
-          description: "No se pudo obtener la información de la empresa.",
-        });
-      } finally {
-        setCompanyLoading(false);
-      }
-    };
-
-    fetchCompany();
     
   }, [user, authLoading, router, pathname, toast]);
 
-  const isLoading = authLoading || companyLoading;
-  
-  if (isLoading || isAccessDenied) {
+  if (authLoading || isAccessDenied) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex items-center space-x-4">
@@ -100,7 +76,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <AppSidebar companyName={company?.name || "Cargando..."} isAdmin={isAdmin} />
+        <AppSidebar isAdmin={isAdmin} />
         <SidebarInset className="flex-1 flex flex-col">
           <header className="flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
             <SidebarTrigger className="flex md:hidden" />
