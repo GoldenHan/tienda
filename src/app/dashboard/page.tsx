@@ -24,10 +24,17 @@ export default function DashboardPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState('');
   const { toast } = useToast();
   const router = useRouter();
 
   const isAdmin = user?.role === 'admin' || user?.role === 'primary-admin';
+
+  useEffect(() => {
+    const today = new Date();
+    const formattedDate = format(today, "eeee, d 'de' MMMM 'de' yyyy", { locale: es });
+    setCurrentDate(formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1));
+  }, []);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -349,15 +356,22 @@ export default function DashboardPage() {
 
       <div className="flex flex-col p-4 sm:p-6 lg:p-8">
         <header className="mb-6">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
-              {welcomeMessage}
-          </h1>
-          <p className="text-lg text-muted-foreground">
-            {isAdmin 
-              ? welcomeDescription
-              : "Aquí tienes un resumen de tu actividad de hoy."
-            }
-          </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
+                        {welcomeMessage}
+                    </h1>
+                    <p className="text-lg text-muted-foreground">
+                        {isAdmin 
+                        ? welcomeDescription
+                        : "Aquí tienes un resumen de tu actividad de hoy."
+                        }
+                    </p>
+                </div>
+                <p className="text-sm font-medium text-muted-foreground mt-2 sm:mt-0">
+                    {currentDate}
+                </p>
+            </div>
         </header>
         <main className="flex-1 space-y-6">
           {isAdmin ? renderAdminDashboard() : renderEmployeeDashboard()}
