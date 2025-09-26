@@ -221,5 +221,3 @@ export function CashTransferForm({ onTransferAdded, date, balances }: CashTransf
     </Form>
   );
 }
-
-    
