@@ -320,6 +320,12 @@ export default function CashReconciliationPage() {
                     </DialogHeader>
                     <CashTransferForm 
                         date={selectedDate} 
+                        balances={{
+                            pettyNio: pettyCashNioBalance,
+                            pettyUsd: pettyCashUsdBalance,
+                            mainNio: mainCashNioBalance,
+                            mainUsd: mainCashUsdBalance,
+                        }}
                         onTransferAdded={() => {
                             fetchData();
                             setIsTransferDialogOpen(false);

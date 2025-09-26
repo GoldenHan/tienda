@@ -14,6 +14,8 @@ import { Loader2 } from "lucide-react";
 import { useAuth } from "@/context/auth-context";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
+import type { Currency } from "@/lib/types";
+
 
 const formSchema = z.object({
   amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
@@ -29,12 +31,19 @@ const formSchema = z.object({
 
 type TransferFormData = z.infer<typeof formSchema>;
 
+interface Balances {
+    pettyNio: number;
+    pettyUsd: number;
+    mainNio: number;
+    mainUsd: number;
+}
 interface CashTransferFormProps {
   onTransferAdded: () => void;
   date: Date;
+  balances: Balances;
 }
 
-export function CashTransferForm({ onTransferAdded, date }: CashTransferFormProps) {
+export function CashTransferForm({ onTransferAdded, date, balances }: CashTransferFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,9 +58,36 @@ export function CashTransferForm({ onTransferAdded, date }: CashTransferFormProp
       reason: "Reposición de fondos",
     },
   });
+  
+  const formatCurrency = (amount: number, currency: Currency) =>
+    new Intl.NumberFormat("es-NI", {
+      style: "currency",
+      currency: currency,
+    }).format(amount);
 
   const handleFormSubmit = async (data: TransferFormData) => {
     if (!user) return;
+    
+    // --- Balance Validation ---
+    const { amount, currency, fromBox } = data;
+    let availableBalance = 0;
+
+    if (fromBox === 'petty') {
+        availableBalance = currency === 'NIO' ? balances.pettyNio : balances.pettyUsd;
+    } else { // general
+        availableBalance = currency === 'NIO' ? balances.mainNio : balances.mainUsd;
+    }
+    
+    if (amount > availableBalance) {
+        toast({
+            variant: "destructive",
+            title: "Fondos Insuficientes",
+            description: `No se puede transferir. Saldo disponible en ${fromBox === 'petty' ? 'Caja Chica' : 'Caja General'} (${currency}): ${formatCurrency(availableBalance, currency)}.`,
+        });
+        return;
+    }
+    // --- End Validation ---
+
     setIsSubmitting(true);
     try {
       const newTransfer = {
@@ -65,7 +101,7 @@ export function CashTransferForm({ onTransferAdded, date }: CashTransferFormProp
       await addCashTransfer(newTransfer, user.uid);
       toast({
         title: "Transferencia Registrada",
-        description: `Se movió ${data.currency === 'USD' ? '$' : 'C$'}${data.amount} correctamente.`,
+        description: `Se movió ${formatCurrency(data.amount, data.currency)} correctamente.`,
       });
       form.reset();
       onTransferAdded();
