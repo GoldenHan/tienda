@@ -47,4 +47,4 @@ try {
 
 
 // @ts-ignore - Using db as firestore for compatibility
-export { app, auth, db, storage, db as firestore };
+export { app, auth, db, storage, db as firestore, getCompanyIdForUser };

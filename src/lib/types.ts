@@ -118,4 +118,5 @@ export type Company = {
     exchangeRate: number;
     pettyCashInitial: number;
     createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
+    logoUrl?: string;
 }

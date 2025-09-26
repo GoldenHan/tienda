@@ -1,6 +1,8 @@
+
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   BarChart3,
@@ -29,6 +31,9 @@ import { Warehouse } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 import { ThemeToggle } from './theme-toggle'
+import { getCompany } from '@/lib/firestore-helpers'
+import React from 'react'
+import { Company } from '@/lib/types'
 
 const allLinks = [
   { href: '/dashboard', label: 'Panel', icon: LayoutDashboard, adminOnly: false },
@@ -50,9 +55,19 @@ interface AppSidebarProps {
   isAdmin: boolean;
 }
 
-export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
+export function AppSidebar({ companyName: initialCompanyName, isAdmin }: AppSidebarProps) {
   const pathname = usePathname()
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const [company, setCompany] = React.useState<Company | null>(null);
+
+  React.useEffect(() => {
+    if (user) {
+      getCompany(user.uid).then(setCompany);
+    }
+  }, [user]);
+
+  const companyName = company?.name || initialCompanyName;
+  const logoUrl = company?.logoUrl;
 
   const visibleLinks = allLinks.filter(link => !link.adminOnly || isAdmin);
   const visibleBottomLinks = bottomLinks.filter(link => !link.adminOnly || isAdmin);
@@ -66,7 +81,11 @@ export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
             'group-data-[collapsible=icon]:w-8 group-data-[collapsible=icon]:opacity-0'
           )}
         >
-          <Warehouse className="h-6 w-6 text-primary" />
+            {logoUrl ? (
+                 <Image src={logoUrl} alt={companyName} width={24} height={24} className="rounded-full" />
+            ) : (
+                <Warehouse className="h-6 w-6 text-primary" />
+            )}
           <h2 className="font-semibold text-lg tracking-tight">
             {companyName}
           </h2>

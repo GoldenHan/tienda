@@ -7,8 +7,9 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { useAuth } from "@/context/auth-context";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getCompanyName } from "@/lib/firestore-helpers";
+import { getCompany } from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
+import { Company } from "@/lib/types";
 
 const ADMIN_ONLY_ROUTES = [
   "/dashboard/inventory",
@@ -22,7 +23,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [companyName, setCompanyName] = useState<string | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [companyLoading, setCompanyLoading] = useState(true);
   const [isAccessDenied, setIsAccessDenied] = useState(false);
   const { toast } = useToast();
@@ -55,16 +56,15 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     const fetchCompany = async () => {
       setCompanyLoading(true);
       try {
-        const name = await getCompanyName(user.uid);
-        setCompanyName(name);
+        const companyData = await getCompany(user.uid);
+        setCompany(companyData);
       } catch (error) {
-        console.error("Error fetching company name:", error);
+        console.error("Error fetching company data:", error);
         toast({
           variant: "destructive",
           title: "Error al cargar la empresa",
-          description: "No se pudo obtener el nombre de la empresa.",
+          description: "No se pudo obtener la información de la empresa.",
         });
-        setCompanyName("Mi Empresa"); // Fallback name
       } finally {
         setCompanyLoading(false);
       }
@@ -100,7 +100,7 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
   return (
     <SidebarProvider>
       <div className="flex min-h-screen w-full">
-        <AppSidebar companyName={companyName || "Cargando..."} isAdmin={isAdmin} />
+        <AppSidebar companyName={company?.name || "Cargando..."} isAdmin={isAdmin} />
         <SidebarInset className="flex-1 flex flex-col">
           <header className="flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
             <SidebarTrigger className="flex md:hidden" />

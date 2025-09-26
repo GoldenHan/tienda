@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useForm } from "react-hook-form";
+import Image from "next/image";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
@@ -13,10 +14,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Unlock, Trash2, PlusCircle } from "lucide-react";
+import { Loader2, Unlock, Trash2, PlusCircle, UploadCloud } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getClosedReconciliations, getCategories, getCompany } from "@/lib/firestore-helpers";
+import { getClosedReconciliations, getCategories, getCompany, getCompanyIdForUser } from "@/lib/firestore-helpers";
 import { updateCompanySettings, addCategory, updateReconciliationStatus, deleteCategory } from "@/lib/actions/setup";
+import { uploadFileToStorage } from "@/lib/storage-helpers";
 import { Reconciliation, Category, Company } from "@/lib/types";
 import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -33,6 +35,7 @@ const categoryFormSchema = z.object({
 });
 
 const companySettingsSchema = z.object({
+    name: z.string().min(2, "El nombre de la empresa es requerido."),
     exchangeRate: z.coerce.number().min(0, "La tasa de cambio debe ser un número positivo."),
     pettyCashInitial: z.coerce.number().min(0, "El fondo inicial debe ser un número positivo."),
 });
@@ -52,6 +55,10 @@ export default function SettingsPage() {
   const [isCategoryLoading, setIsCategoryLoading] = useState(true);
   const [isCategorySubmitting, setIsCategorySubmitting] = useState(false);
   const [isDeletingCategory, setIsDeletingCategory] = useState<string|null>(null);
+
+  // Logo upload state
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'primary-admin';
 
@@ -86,8 +93,12 @@ export default function SettingsPage() {
           setCategories(categoriesData);
           setCompany(companyData);
           if (companyData) {
-            companySettingsForm.setValue('exchangeRate', companyData.exchangeRate || 36.5);
-            companySettingsForm.setValue('pettyCashInitial', companyData.pettyCashInitial || 0);
+            companySettingsForm.reset({
+                name: companyData.name || "",
+                exchangeRate: companyData.exchangeRate || 36.5,
+                pettyCashInitial: companyData.pettyCashInitial || 0,
+            });
+            setPreviewUrl(companyData.logoUrl || null);
           }
         } catch (error) {
           console.error("Error fetching admin settings page data:", error);
@@ -105,7 +116,9 @@ export default function SettingsPage() {
   }, [toast, user, isAdmin, companySettingsForm]);
 
   useEffect(() => {
-    fetchPageData();
+    if (user && isAdmin) {
+        fetchPageData();
+    }
   }, [user, isAdmin]);
 
   async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
@@ -140,18 +153,44 @@ export default function SettingsPage() {
     }
   }
 
+  const handleLogoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+        setLogoFile(file);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            setPreviewUrl(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+    }
+  };
+
    async function onCompanySettingsSubmit(values: z.infer<typeof companySettingsSchema>) {
     if (!user) return;
+    companySettingsForm.formState.isSubmitting;
     try {
-      await updateCompanySettings(values, user.uid);
+      let logoUrl = company?.logoUrl || "";
+
+      if (logoFile) {
+        const companyId = await getCompanyIdForUser(user.uid);
+        const path = `companies/${companyId}/logos`;
+        logoUrl = await uploadFileToStorage(logoFile, path);
+        toast({ title: "Logo Actualizado", description: "El nuevo logo ha sido subido." });
+      }
+
+      await updateCompanySettings({ ...values, logoUrl }, user.uid);
+      
       toast({
         title: "Configuración Guardada",
         description: `La configuración de la empresa ha sido actualizada.`,
       });
+      // Refetch data to show updates everywhere
       await fetchPageData();
     } catch (error: any) {
       console.error("Error updating company settings:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo guardar la configuración." });
+    } finally {
+       companySettingsForm.formState.isSubmitting;
     }
   }
 
@@ -277,7 +316,35 @@ export default function SettingsPage() {
                     <CardContent>
                         {isCompanyLoading ? <Skeleton className="h-40 w-full"/> : (
                            <Form {...companySettingsForm}>
-                            <form onSubmit={companySettingsForm.handleSubmit(onCompanySettingsSubmit)} className="space-y-4">
+                            <form onSubmit={companySettingsForm.handleSubmit(onCompanySettingsSubmit)} className="space-y-6">
+                                <FormItem>
+                                  <FormLabel>Logo de la Empresa</FormLabel>
+                                  <div className="flex items-center gap-4">
+                                      <div className="relative w-24 h-24 rounded-full border flex items-center justify-center bg-muted">
+                                        {previewUrl ? (
+                                            <Image src={previewUrl} alt="Logo" fill className="object-cover rounded-full" />
+                                        ) : (
+                                            <UploadCloud className="w-8 h-8 text-muted-foreground" />
+                                        )}
+                                      </div>
+                                      <Input id="logo-upload" type="file" accept="image/png, image/jpeg, image/webp" onChange={handleLogoChange} className="max-w-xs"/>
+                                  </div>
+                                </FormItem>
+
+                                <FormField
+                                control={companySettingsForm.control}
+                                name="name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Nombre de la Empresa</FormLabel>
+                                    <FormControl>
+                                        <Input {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+
                                 <FormField
                                 control={companySettingsForm.control}
                                 name="exchangeRate"
@@ -455,7 +522,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
-
-    

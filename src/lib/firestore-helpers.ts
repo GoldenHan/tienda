@@ -4,7 +4,7 @@ import {
 } from "firebase/firestore";
 import { firestore as db } from "./firebase/client"; 
 import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category, Company, CashTransfer } from "./types";
-import { getCompanyIdForUser } from './actions/setup';
+import { getCompanyIdForUser as getServerCompanyIdForUser } from './actions/setup';
 
 
 // -----------------
@@ -15,6 +15,22 @@ const getClientDbOrThrow = () => {
         throw new Error("El cliente de Firebase Firestore no está configurado. Revisa tus variables de entorno NEXT_PUBLIC_*.");
     }
     return db;
+};
+
+// This is a client-side helper to get companyId. Avoid using server actions on the client in helpers.
+async function getCompanyIdForUser(userId: string): Promise<string> {
+  const db = getClientDbOrThrow();
+  const userRef = doc(db, "users", userId);
+  const userSnap = await getDoc(userRef);
+  if (!userSnap.exists() || !userSnap.data()?.companyId) {
+    // Fallback to server action if needed, but primarily use client SDK.
+    try {
+        return await getServerCompanyIdForUser(userId);
+    } catch(e) {
+        throw new Error("Usuario no asociado a ninguna empresa.");
+    }
+  }
+  return userSnap.data()!.companyId;
 };
 
 
@@ -215,4 +231,4 @@ export async function updateReconciliationStatus(dateId: string, status: 'open' 
     }, { merge: true });
 }
 
-    
+export { getCompanyIdForUser };

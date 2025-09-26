@@ -17,6 +17,7 @@ import { Textarea } from "../ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { useAuth } from "@/context/auth-context";
+import { getCompanyIdForUser } from "@/lib/firestore-helpers";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -81,7 +82,8 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
 
     try {
       if (imageFile) {
-        finalImageUrl = await uploadImage(imageFile, user.uid); // Pass userId to uploadImage
+        const companyId = await getCompanyIdForUser(user.uid);
+        finalImageUrl = await uploadImage(imageFile, companyId); // Pass companyId to uploadImage
         finalImageHint = imageFile.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || 'producto';
         toast({
           title: "Imagen Subida",

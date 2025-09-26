@@ -63,6 +63,7 @@ export async function createInitialAdminUser(data: Omit<InitialAdminData, 'secre
     exchangeRate: 36.5,
     pettyCashInitial: 0,
     createdAt: FieldValue.serverTimestamp(),
+    logoUrl: "",
   });
 
   const userRef = db.doc(`users/${userRecord.uid}`);
@@ -84,7 +85,7 @@ export async function createInitialAdminUser(data: Omit<InitialAdminData, 'secre
 // Company Settings
 // -----------------
 
-export async function updateCompanySettings(settings: Partial<Pick<Company, 'exchangeRate' | 'pettyCashInitial'>>, userId: string): Promise<void> {
+export async function updateCompanySettings(settings: Partial<Pick<Company, 'exchangeRate' | 'pettyCashInitial' | 'name' | 'logoUrl'>>, userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const companyRef = db.doc(`companies/${companyId}`);
@@ -95,6 +96,12 @@ export async function updateCompanySettings(settings: Partial<Pick<Company, 'exc
     }
     if (typeof settings.pettyCashInitial === 'number') {
         validSettings.pettyCashInitial = settings.pettyCashInitial;
+    }
+    if (typeof settings.name === 'string' && settings.name.length > 0) {
+        validSettings.name = settings.name;
+    }
+    if (typeof settings.logoUrl === 'string') {
+        validSettings.logoUrl = settings.logoUrl;
     }
 
     if (Object.keys(validSettings).length > 0) {
