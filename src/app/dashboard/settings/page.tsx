@@ -106,7 +106,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchPageData();
-  }, [fetchPageData]);
+  }, [user, isAdmin]);
 
   async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
     if (!user || !user.email) {
@@ -455,3 +455,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
