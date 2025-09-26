@@ -1,5 +1,4 @@
 
-
 export type Product = {
   id: string;
   name: string;
@@ -23,6 +22,7 @@ export type SaleItem = {
 };
 
 export type Currency = 'NIO' | 'USD';
+export type CashBox = 'general' | 'petty';
 
 export type Sale = {
   id: string;
@@ -40,6 +40,7 @@ export type Inflow = {
   total: number;
   date: string;
   currency: Currency;
+  cashBox: CashBox;
 };
 
 export type CashOutflow = {
@@ -48,7 +49,18 @@ export type CashOutflow = {
   amount: number;
   reason: string;
   currency: Currency;
+  cashBox: CashBox;
 };
+
+export type CashTransfer = {
+    id: string;
+    date: string;
+    amount: number;
+    currency: Currency;
+    fromBox: CashBox;
+    toBox: CashBox;
+    reason: string;
+}
 
 export type SalesData = {
   month: string;
@@ -104,9 +116,8 @@ export type Company = {
     name: string;
     ownerUid: string;
     exchangeRate: number;
+    pettyCashInitial: number;
     createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
 }
-
-    
 
     

@@ -1,7 +1,7 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency } from "@/lib/types";
+import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -40,12 +40,6 @@ export async function isInitialSetupRequired(): Promise<boolean> {
 };
 
 export async function createInitialAdminUser(data: InitialAdminData) {
-  // El código secreto ya no es requerido para el registro
-  // const setupNeeded = await isInitialSetupRequired();
-  // if (!setupNeeded) {
-  //   throw new Error("La configuración inicial ya se ha realizado. No se pueden registrar más empresas.");
-  // }
-
   const db = getAdminDbOrThrow();
   const auth = getAdminAuthOrThrow();
   const companyRef = db.collection("companies").doc();
@@ -67,6 +61,7 @@ export async function createInitialAdminUser(data: InitialAdminData) {
     name: data.companyName,
     ownerUid: userRecord.uid,
     exchangeRate: 36.5, // Default exchange rate
+    pettyCashInitial: 0, // Default petty cash
     createdAt: FieldValue.serverTimestamp(),
   });
 
@@ -308,6 +303,13 @@ export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string): Pro
     await inflowsCollection.add(inflow);
 };
 
+export async function addCashTransfer(transfer: Omit<CashTransfer, 'id'>, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const transfersCollection = db.collection(`companies/${companyId}/cash_transfers`);
+    await transfersCollection.add(transfer);
+};
+
 export async function updateReconciliationStatus(dateId: string, status: 'open' | 'closed', userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
@@ -317,3 +319,5 @@ export async function updateReconciliationStatus(dateId: string, status: 'open' 
         updatedAt: FieldValue.serverTimestamp()
     }, { merge: true });
 };
+
+    

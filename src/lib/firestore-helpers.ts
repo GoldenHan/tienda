@@ -1,9 +1,9 @@
 
 import { 
-  collection, getDocs, doc, getDoc, query, orderBy, where
+  collection, getDocs, doc, getDoc, query, orderBy, where, addDoc
 } from "firebase/firestore";
 import { firestore as db } from "./firebase/client"; 
-import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category, Company } from "./types";
+import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category, Company, CashTransfer } from "./types";
 import { getCompanyIdForUser } from './actions/setup';
 
 
@@ -90,6 +90,13 @@ export async function getCategories(userId: string): Promise<Category[]> {
     }
 };
 
+export async function addCategory(categoryName: string, userId: string): Promise<void> {
+    const db = getClientDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const categoryCollection = collection(db, `companies/${companyId}/categories`);
+    await addDoc(categoryCollection, { name: categoryName });
+};
+
 // -----------------
 // Product Management (Client-facing reads)
 // -----------------
@@ -150,6 +157,24 @@ export async function getInflows(userId: string): Promise<Inflow[]> {
     return getSubcollection<Inflow>(userId, "inflows");
 };
 
+export async function getCashTransfers(userId: string): Promise<CashTransfer[]> {
+    return getSubcollection<CashTransfer>(userId, "cash_transfers");
+}
+
+export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string) {
+    const db = getClientDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const inflowsCollection = collection(db, `companies/${companyId}/inflows`);
+    await addDoc(inflowsCollection, inflow);
+}
+
+export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: string) {
+    const db = getClientDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const outflowsCollection = collection(db, `companies/${companyId}/cash_outflows`);
+    await addDoc(outflowsCollection, outflow);
+}
+
 export async function getReconciliationStatus(dateId: string, userId: string): Promise<Reconciliation['status']> {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
@@ -176,3 +201,17 @@ export async function getClosedReconciliations(userId: string): Promise<Reconcil
         throw error;
     }
 };
+
+export async function updateReconciliationStatus(dateId: string, status: 'open' | 'closed', userId: string) {
+    const db = getClientDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const reconRef = doc(db, `companies/${companyId}/reconciliations`, dateId);
+    // Note: This uses client-side set, which is fine for this action.
+    // For more complex transactions, a server action would be better.
+    await (await import("firebase/firestore")).setDoc(reconRef, {
+        status,
+        updatedAt: new Date()
+    }, { merge: true });
+}
+
+    

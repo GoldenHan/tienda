@@ -20,6 +20,7 @@ const formSchema = z.object({
   total: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
   reason: z.string().min(3, "El motivo es requerido (mín. 3 caracteres)."),
   currency: z.enum(["NIO", "USD"], { required_error: "Debes seleccionar una moneda." }),
+  cashBox: z.enum(["general", "petty"], { required_error: "Debes seleccionar una caja." }),
 });
 
 type InflowFormData = z.infer<typeof formSchema>;
@@ -40,6 +41,7 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
       total: 0,
       reason: "",
       currency: "NIO",
+      cashBox: "general",
     },
   });
 
@@ -52,11 +54,12 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
         total: data.total,
         reason: data.reason,
         currency: data.currency,
+        cashBox: data.cashBox,
       };
       await addInflow(newInflow, user.uid);
       toast({
         title: "Ingreso Registrado",
-        description: `Se registró un ingreso de ${data.currency === 'USD' ? '$' : 'C$'}${data.total}.`,
+        description: `Se registró un ingreso de ${data.currency === 'USD' ? '$' : 'C$'}${data.total} en la caja ${data.cashBox === 'general' ? 'General' : 'Chica'}.`,
       });
       form.reset();
       onInflowAdded();
@@ -75,6 +78,33 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
   return (
     <Form {...form}>
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pt-4">
+         <FormField
+            control={form.control}
+            name="cashBox"
+            render={({ field }) => (
+                <FormItem className="space-y-3">
+                <FormLabel>Caja de Destino</FormLabel>
+                <FormControl>
+                    <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex space-x-4"
+                    disabled={isSubmitting}
+                    >
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="general" /></FormControl>
+                        <FormLabel className="font-normal">Caja General</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="petty" /></FormControl>
+                        <FormLabel className="font-normal">Caja Chica</FormLabel>
+                    </FormItem>
+                    </RadioGroup>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
         <FormField
             control={form.control}
             name="currency"
@@ -135,3 +165,5 @@ export function InflowForm({ onInflowAdded, date }: InflowFormProps) {
     </Form>
   );
 }
+
+    

@@ -9,10 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import type { Sale, CashOutflow, Inflow, Currency } from "@/lib/types";
+import type { Sale, CashOutflow, Inflow, Currency, CashTransfer } from "@/lib/types";
 import { Badge } from "../ui/badge";
+import { ArrowRightLeft } from "lucide-react";
 
-type ReconciliationItem = Sale | CashOutflow | Inflow;
+type ReconciliationItem = Sale | CashOutflow | Inflow | CashTransfer;
 
 
 interface ReconciliationTableProps {
@@ -32,6 +33,10 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
             minute: '2-digit'
         });
     };
+    
+    const renderCashBox = (box: 'general' | 'petty') => {
+        return box === 'general' ? <Badge variant="secondary">C. General</Badge> : <Badge variant="outline">C. Chica</Badge>;
+    }
 
     const renderRow = (item: ReconciliationItem, index: number) => {
         if ('items' in item) { // Is a Sale
@@ -41,6 +46,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
                         <Badge variant="secondary">Venta</Badge>
                         <span>Venta de {item.items.length} tipo(s) de producto</span>
                     </TableCell>
+                     <TableCell className="text-center">{renderCashBox('general')}</TableCell>
                     <TableCell className="text-center">{item.items.reduce((acc, curr) => acc + curr.quantity, 0)}</TableCell>
                     <TableCell className="text-right text-green-600 dark:text-green-500">
                         {formatCurrency(item.grandTotal, item.paymentCurrency)}
@@ -57,6 +63,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
                         <Badge>Ingreso Manual</Badge>
                         <span>{item.reason}</span>
                     </TableCell>
+                    <TableCell className="text-center">{renderCashBox(item.cashBox)}</TableCell>
                     <TableCell className="text-center">-</TableCell>
                     <TableCell className="text-right text-green-600 dark:text-green-500">
                         {formatCurrency(item.total, item.currency)}
@@ -66,6 +73,27 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
                 </TableRow>
             )
         }
+        if ('fromBox' in item) { // is a CashTransfer
+             return (
+                <TableRow key={item.id}>
+                    <TableCell className="font-medium flex items-center gap-2">
+                        <Badge variant="outline" className="border-blue-500">Transferencia</Badge>
+                        <span>{item.reason}</span>
+                    </TableCell>
+                     <TableCell className="text-center">
+                        <div className='flex items-center justify-center gap-1'>
+                            {renderCashBox(item.fromBox)} <ArrowRightLeft className="h-3 w-3"/> {renderCashBox(item.toBox)}
+                        </div>
+                     </TableCell>
+                    <TableCell className="text-center">-</TableCell>
+                    <TableCell className="text-right text-blue-600 dark:text-blue-500">
+                        {formatCurrency(item.amount, item.currency)}
+                    </TableCell>
+                    <TableCell className="text-center">{item.currency}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{formatDate(item.date)}</TableCell>
+                </TableRow>
+            );
+        }
         if ('amount' in item) { // Is a CashOutflow
             return (
                  <TableRow key={item.id}>
@@ -73,6 +101,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
                         <Badge variant="destructive">Egreso</Badge>
                         <span>{item.reason}</span>
                     </TableCell>
+                    <TableCell className="text-center">{renderCashBox(item.cashBox)}</TableCell>
                     <TableCell className="text-center">-</TableCell>
                     <TableCell className="text-right text-red-600 dark:text-red-500">
                         -{formatCurrency(item.amount, item.currency)}
@@ -92,6 +121,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
         <TableHeader>
           <TableRow>
             <TableHead>Descripción</TableHead>
+            <TableHead className="text-center">Caja</TableHead>
             <TableHead className="text-center">Cantidad</TableHead>
             <TableHead className="text-right">Monto</TableHead>
             <TableHead className="text-center">Moneda</TableHead>
@@ -103,7 +133,7 @@ export function ReconciliationTable({ items }: ReconciliationTableProps) {
             items.map(renderRow)
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="h-24 text-center">
+              <TableCell colSpan={6} className="h-24 text-center">
                 No hay movimientos para la fecha seleccionada.
               </TableCell>
             </TableRow>

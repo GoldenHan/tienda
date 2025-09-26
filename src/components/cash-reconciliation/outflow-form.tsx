@@ -19,6 +19,7 @@ const formSchema = z.object({
   amount: z.coerce.number().min(0.01, "La cantidad debe ser mayor que cero."),
   reason: z.string().min(3, "El motivo es requerido (mín. 3 caracteres)."),
   currency: z.enum(["NIO", "USD"], { required_error: "Debes seleccionar una moneda." }),
+  cashBox: z.enum(["general", "petty"], { required_error: "Debes seleccionar una caja." }),
 });
 
 type OutflowFormData = z.infer<typeof formSchema>;
@@ -39,6 +40,7 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
       amount: 0,
       reason: "",
       currency: "NIO",
+      cashBox: "petty",
     },
   });
 
@@ -51,11 +53,12 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
         amount: data.amount,
         reason: data.reason,
         currency: data.currency,
+        cashBox: data.cashBox,
       };
       await addCashOutflow(newOutflow, user.uid);
       toast({
         title: "Egreso Registrado",
-        description: `Se registró una salida de ${data.currency === 'USD' ? '$' : 'C$'}${data.amount}.`,
+        description: `Se registró una salida de ${data.currency === 'USD' ? '$' : 'C$'}${data.amount} de la caja ${data.cashBox === 'general' ? 'General' : 'Chica'}.`,
       });
       form.reset();
       onOutflowAdded();
@@ -74,6 +77,33 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
   return (
     <Form {...form}>
     <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4 pt-4">
+        <FormField
+            control={form.control}
+            name="cashBox"
+            render={({ field }) => (
+                <FormItem className="space-y-3">
+                <FormLabel>Caja de Origen</FormLabel>
+                <FormControl>
+                    <RadioGroup
+                    onValueChange={field.onChange}
+                    defaultValue={field.value}
+                    className="flex space-x-4"
+                    disabled={isSubmitting}
+                    >
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="petty" /></FormControl>
+                        <FormLabel className="font-normal">Caja Chica</FormLabel>
+                    </FormItem>
+                    <FormItem className="flex items-center space-x-2 space-y-0">
+                        <FormControl><RadioGroupItem value="general" /></FormControl>
+                        <FormLabel className="font-normal">Caja General</FormLabel>
+                    </FormItem>
+                    </RadioGroup>
+                </FormControl>
+                <FormMessage />
+                </FormItem>
+            )}
+        />
         <FormField
             control={form.control}
             name="currency"
@@ -134,3 +164,5 @@ export function OutflowForm({ onOutflowAdded, date }: OutflowFormProps) {
     </Form>
   );
 }
+
+    

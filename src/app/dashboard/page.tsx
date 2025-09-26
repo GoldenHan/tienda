@@ -4,10 +4,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import StatCard from '@/components/dashboard/stat-card';
-import { Product, Sale } from '@/lib/types';
-import { getProducts, getSales } from '@/lib/firestore-helpers';
+import { Product, Sale, CashOutflow, Company } from '@/lib/types';
+import { getProducts, getSales, getCashOutflows, getCompany } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, PiggyBank, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -21,6 +21,8 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [company, setCompany] = useState<Company | null>(null);
+  const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const router = useRouter();
@@ -31,12 +33,16 @@ export default function DashboardPage() {
     if (!user) return;
     setLoading(true);
     try {
-        const [productsData, salesData] = await Promise.all([
+        const [productsData, salesData, companyData, outflowsData] = await Promise.all([
             getProducts(user.uid),
-            getSales(user.uid)
+            getSales(user.uid),
+            getCompany(user.uid),
+            getCashOutflows(user.uid)
         ]);
         setProducts(productsData);
         setSales(salesData);
+        setCompany(companyData);
+        setOutflows(outflowsData);
     } catch (error) {
         console.error("Dashboard fetch error:", error);
         toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los datos del panel de control.' });
@@ -53,10 +59,10 @@ export default function DashboardPage() {
     }
   }, [user, authLoading, fetchData]);
   
-  const formatCurrency = (amount: number) =>
+  const formatCurrency = (amount: number, currency: 'NIO' | 'USD' = 'NIO') =>
     new Intl.NumberFormat("es-NI", {
       style: "currency",
-      currency: "NIO",
+      currency: currency,
     }).format(amount);
 
 
@@ -69,24 +75,22 @@ export default function DashboardPage() {
     employeeTodaySales,
     weeklySalesChartData,
     bestSellingProductsToday,
+    todayProfit,
+    pettyCashBalance,
   } = useMemo(() => {
-    // --- General Stats ---
-    const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), new Date()));
+    const today = new Date();
+    const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), today));
     const todayRevenue = todaySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
     const todaySalesCount = todaySales.length;
     
-    // --- Product Stats ---
     const totalProducts = products.length;
     const lowStockProducts = products.filter(p => p.quantity <= p.lowStockThreshold).sort((a,b) => a.quantity - b.quantity);
     const lowStockItems = lowStockProducts.length;
 
-    // --- Employee-specific Stats ---
     const employeeTodaySales = sales.filter(sale => 
         sale.employeeId === user?.uid && isToday(new Date(sale.date))
     );
 
-    // --- Weekly Sales Chart Data ---
-    const today = new Date();
     const weekStart = startOfWeek(today, { locale: es });
     const weekDays = eachDayOfInterval({ start: weekStart, end: today });
     
@@ -99,7 +103,16 @@ export default function DashboardPage() {
         };
     });
 
-    // --- Best-Selling Products Today ---
+    const productsMap = new Map(products.map(p => [p.id, p]));
+    const todayProfit = todaySales.reduce((totalProfit, sale) => {
+        const saleProfit = sale.items.reduce((currentSaleProfit, item) => {
+            const product = productsMap.get(item.productId);
+            const cost = product?.purchaseCost || 0;
+            return currentSaleProfit + ((item.salePrice - cost) * item.quantity);
+        }, 0);
+        return totalProfit + saleProfit;
+    }, 0);
+
     const productSalesToday: { [key: string]: { name: string; quantity: number; total: number; } } = {};
     todaySales.forEach(sale => {
         sale.items.forEach(item => {
@@ -120,13 +133,19 @@ export default function DashboardPage() {
         .sort((a, b) => b.quantity - a.quantity)
         .slice(0, 5);
 
+    const pettyCashOutflowsToday = outflows
+      .filter(o => o.cashBox === 'petty' && isToday(new Date(o.date)))
+      .reduce((sum, o) => sum + o.amount, 0);
+
+    const pettyCashBalance = (company?.pettyCashInitial || 0) - pettyCashOutflowsToday;
 
     return { 
         todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, 
-        employeeTodaySales, weeklySalesChartData, bestSellingProductsToday
+        employeeTodaySales, weeklySalesChartData, bestSellingProductsToday, todayProfit,
+        pettyCashBalance,
     };
 
-  }, [sales, products, user]);
+  }, [sales, products, user, company, outflows]);
 
   if (loading) {
     return (
@@ -136,7 +155,8 @@ export default function DashboardPage() {
            <Skeleton className="h-4 w-72 mt-2" />
         </header>
         <main className="flex-1 space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <Skeleton className="h-28" />
                 <Skeleton className="h-28" />
                 <Skeleton className="h-28" />
                 <Skeleton className="h-28" />
@@ -157,12 +177,18 @@ export default function DashboardPage() {
 
   const renderAdminDashboard = () => (
     <>
-      <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
           title="Ventas de Hoy"
           value={formatCurrency(todayRevenue)}
-          icon={DollarSign}
+          icon={TrendingUp}
           description={`${todaySalesCount} transacciones`}
+        />
+        <StatCard
+            title="Beneficio de Hoy"
+            value={formatCurrency(todayProfit)}
+            icon={DollarSign}
+            description="Ganancia neta estimada"
         />
         <StatCard
           title="Total Productos"
@@ -178,10 +204,10 @@ export default function DashboardPage() {
           variant={lowStockItems > 0 ? 'destructive' : 'default'}
         />
          <StatCard
-          title="Transacciones Hoy"
-          value={todaySalesCount.toString()}
-          icon={ShoppingCart}
-          description="Ventas realizadas hoy"
+          title="Fondo de Caja Chica"
+          value={formatCurrency(pettyCashBalance)}
+          icon={Briefcase}
+          description="Dinero disponible para gastos"
         />
       </div>
 
@@ -361,3 +387,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
