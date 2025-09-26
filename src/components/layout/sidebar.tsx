@@ -31,8 +31,6 @@ import { Warehouse } from '@/components/icons'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
 import { ThemeToggle } from './theme-toggle'
-import { getCompany } from '@/lib/firestore-helpers';
-import { Company } from '@/lib/types';
 
 
 const allLinks = [
@@ -57,14 +55,8 @@ interface AppSidebarProps {
 export function AppSidebar({ isAdmin }: AppSidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuth();
-  const [company, setCompany] = React.useState<Company | null>(null);
 
-  React.useEffect(() => {
-    if (user) {
-      getCompany(user.uid).then(setCompany);
-    }
-  }, [user]);
-
+  const company = user?.company;
   const companyName = company?.name || 'Mi Empresa';
   const logoUrl = company?.logoUrl;
 

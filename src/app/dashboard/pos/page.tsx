@@ -7,7 +7,7 @@ import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { getProducts, getCategories, getCompany } from "@/lib/firestore-helpers";
+import { getProducts, getCategories } from "@/lib/firestore-helpers";
 import { addSale } from "@/lib/actions/setup";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +21,7 @@ export default function POSPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [company, setCompany] = useState<Company | null>(null);
+  const company = user?.company;
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCompletingSale, setIsCompletingSale] = useState(false);
@@ -34,14 +34,12 @@ export default function POSPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [productsData, categoriesData, companyData] = await Promise.all([
+      const [productsData, categoriesData] = await Promise.all([
         getProducts(user.uid),
         getCategories(user.uid),
-        getCompany(user.uid),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
-      setCompany(companyData);
     } catch (error) {
       console.error("POS fetch error:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });

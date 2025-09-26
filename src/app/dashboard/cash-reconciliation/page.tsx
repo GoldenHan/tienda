@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { getSales, getCashOutflows, getInflows, getReconciliationStatus, updateReconciliationStatus, getCompany, getCashTransfers } from '@/lib/firestore-helpers';
+import { getSales, getCashOutflows, getInflows, getReconciliationStatus, updateReconciliationStatus, getCashTransfers } from '@/lib/firestore-helpers';
 import { Sale, CashOutflow, Inflow, Reconciliation, Company, Currency, CashTransfer } from '@/lib/types';
 import { isSameDay, startOfDay, format as formatDateFns } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,7 +36,7 @@ export default function CashReconciliationPage() {
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [inflows, setInflows] = useState<Inflow[]>([]);
   const [transfers, setTransfers] = useState<CashTransfer[]>([]);
-  const [company, setCompany] = useState<Company | null>(null);
+  const company = user?.company;
   const [reconciliationStatus, setReconciliationStatus] = useState<Reconciliation['status']>('open');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -61,20 +61,18 @@ export default function CashReconciliationPage() {
     if (!user || !formattedDateId) return;
     setLoading(true);
     try {
-      const [salesData, outflowsData, inflowsData, transfersData, statusData, companyData] = await Promise.all([
+      const [salesData, outflowsData, inflowsData, transfersData, statusData] = await Promise.all([
         getSales(user.uid),
         getCashOutflows(user.uid),
         getInflows(user.uid),
         getCashTransfers(user.uid),
         getReconciliationStatus(formattedDateId, user.uid),
-        getCompany(user.uid)
       ]);
       setSales(salesData);
       setOutflows(outflowsData);
       setInflows(inflowsData);
       setTransfers(transfersData);
       setReconciliationStatus(statusData);
-      setCompany(companyData);
 
     } catch (error) {
       console.error("Cash reconciliation fetch error:", error);
@@ -209,7 +207,7 @@ export default function CashReconciliationPage() {
 
   const isClosed = reconciliationStatus === 'closed';
 
-  if (loading || !selectedDate) {
+  if (loading || !selectedDate || !company) {
     return (
       <div className="flex flex-col p-4 sm:p-6 space-y-6">
         <header>
@@ -425,7 +423,7 @@ export default function CashReconciliationPage() {
                     El egreso ha sido registrado. Puedes imprimir el comprobante a continuación.
                 </DialogDescription>
             </DialogHeader>
-            {lastOutflow && user && (
+            {lastOutflow && user && company && (
                 <OutflowReceipt
                     outflow={lastOutflow}
                     company={company}

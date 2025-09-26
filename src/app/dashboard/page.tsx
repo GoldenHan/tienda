@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale, CashOutflow, Company } from '@/lib/types';
-import { getProducts, getSales, getCashOutflows, getCompany } from '@/lib/firestore-helpers';
+import { getProducts, getSales, getCashOutflows } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
 import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, Briefcase, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
-  const [company, setCompany] = useState<Company | null>(null);
+  const company = user?.company;
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentDate, setCurrentDate] = useState('');
@@ -44,15 +44,13 @@ export default function DashboardPage() {
     if (!user) return;
     setLoading(true);
     try {
-        const [productsData, salesData, companyData, outflowsData] = await Promise.all([
+        const [productsData, salesData, outflowsData] = await Promise.all([
             getProducts(user.uid),
             getSales(user.uid),
-            getCompany(user.uid),
             getCashOutflows(user.uid)
         ]);
         setProducts(productsData);
         setSales(salesData);
-        setCompany(companyData);
         setOutflows(outflowsData);
     } catch (error) {
         console.error("Dashboard fetch error:", error);

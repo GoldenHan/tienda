@@ -14,10 +14,10 @@ interface InvoiceProps {
   onPrint: () => void;
 }
 
-const formatCurrency = (amount: number) =>
+const formatCurrency = (amount: number, currency: 'NIO' | 'USD') =>
   new Intl.NumberFormat("es-NI", {
     style: "currency",
-    currency: "NIO",
+    currency: currency,
   }).format(amount);
 
 export function Invoice({ sale, companyName, onPrint }: InvoiceProps) {
@@ -53,10 +53,10 @@ export function Invoice({ sale, companyName, onPrint }: InvoiceProps) {
                 <td className="align-top">
                     {item.productName}
                     <div className="text-gray-600">
-                        ({formatCurrency(item.salePrice)})
+                        ({formatCurrency(item.salePrice, sale.paymentCurrency)})
                     </div>
                 </td>
-                <td className="text-right align-top">{formatCurrency(item.total)}</td>
+                <td className="text-right align-top">{formatCurrency(item.total, sale.paymentCurrency)}</td>
               </tr>
             ))}
           </tbody>
@@ -66,8 +66,8 @@ export function Invoice({ sale, companyName, onPrint }: InvoiceProps) {
 
         <div className="space-y-1 text-right">
             <p className="font-bold text-sm">
-                <span>TOTAL: </span>
-                <span>{formatCurrency(sale.grandTotal)}</span>
+                <span>TOTAL ({sale.paymentCurrency}): </span>
+                <span>{formatCurrency(sale.grandTotal, sale.paymentCurrency)}</span>
             </p>
         </div>
 

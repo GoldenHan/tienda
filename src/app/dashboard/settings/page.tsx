@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Unlock, Trash2, PlusCircle, UploadCloud } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getClosedReconciliations, getCategories, getCompany, getCompanyIdForUser } from "@/lib/firestore-helpers";
+import { getClosedReconciliations, getCategories } from "@/lib/firestore-helpers";
 import { updateCompanySettings, addCategory, updateReconciliationStatus, deleteCategory } from "@/lib/actions/setup";
 import { uploadFileToStorage } from "@/lib/storage-helpers";
 import { Reconciliation, Category, Company } from "@/lib/types";
@@ -41,14 +41,14 @@ const companySettingsSchema = z.object({
 });
 
 export default function SettingsPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isPasswordLoading, setIsPasswordLoading] = useState(false);
   const [closedReconciliations, setClosedReconciliations] = useState<Reconciliation[]>([]);
   const [isReconLoading, setIsReconLoading] = useState(true);
   const [isReopening, setIsReopening] = useState<string | null>(null);
 
-  const [company, setCompany] = useState<Company | null>(null);
+  const company = user?.company;
   const [isCompanyLoading, setIsCompanyLoading] = useState(true);
   const [isCompanySubmitting, setIsCompanySubmitting] = useState(false);
 
@@ -77,52 +77,48 @@ export default function SettingsPage() {
     resolver: zodResolver(companySettingsSchema),
   });
   
-  const { reset: resetCompanyForm, setValue } = companySettingsForm;
+  const { reset: resetCompanyForm } = companySettingsForm;
 
   const fetchPageData = useCallback(async () => {
     if (!user || !isAdmin) {
         setIsReconLoading(false);
         setIsCategoryLoading(false);
-        setIsCompanyLoading(false);
         return;
     };
 
     setIsReconLoading(true);
     setIsCategoryLoading(true);
-    setIsCompanyLoading(true);
     try {
-      const [closedData, categoriesData, companyData] = await Promise.all([
+      const [closedData, categoriesData] = await Promise.all([
         getClosedReconciliations(user.uid),
         getCategories(user.uid),
-        getCompany(user.uid),
       ]);
       setClosedReconciliations(closedData);
       setCategories(categoriesData);
-      setCompany(companyData);
-      if (companyData) {
-        resetCompanyForm({
-            name: companyData.name || "",
-            exchangeRate: companyData.exchangeRate || 36.5,
-            pettyCashInitial: companyData.pettyCashInitial || 0,
-        });
-        setPreviewUrl(companyData.logoUrl || null);
-      }
     } catch (error) {
       console.error("Error fetching admin settings page data:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
     } finally {
       setIsReconLoading(false);
       setIsCategoryLoading(false);
-      setIsCompanyLoading(false);
     }
-  }, [toast, user, isAdmin, resetCompanyForm]);
+  }, [toast, user, isAdmin]);
 
 
   useEffect(() => {
-    if (user) {
+    if (user && isAdmin) {
         fetchPageData();
     }
-  }, [user, fetchPageData]);
+    if (company) {
+        resetCompanyForm({
+            name: company.name || "",
+            exchangeRate: company.exchangeRate || 36.5,
+            pettyCashInitial: company.pettyCashInitial || 0,
+        });
+        setPreviewUrl(company.logoUrl || null);
+        setIsCompanyLoading(false);
+    }
+  }, [user, isAdmin, company, resetCompanyForm, fetchPageData]);
 
   async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
     if (!user || !user.email) {
@@ -169,14 +165,13 @@ export default function SettingsPage() {
   };
 
    async function onCompanySettingsSubmit(values: z.infer<typeof companySettingsSchema>) {
-    if (!user) return;
+    if (!user || !company) return;
     setIsCompanySubmitting(true);
     try {
-      let logoUrl = company?.logoUrl || "";
+      let logoUrl = company.logoUrl || "";
 
       if (logoFile) {
-        const companyId = await getCompanyIdForUser(user.uid);
-        const path = `companies/${companyId}/logos`;
+        const path = `companies/${company.id}/logos`;
         logoUrl = await uploadFileToStorage(logoFile, path);
         toast({ title: "Logo Actualizado", description: "El nuevo logo ha sido subido." });
       }
@@ -185,10 +180,12 @@ export default function SettingsPage() {
       
       toast({
         title: "Configuración Guardada",
-        description: `La configuración de la empresa ha sido actualizada.`,
+        description: `La configuración de la empresa ha sido actualizada. La página se recargará para reflejar los cambios.`,
       });
-      // Refetch data to show updates everywhere
-      await fetchPageData();
+      
+      // Force reload to update context everywhere
+      window.location.reload();
+
     } catch (error: any) {
       console.error("Error updating company settings:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo guardar la configuración." });
@@ -317,7 +314,7 @@ export default function SettingsPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        {isCompanyLoading ? <Skeleton className="h-40 w-full"/> : (
+                        {isCompanyLoading || authLoading ? <Skeleton className="h-40 w-full"/> : (
                            <Form {...companySettingsForm}>
                             <form onSubmit={companySettingsForm.handleSubmit(onCompanySettingsSubmit)} className="space-y-6">
                                 <FormItem>
@@ -525,5 +522,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    

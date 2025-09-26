@@ -33,41 +33,6 @@ async function getCompanyIdForUser(userId: string): Promise<string> {
   return userSnap.data()!.companyId;
 };
 
-
-// -----------------
-// Company Helpers
-// -----------------
-export async function getCompany(userId: string): Promise<Company | null> {
-  const db = getClientDbOrThrow();
-  try {
-    const companyId = await getCompanyIdForUser(userId);
-    const companyDocRef = doc(db, "companies", companyId);
-    const docSnap = await getDoc(companyDocRef);
-    if (docSnap.exists()) {
-      return docSnap.data() as Company;
-    }
-    return null;
-  } catch (error) {
-    console.error("Error al obtener los datos de la empresa:", error);
-    return null;
-  }
-}
-
-
-export async function getCompanyName(userId: string): Promise<string> {
-  const db = getClientDbOrThrow(); // Lectura simple desde el cliente
-  try {
-    const companyId = await getCompanyIdForUser(userId);
-    const companyDocRef = doc(db, "companies", companyId);
-    const docSnap = await getDoc(companyDocRef);
-    if (docSnap.exists()) return docSnap.data().name || "Mi Empresa";
-    return "Mi Empresa";
-  } catch (error) {
-    console.error("Error al obtener el nombre de la empresa:", error);
-    return "Mi Empresa";
-  }
-};
-
 // -----------------
 // User Management (Client-facing reads)
 // -----------------

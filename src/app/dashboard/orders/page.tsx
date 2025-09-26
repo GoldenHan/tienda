@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
-import { getProducts, getSales, getCashOutflows, getInflows, getCashTransfers, getCompany } from '@/lib/firestore-helpers';
+import { getProducts, getSales, getCashOutflows, getInflows, getCashTransfers } from '@/lib/firestore-helpers';
 import { Product, Sale, CashOutflow, Inflow, CashTransfer, Company, Currency } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -39,7 +39,6 @@ export default function OrdersPage() {
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [inflows, setInflows] = useState<Inflow[]>([]);
   const [transfers, setTransfers] = useState<CashTransfer[]>([]);
-  const [company, setCompany] = useState<Company | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -48,20 +47,18 @@ export default function OrdersPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [productsData, salesData, outflowsData, inflowsData, transfersData, companyData] = await Promise.all([
+      const [productsData, salesData, outflowsData, inflowsData, transfersData] = await Promise.all([
         getProducts(user.uid),
         getSales(user.uid),
         getCashOutflows(user.uid),
         getInflows(user.uid),
         getCashTransfers(user.uid),
-        getCompany(user.uid),
       ]);
       setAllProducts(productsData);
       setSales(salesData);
       setOutflows(outflowsData);
       setInflows(inflowsData);
       setTransfers(transfersData);
-      setCompany(companyData);
     } catch (error) {
       console.error("Error fetching orders page data:", error);
       toast({
@@ -326,5 +323,3 @@ export default function OrdersPage() {
     </div>
   );
 }
-
-    

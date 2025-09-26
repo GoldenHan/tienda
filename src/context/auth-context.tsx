@@ -10,10 +10,10 @@ import {
 } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, firestore as db } from "@/lib/firebase/client";
-import type { User as AppUser } from "@/lib/types";
+import type { User as AppUser, Company } from "@/lib/types";
 
-// The full user object exposed by the context will be the FirebaseUser merged with our AppUser
-export type AuthUser = FirebaseUser & AppUser;
+// The full user object exposed by the context will be the FirebaseUser merged with our AppUser and Company
+export type AuthUser = FirebaseUser & AppUser & { company: Company | null };
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -51,29 +51,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userDocSnap = await getDoc(userDocRef);
 
           if (!userDocSnap.exists()) {
-            // This can happen if the user was deleted from Firestore but not Auth.
-            // Treat this as a logout.
-            throw new Error(`El perfil del usuario no fue encontrado en la base de datos. Por favor, contacta al administrador.`);
+            throw new Error(`El perfil del usuario no fue encontrado en la base de datos.`);
           }
 
           const userData = userDocSnap.data() as AppUser;
 
-          // 3. Merge Firebase user with our custom user data.
+          // 3. Fetch the associated company data
+          let companyData: Company | null = null;
+          if (userData.companyId) {
+              const companyDocRef = doc(db, "companies", userData.companyId);
+              const companyDocSnap = await getDoc(companyDocRef);
+              if (companyDocSnap.exists()) {
+                  companyData = companyDocSnap.data() as Company;
+              }
+          }
+
+          // 4. Merge Firebase user, custom user data, and company data.
           setUser({
             ...firebaseUser,
-            ...userData
+            ...userData,
+            company: companyData
           });
 
         } catch (error: any) {
           console.error("Error en el contexto de autenticación:", error.message);
-          // If there's any error, sign out to prevent an inconsistent state.
           await signOut(auth);
           setUser(null);
         } finally {
           setLoading(false);
         }
       } else {
-        // No Firebase user found, so our app user is null.
         setUser(null);
         setLoading(false);
       }
