@@ -2,12 +2,12 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Product, Sale, SaleItem, Category, Currency } from "@/lib/types";
+import { Product, Sale, SaleItem, Category, Currency, Company } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
-import { getProducts, getCategories, getCompanyName } from "@/lib/firestore-helpers";
+import { getProducts, getCategories, getCompany } from "@/lib/firestore-helpers";
 import { addSale } from "@/lib/actions/setup";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,27 +21,27 @@ export default function POSPage() {
   const { user } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [company, setCompany] = useState<Company | null>(null);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [isCompletingSale, setIsCompletingSale] = useState(false);
   const { toast } = useToast();
   
   const [lastSale, setLastSale] = useState<Sale | null>(null);
-  const [companyName, setCompanyName] = useState<string>("");
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [productsData, categoriesData, companyNameData] = await Promise.all([
+      const [productsData, categoriesData, companyData] = await Promise.all([
         getProducts(user.uid),
         getCategories(user.uid),
-        getCompanyName(user.uid),
+        getCompany(user.uid),
       ]);
       setProducts(productsData);
       setCategories(categoriesData);
-      setCompanyName(companyNameData);
+      setCompany(companyData);
     } catch (error) {
       console.error("POS fetch error:", error);
       toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos." });
@@ -220,7 +220,7 @@ export default function POSPage() {
   const categoryTabs = useMemo(() => [{ id: 'all', name: 'Todos' }, ...categories], [categories]);
 
   const renderContent = () => {
-    if (loading) {
+    if (loading || !company) {
       return (
         <div className="lg:col-span-2 h-full overflow-y-auto">
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
@@ -268,6 +268,7 @@ export default function POSPage() {
         <div className="lg:col-span-1 h-full flex flex-col">
           <Cart 
             cartItems={cart}
+            exchangeRate={company?.exchangeRate || 36.5}
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveFromCart}
             onCompleteSale={handleCompleteSale}
@@ -284,10 +285,10 @@ export default function POSPage() {
                     La venta ha sido registrada. Puedes imprimir el recibo a continuación.
                 </DialogDescription>
             </DialogHeader>
-            {lastSale && companyName && (
+            {lastSale && company?.name && (
                 <Invoice
                     sale={lastSale}
-                    companyName={companyName}
+                    companyName={company.name}
                     onPrint={handlePrint}
                 />
             )}

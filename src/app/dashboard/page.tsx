@@ -83,12 +83,17 @@ export default function DashboardPage() {
     todayProfit,
     pettyCashBalance,
     recentSales,
+    todaySalesInUSD,
   } = useMemo(() => {
     const today = new Date();
     const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), today));
     const todayRevenue = todaySales.reduce((acc, sale) => acc + sale.grandTotal, 0);
     const todaySalesCount = todaySales.length;
     
+    const todaySalesInUSD = sales
+      .filter(sale => isSameDay(new Date(sale.date), today) && sale.paymentCurrency === 'USD')
+      .reduce((acc, sale) => acc + sale.grandTotal, 0);
+
     const totalProducts = products.length;
     const lowStockProducts = products.filter(p => p.quantity <= p.lowStockThreshold).sort((a,b) => a.quantity - b.quantity);
     const lowStockItems = lowStockProducts.length;
@@ -121,7 +126,7 @@ export default function DashboardPage() {
     return { 
         todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, 
         employeeTodaySales, todayProfit,
-        pettyCashBalance, recentSales
+        pettyCashBalance, recentSales, todaySalesInUSD
     };
 
   }, [sales, products, user, company, outflows]);
@@ -158,10 +163,16 @@ export default function DashboardPage() {
     <>
       <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
-          title="Ventas de Hoy"
+          title="Ventas de Hoy (C$)"
           value={formatCurrency(todayRevenue)}
           icon={TrendingUp}
           description={`${todaySalesCount} transacciones`}
+        />
+        <StatCard
+          title="Ventas de Hoy (USD)"
+          value={formatCurrency(todaySalesInUSD, 'USD')}
+          icon={DollarSign}
+          description="Total de ventas en dólares"
         />
         <StatCard
             title="Beneficio de Hoy"
@@ -181,12 +192,6 @@ export default function DashboardPage() {
           icon={AlertTriangle}
           description={`Productos con bajo stock`}
           variant={lowStockItems > 0 ? 'destructive' : 'default'}
-        />
-         <StatCard
-          title="Fondo de Caja Chica"
-          value={formatCurrency(pettyCashBalance)}
-          icon={Briefcase}
-          description="Dinero disponible para gastos"
         />
       </div>
 

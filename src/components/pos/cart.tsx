@@ -12,32 +12,67 @@ import { Label } from "../ui/label";
 
 interface CartProps {
   cartItems: CartItem[];
+  exchangeRate: number;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onCompleteSale: (paymentCurrency: Currency) => void;
   disabled?: boolean;
 }
 
-export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale, disabled = false }: CartProps) {
+export function Cart({ cartItems, exchangeRate, onUpdateQuantity, onRemoveItem, onCompleteSale, disabled = false }: CartProps) {
   const [paymentCurrency, setPaymentCurrency] = useState<Currency>('NIO');
+  const [changeCurrency, setChangeCurrency] = useState<Currency>('NIO');
   const [amountReceived, setAmountReceived] = useState(0);
 
-  const subtotal = cartItems.reduce((acc, item) => acc + item.salePrice * item.quantityInCart, 0);
-  const change = amountReceived > 0 && amountReceived >= subtotal ? amountReceived - subtotal : 0;
-  
-  const isSaleCompletable = cartItems.length > 0 && !disabled && amountReceived >= subtotal;
-  
-  // Reset amount received when cart changes
+  const subtotalNio = cartItems.reduce((acc, item) => acc + item.salePrice * item.quantityInCart, 0);
+
+  // Reset states when cart changes
   useEffect(() => {
     setAmountReceived(0);
+    setPaymentCurrency('NIO');
+    setChangeCurrency('NIO');
   }, [cartItems]);
-
-
+  
   const formatCurrency = (amount: number, currency: Currency) =>
     new Intl.NumberFormat("es-NI", {
       style: "currency",
       currency: currency,
     }).format(amount);
+
+  const { change, totalToPayDisplay, isSaleCompletable } = (() => {
+    if (cartItems.length === 0) {
+      return { change: 0, totalToPayDisplay: formatCurrency(0, 'NIO'), isSaleCompletable: false };
+    }
+
+    let totalInPaymentCurrency = subtotalNio;
+    if (paymentCurrency === 'USD') {
+        totalInPaymentCurrency = subtotalNio / exchangeRate;
+    }
+
+    const hasReceivedEnough = amountReceived >= totalInPaymentCurrency;
+    let changeAmount = 0;
+
+    if (hasReceivedEnough) {
+        const remainingAmountInPaymentCurrency = amountReceived - totalInPaymentCurrency;
+        
+        if (paymentCurrency === changeCurrency) {
+            changeAmount = remainingAmountInPaymentCurrency;
+        } else if (paymentCurrency === 'NIO' && changeCurrency === 'USD') {
+            // Paid in NIO, wants change in USD
+            changeAmount = remainingAmountInPaymentCurrency / exchangeRate;
+        } else { // paymentCurrency === 'USD' && changeCurrency === 'NIO'
+            // Paid in USD, wants change in NIO
+            changeAmount = remainingAmountInPaymentCurrency * exchangeRate;
+        }
+    }
+    
+    return {
+        change: changeAmount,
+        totalToPayDisplay: formatCurrency(totalInPaymentCurrency, paymentCurrency),
+        isSaleCompletable: hasReceivedEnough && !disabled
+    }
+  })();
+
 
   return (
     <Card className="flex flex-col h-full">
@@ -91,11 +126,11 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
       <CardFooter className="flex flex-col p-4 space-y-4">
         <div className="w-full space-y-3">
              <div className="flex justify-between items-center text-muted-foreground">
-                <span>Subtotal</span>
-                <span className="font-medium">{formatCurrency(subtotal, 'NIO')}</span>
+                <span className="text-lg">Total a Pagar:</span>
+                <span className="font-bold text-lg text-primary">{totalToPayDisplay}</span>
             </div>
              <div className="flex justify-between items-center">
-                <Label htmlFor="amount-received">Monto Recibido</Label>
+                <Label htmlFor="amount-received">Monto Recibido ({paymentCurrency})</Label>
                 <Input 
                     id="amount-received"
                     type="number" 
@@ -106,38 +141,50 @@ export function Cart({ cartItems, onUpdateQuantity, onRemoveItem, onCompleteSale
                     disabled={cartItems.length === 0 || disabled}
                 />
             </div>
-             <div className="flex justify-between items-center text-lg font-bold text-primary">
-                <span>Cambio</span>
-                <span>{formatCurrency(change, paymentCurrency)}</span>
+             <div className="flex justify-between items-center text-lg font-bold text-green-600">
+                <span>Vuelto</span>
+                <span>{formatCurrency(change, changeCurrency)}</span>
             </div>
 
              <Separator />
-
-             <RadioGroup 
-                defaultValue="NIO" 
-                className="grid grid-cols-2 gap-4 pt-2"
-                onValueChange={(value: Currency) => setPaymentCurrency(value)}
-                disabled={disabled}
-            >
-              <div>
-                <RadioGroupItem value="NIO" id="nio" className="peer sr-only" />
-                <Label
-                  htmlFor="nio"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 cursor-pointer hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                >
-                  Pagar en C$
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="USD" id="usd" className="peer sr-only" />
-                <Label
-                  htmlFor="usd"
-                  className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-3 cursor-pointer hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
-                >
-                  Pagar en $
-                </Label>
-              </div>
-            </RadioGroup>
+            <div className="grid grid-cols-2 gap-4 pt-2">
+                 <div>
+                    <Label className="text-sm font-medium mb-2 block">Pagar en</Label>
+                     <RadioGroup 
+                        value={paymentCurrency} 
+                        className="grid grid-cols-2 gap-2"
+                        onValueChange={(value: Currency) => setPaymentCurrency(value)}
+                        disabled={disabled}
+                    >
+                      <Label htmlFor="nio-pay" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-3 cursor-pointer hover:bg-accent peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                         <RadioGroupItem value="NIO" id="nio-pay" className="sr-only peer" />
+                         C$
+                      </Label>
+                      <Label htmlFor="usd-pay" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-3 cursor-pointer hover:bg-accent peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                         <RadioGroupItem value="USD" id="usd-pay" className="sr-only peer" />
+                         $
+                      </Label>
+                    </RadioGroup>
+                </div>
+                 <div>
+                    <Label className="text-sm font-medium mb-2 block">Dar Vuelto en</Label>
+                    <RadioGroup 
+                        value={changeCurrency}
+                        className="grid grid-cols-2 gap-2"
+                        onValueChange={(value: Currency) => setChangeCurrency(value)}
+                        disabled={disabled}
+                    >
+                      <Label htmlFor="nio-change" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-3 cursor-pointer hover:bg-accent peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                         <RadioGroupItem value="NIO" id="nio-change" className="sr-only peer" />
+                         C$
+                      </Label>
+                      <Label htmlFor="usd-change" className="flex items-center justify-center rounded-md border-2 border-muted bg-popover p-3 cursor-pointer hover:bg-accent peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary">
+                         <RadioGroupItem value="USD" id="usd-change" className="sr-only peer" />
+                         $
+                      </Label>
+                    </RadioGroup>
+                </div>
+            </div>
         </div>
         <Button className="w-full" onClick={() => onCompleteSale(paymentCurrency)} disabled={!isSaleCompletable}>
           {disabled && <Loader2 className="animate-spin mr-2" />}
