@@ -12,6 +12,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table"
+import { FileUp } from "lucide-react";
 
 import {
   Table,
@@ -27,17 +28,20 @@ import { getColumns, ProductColumnActions } from "./columns"
 import { Product, Category } from "@/lib/types"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ProductForm } from "./product-form"
+import { ProductImporter } from "./product-importer";
 
 interface ProductsTableProps extends Omit<ProductColumnActions, 'categories'> {
   data: Product[];
   categories: Category[];
   onAddProduct: (product: Omit<Product, 'id'>) => void;
+  onImportComplete: () => void;
 }
 
-export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct, onDeleteProduct }: ProductsTableProps) {
+export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct, onDeleteProduct, onImportComplete }: ProductsTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
+  const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false)
 
   const columns = React.useMemo(
     () => getColumns({ onUpdateProduct, onDeleteProduct, categories }),
@@ -61,7 +65,7 @@ export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct,
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Input
           placeholder="Filtrar productos..."
           value={(table.getColumn("name")?.getFilterValue() as string) ?? ""}
@@ -70,25 +74,50 @@ export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct,
           }
           className="max-w-sm"
         />
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>Añadir Producto</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Añadir Nuevo Producto</DialogTitle>
-              <DialogDescription>
-                Completa los detalles a continuación para añadir un nuevo producto a tu inventario.
-              </DialogDescription>
-            </DialogHeader>
-            <ProductForm 
-              categories={categories}
-              onSubmit={(data) => {
-                onAddProduct(data);
-                setIsAddDialogOpen(false);
-            }} />
-          </DialogContent>
-        </Dialog>
+        <div className="flex gap-2">
+          <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+            <DialogTrigger asChild>
+                <Button variant="outline">
+                    <FileUp className="mr-2"/>
+                    Importar
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Importar Productos desde Excel</DialogTitle>
+                    <DialogDescription>
+                        Sube un archivo .xlsx con tus productos. Asegúrate de que las columnas coincidan con la plantilla.
+                    </DialogDescription>
+                </DialogHeader>
+                <ProductImporter 
+                    categories={categories} 
+                    onImport={() => {
+                        setIsImportDialogOpen(false);
+                        onImportComplete();
+                    }}
+                />
+            </DialogContent>
+          </Dialog>
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>Añadir Producto</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Añadir Nuevo Producto</DialogTitle>
+                <DialogDescription>
+                  Completa los detalles a continuación para añadir un nuevo producto a tu inventario.
+                </DialogDescription>
+              </DialogHeader>
+              <ProductForm 
+                categories={categories}
+                onSubmit={(data) => {
+                  onAddProduct(data);
+                  setIsAddDialogOpen(false);
+              }} />
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
       <div className="rounded-lg border">
         <Table>
@@ -127,7 +156,7 @@ export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct,
             ) : (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center">
-                  Aún no hay productos. ¡Añade el primero!
+                  Aún no hay productos. ¡Añade el primero o importa una lista!
                 </TableCell>
               </TableRow>
             )}

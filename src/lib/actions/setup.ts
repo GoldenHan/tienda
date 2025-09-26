@@ -39,7 +39,7 @@ export async function isInitialSetupRequired(): Promise<boolean> {
   return snapshot.empty;
 };
 
-export async function createInitialAdminUser(data: InitialAdminData) {
+export async function createInitialAdminUser(data: Omit<InitialAdminData, 'secretCode'>) {
   const db = getAdminDbOrThrow();
   const auth = getAdminAuthOrThrow();
   const companyRef = db.collection("companies").doc();
@@ -60,8 +60,8 @@ export async function createInitialAdminUser(data: InitialAdminData) {
     id: companyRef.id,
     name: data.companyName,
     ownerUid: userRecord.uid,
-    exchangeRate: 36.5, // Default exchange rate
-    pettyCashInitial: 0, // Default petty cash
+    exchangeRate: 36.5,
+    pettyCashInitial: 0,
     createdAt: FieldValue.serverTimestamp(),
   });
 
@@ -167,11 +167,18 @@ export async function promoteToAdmin(userIdToPromote: string, currentAdminId: st
 // -----------------
 // Category Management
 // -----------------
-export async function addCategory(categoryName: string, userId: string): Promise<void> {
+export async function addCategory(categoryName: string, userId: string): Promise<string> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const categoryCollection = db.collection(`companies/${companyId}/categories`);
-    await categoryCollection.add({ name: categoryName });
+    
+    const existingCategoryQuery = await categoryCollection.where('name', '==', categoryName).limit(1).get();
+    if (!existingCategoryQuery.empty) {
+        return existingCategoryQuery.docs[0].id;
+    }
+    
+    const newCategoryRef = await categoryCollection.add({ name: categoryName });
+    return newCategoryRef.id;
 };
 
 export async function deleteCategory(categoryId: string, userId: string): Promise<void> {
@@ -211,6 +218,37 @@ export async function addProduct(productData: Omit<Product, 'id'>, userId: strin
         createdAt: FieldValue.serverTimestamp(),
     });
 };
+
+export async function addMultipleProducts(productsData: Omit<Product, 'id'>[], userId: string): Promise<{ successCount: number; errorCount: number; }> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const productCollection = db.collection(`companies/${companyId}/products`);
+    
+    let successCount = 0;
+    let errorCount = 0;
+
+    // Firestore allows a maximum of 500 operations in a single batch.
+    const batchSize = 500;
+    for (let i = 0; i < productsData.length; i += batchSize) {
+        const batch = db.batch();
+        const chunk = productsData.slice(i, i + batchSize);
+        
+        for (const productData of chunk) {
+            try {
+                const docRef = productCollection.doc();
+                batch.set(docRef, { ...productData, createdAt: FieldValue.serverTimestamp() });
+                successCount++;
+            } catch (e) {
+                console.error("Error adding product to batch:", productData.name, e);
+                errorCount++;
+            }
+        }
+        await batch.commit();
+    }
+
+    return { successCount, errorCount };
+}
+
 
 export async function updateProduct(productId: string, productData: Partial<Product>, userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
