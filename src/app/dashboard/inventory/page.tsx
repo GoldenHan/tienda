@@ -4,7 +4,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { ProductsTable } from "@/components/inventory/products-table";
 import { Product, Category } from "@/lib/types";
-import { getProducts, addProduct, updateProduct, deleteProduct, getCategories } from "@/lib/firestore-helpers";
+import { getProducts, getCategories } from "@/lib/firestore-helpers";
+import { addProduct, updateProduct, deleteProduct } from "@/lib/actions/setup";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
