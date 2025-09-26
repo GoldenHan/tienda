@@ -69,9 +69,6 @@ export function AppSidebar({ companyName, isAdmin }: AppSidebarProps) {
             {companyName}
           </h2>
         </div>
-        <div className="p-2 md:hidden">
-          <SidebarTrigger />
-        </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarMenu>

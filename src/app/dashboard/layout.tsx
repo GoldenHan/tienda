@@ -5,7 +5,7 @@ import { PropsWithChildren, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AppSidebar } from "@/components/layout/sidebar";
 import { useAuth } from "@/context/auth-context";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getCompanyName } from "@/lib/firestore-helpers";
 import { useToast } from "@/hooks/use-toast";
@@ -102,6 +102,10 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
       <div className="flex min-h-screen w-full">
         <AppSidebar companyName={companyName || "Cargando..."} isAdmin={isAdmin} />
         <SidebarInset className="flex-1 flex flex-col">
+          <header className="flex h-14 items-center gap-4 border-b bg-background/95 backdrop-blur-sm px-4 md:px-6 sticky top-0 z-30">
+            <SidebarTrigger className="flex md:hidden" />
+            <div className="flex-1" />
+          </header>
           {children}
         </SidebarInset>
       </div>

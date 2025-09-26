@@ -16,6 +16,7 @@ import { isToday, format, startOfWeek, eachDayOfInterval, isSameDay, formatDista
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { SidebarTrigger } from '@/components/ui/sidebar';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -360,15 +361,16 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="relative min-h-full w-full overflow-hidden">
+    <div className="relative min-h-full w-full overflow-hidden flex flex-col">
         {/* Animated background */}
         <div className="absolute inset-0 -z-10 h-full w-full bg-white bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px] dark:bg-neutral-950 dark:bg-[linear-gradient(to_right,#ffffff0d_1px,transparent_1px),linear-gradient(to_bottom,#ffffff0d_1px,transparent_1px)]">
             <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-blue-400 opacity-20 blur-[100px]"></div>
         </div>
 
-      <div className="flex flex-col p-4 sm:p-6 lg:p-8">
-        <header className="mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex-1 flex flex-col p-4 sm:p-6 lg:p-8">
+        <header className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+                <SidebarTrigger className="hidden md:flex"/>
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
                         {welcomeMessage}
@@ -380,10 +382,10 @@ export default function DashboardPage() {
                         }
                     </p>
                 </div>
-                <p className="text-sm font-medium text-muted-foreground mt-2 sm:mt-0">
-                    {currentDate}
-                </p>
             </div>
+            <p className="text-sm font-medium text-muted-foreground mt-2 sm:mt-0">
+                {currentDate}
+            </p>
         </header>
         <main className="flex-1 space-y-6">
           {isAdmin ? renderAdminDashboard() : renderEmployeeDashboard()}
