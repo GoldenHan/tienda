@@ -50,6 +50,7 @@ export default function SettingsPage() {
 
   const [company, setCompany] = useState<Company | null>(null);
   const [isCompanyLoading, setIsCompanyLoading] = useState(true);
+  const [isCompanySubmitting, setIsCompanySubmitting] = useState(false);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [isCategoryLoading, setIsCategoryLoading] = useState(true);
@@ -76,7 +77,7 @@ export default function SettingsPage() {
     resolver: zodResolver(companySettingsSchema),
   });
   
-  const { reset: resetCompanyForm } = companySettingsForm;
+  const { reset: resetCompanyForm, setValue } = companySettingsForm;
 
   const fetchPageData = useCallback(async () => {
     if (!user || !isAdmin) {
@@ -169,7 +170,7 @@ export default function SettingsPage() {
 
    async function onCompanySettingsSubmit(values: z.infer<typeof companySettingsSchema>) {
     if (!user) return;
-    companySettingsForm.formState.isSubmitting;
+    setIsCompanySubmitting(true);
     try {
       let logoUrl = company?.logoUrl || "";
 
@@ -192,7 +193,7 @@ export default function SettingsPage() {
       console.error("Error updating company settings:", error);
       toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo guardar la configuración." });
     } finally {
-       companySettingsForm.formState.isSubmitting;
+       setIsCompanySubmitting(false);
     }
   }
 
@@ -374,8 +375,8 @@ export default function SettingsPage() {
                                     </FormItem>
                                 )}
                                 />
-                                <Button type="submit" disabled={companySettingsForm.formState.isSubmitting}>
-                                    {companySettingsForm.formState.isSubmitting ? <Loader2 className="animate-spin" /> : "Guardar Configuración"}
+                                <Button type="submit" disabled={isCompanySubmitting}>
+                                    {isCompanySubmitting ? <Loader2 className="animate-spin" /> : "Guardar Configuración"}
                                 </Button>
                             </form>
                            </Form>
