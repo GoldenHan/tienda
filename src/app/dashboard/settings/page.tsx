@@ -75,51 +75,53 @@ export default function SettingsPage() {
   const companySettingsForm = useForm<z.infer<typeof companySettingsSchema>>({
     resolver: zodResolver(companySettingsSchema),
   });
+  
+  const { reset: resetCompanyForm } = companySettingsForm;
 
   const fetchPageData = useCallback(async () => {
-    if (!user) return;
-
-    if (isAdmin) {
-        setIsReconLoading(true);
-        setIsCategoryLoading(true);
-        setIsCompanyLoading(true);
-        try {
-          const [closedData, categoriesData, companyData] = await Promise.all([
-            getClosedReconciliations(user.uid),
-            getCategories(user.uid),
-            getCompany(user.uid),
-          ]);
-          setClosedReconciliations(closedData);
-          setCategories(categoriesData);
-          setCompany(companyData);
-          if (companyData) {
-            companySettingsForm.reset({
-                name: companyData.name || "",
-                exchangeRate: companyData.exchangeRate || 36.5,
-                pettyCashInitial: companyData.pettyCashInitial || 0,
-            });
-            setPreviewUrl(companyData.logoUrl || null);
-          }
-        } catch (error) {
-          console.error("Error fetching admin settings page data:", error);
-          toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
-        } finally {
-          setIsReconLoading(false);
-          setIsCategoryLoading(false);
-          setIsCompanyLoading(false);
-        }
-    } else {
+    if (!user || !isAdmin) {
         setIsReconLoading(false);
         setIsCategoryLoading(false);
         setIsCompanyLoading(false);
+        return;
+    };
+
+    setIsReconLoading(true);
+    setIsCategoryLoading(true);
+    setIsCompanyLoading(true);
+    try {
+      const [closedData, categoriesData, companyData] = await Promise.all([
+        getClosedReconciliations(user.uid),
+        getCategories(user.uid),
+        getCompany(user.uid),
+      ]);
+      setClosedReconciliations(closedData);
+      setCategories(categoriesData);
+      setCompany(companyData);
+      if (companyData) {
+        resetCompanyForm({
+            name: companyData.name || "",
+            exchangeRate: companyData.exchangeRate || 36.5,
+            pettyCashInitial: companyData.pettyCashInitial || 0,
+        });
+        setPreviewUrl(companyData.logoUrl || null);
+      }
+    } catch (error) {
+      console.error("Error fetching admin settings page data:", error);
+      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los datos de configuración." });
+    } finally {
+      setIsReconLoading(false);
+      setIsCategoryLoading(false);
+      setIsCompanyLoading(false);
     }
-  }, [toast, user, isAdmin, companySettingsForm]);
+  }, [toast, user, isAdmin, resetCompanyForm]);
+
 
   useEffect(() => {
-    if (user && isAdmin) {
+    if (user) {
         fetchPageData();
     }
-  }, [user, isAdmin]);
+  }, [user, fetchPageData]);
 
   async function onPasswordSubmit(values: z.infer<typeof passwordFormSchema>) {
     if (!user || !user.email) {
@@ -522,3 +524,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
