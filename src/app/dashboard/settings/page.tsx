@@ -15,8 +15,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2, Unlock, Trash2, PlusCircle } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getClosedReconciliations, getCategories, deleteCategory, getCompany } from "@/lib/firestore-helpers";
-import { updateCompanySettings, addCategory, updateReconciliationStatus } from "@/lib/actions/setup";
+import { getClosedReconciliations, getCategories, getCompany } from "@/lib/firestore-helpers";
+import { updateCompanySettings, addCategory, updateReconciliationStatus, deleteCategory } from "@/lib/actions/setup";
 import { Reconciliation, Category, Company } from "@/lib/types";
 import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -455,5 +455,7 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
 
     
