@@ -22,25 +22,24 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const [isAccessDenied, setIsAccessDenied] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
+    // No tomar decisiones mientras la autenticación está en proceso
     if (authLoading) {
       return;
     }
 
+    // Si la carga ha terminado y no hay usuario, redirigir al login
     if (!user) {
-      router.push("/login");
+      router.replace("/login");
       return;
     }
     
-    setIsAccessDenied(false);
     const isEmployee = user.role === 'employee';
     const isAdminOnlyRoute = ADMIN_ONLY_ROUTES.some(route => pathname.startsWith(route));
 
     if (isEmployee && isAdminOnlyRoute) {
-        setIsAccessDenied(true);
         toast({
             variant: "destructive",
             title: "Acceso Denegado",
@@ -52,7 +51,8 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     
   }, [user, authLoading, router, pathname, toast]);
 
-  if (authLoading || isAccessDenied) {
+  // Mostrar un esqueleto de carga mientras se verifica la autenticación
+  if (authLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <div className="flex items-center space-x-4">
@@ -66,10 +66,10 @@ export default function DashboardLayout({ children }: PropsWithChildren) {
     );
   }
 
+  // Si después de cargar, no hay usuario, no renderizar nada mientras se redirige
   if (!user) {
-     return null; // Don't render anything while redirecting
+     return null;
   }
-
 
   const isAdmin = user.role === 'admin' || user.role === 'primary-admin';
 

@@ -32,10 +32,9 @@ const fetchUserProfile = async (uid: string): Promise<DocumentSnapshot> => {
   const userDocRef = doc(db, "users", uid); // ✅ db ya nunca es null
   let userDocSnap = await getDoc(userDocRef);
 
-  // If user doc doesn't exist, wait 1 second and retry. This handles the latency
-  // between user creation in Auth and document creation in Firestore.
+  // If user doc doesn't exist, wait and retry. This handles latency.
   if (!userDocSnap.exists()) {
-    console.warn(`User profile for ${uid} not found, retrying in 1s...`);
+    console.warn(`User profile for ${uid} not found, retrying in 1.5s...`);
     await new Promise((resolve) => setTimeout(resolve, 1500)); 
     userDocSnap = await getDoc(userDocRef);
   }
@@ -57,8 +56,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setLoading(true);
       if (firebaseUser) {
-        setLoading(true);
         try {
           // 1. Force refresh the token to get custom claims
           await firebaseUser.getIdToken(true);
@@ -67,25 +66,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const userCompanyId = claims.companyId as string | undefined;
 
           if (!userCompanyId) {
-            throw new Error("El token del usuario no contiene un companyId.");
+            throw new Error("El token del usuario no contiene un companyId. No se puede proceder.");
           }
 
-          // 2. Fetch user profile from Firestore
+          // 2. Fetch user profile from Firestore (with retry)
           const userDocSnap = await fetchUserProfile(firebaseUser.uid);
           if (!userDocSnap.exists()) {
-            throw new Error("El perfil del usuario no fue encontrado en la base de datos.");
+            throw new Error("El perfil del usuario no fue encontrado en la base de datos tras el reintento.");
           }
           const userData = userDocSnap.data() as AppUser;
 
           // 3. Fetch associated company data using the companyId from claims
-          let companyData: Company | null = null;
           const companyDocRef = doc(db, "companies", userCompanyId);
           const companyDocSnap = await getDoc(companyDocRef);
-          if (companyDocSnap.exists()) {
-            companyData = companyDocSnap.data() as Company;
-          } else {
-             throw new Error(`La empresa con ID ${userCompanyId} no fue encontrada.`);
+          if (!companyDocSnap.exists()) {
+             throw new Error(`La empresa con ID ${userCompanyId} asignada al usuario no fue encontrada.`);
           }
+          const companyData = companyDocSnap.data() as Company;
 
           // 4. Merge all data and set the user state
           setUser({
@@ -93,17 +90,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ...userData,
             company: companyData,
           });
+
         } catch (error: any) {
           console.error("Error en el contexto de autenticación:", error.message);
-          await signOut(auth); // Sign out user if there's an error fetching crucial data
+          await signOut(auth).catch(e => console.error("Error al cerrar sesión durante el manejo de errores:", e));
           setUser(null);
-        } finally {
-          setLoading(false);
         }
       } else {
         setUser(null);
-        setLoading(false);
       }
+      setLoading(false);
     });
 
     return () => unsubscribe();
@@ -128,7 +124,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = async () => {
     if (!auth) throw new Error(missingFirebaseError);
     await signOut(auth);
-    setUser(null);
   };
 
   const value: AuthContextType = {
