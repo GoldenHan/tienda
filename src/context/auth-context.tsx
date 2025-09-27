@@ -8,7 +8,7 @@ import {
   signOut,
   User as FirebaseUser,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, DocumentSnapshot } from "firebase/firestore";
 import { auth, firestore as db } from "@/lib/firebase/client";
 import type { User as AppUser, Company } from "@/lib/types";
 
@@ -25,6 +25,21 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const missingFirebaseError = "Firebase no está configurado. Por favor, añade tus credenciales de Firebase al archivo .env y reinicia el servidor.";
+
+// Helper function to fetch user profile with a retry mechanism
+const fetchUserProfile = async (uid: string): Promise<DocumentSnapshot> => {
+    const userDocRef = doc(db!, "users", uid);
+    let userDocSnap = await getDoc(userDocRef);
+
+    // If user document doesn't exist, wait and retry once.
+    // This handles the latency between user creation in Auth and profile creation in Firestore.
+    if (!userDocSnap.exists()) {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+        userDocSnap = await getDoc(userDocRef);
+    }
+    return userDocSnap;
+}
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
@@ -46,9 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // 1. Force refresh the token to get the latest custom claims.
           await firebaseUser.getIdToken(true);
           
-          // 2. Fetch the user's profile from the /users collection.
-          const userDocRef = doc(db, "users", firebaseUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
+          // 2. Fetch the user's profile from the /users collection with retry.
+          const userDocSnap = await fetchUserProfile(firebaseUser.uid);
 
           if (!userDocSnap.exists()) {
             throw new Error(`El perfil del usuario no fue encontrado en la base de datos.`);

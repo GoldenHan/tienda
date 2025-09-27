@@ -9,14 +9,12 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { isInitialSetupRequired, createInitialAdminUser } from "@/lib/actions/setup";
 import { useToast } from "@/hooks/use-toast";
-import { getAuth, signInWithEmailAndPassword, signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase/client";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Warehouse } from "@/components/icons";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -34,10 +32,8 @@ export default function RegisterPage() {
   const [setupRequired, setSetupRequired] = useState<boolean | null>(null);
 
   useEffect(() => {
-    // We keep the check to handle UI states, but the backend restriction is removed.
     async function checkSetup() {
       try {
-        // This function is now less critical, but can be used for UI differentiation if needed.
         const required = await isInitialSetupRequired();
         setSetupRequired(required);
       } catch (error) {
@@ -67,6 +63,7 @@ export default function RegisterPage() {
         title: "¡Empresa Registrada!",
         description: "Has creado la cuenta de administrador. Ahora inicia sesión con tus nuevas credenciales.",
       });
+      // Redirect to login after successful registration
       router.push("/login");
     } catch (error: any) {
       console.error("Error en el registro:", error);
@@ -94,7 +91,7 @@ export default function RegisterPage() {
       );
     }
 
-    // Always show the registration form now.
+    // Always show the registration form.
     return (
         <>
           <CardHeader className="text-center">
