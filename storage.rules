@@ -2,29 +2,36 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Las reglas se basan en el path: companies/{companyId}/...
+    
+    // Función para verificar si el usuario pertenece a la empresa.
+    // Compara el companyId del token con el companyId de la ruta, ignorando mayúsculas/minúsculas.
+    function isMemberOfCompany(cId) {
+      return request.auth != null && request.auth.token.companyId != null &&
+             request.auth.token.companyId.toLowerCase() == cId.toLowerCase();
+    }
+    
+    // Función para verificar si el usuario es un administrador de la empresa.
+    function isAdminOfCompany(cId) {
+      return isMemberOfCompany(cId) && 
+             request.auth.token.role in ['admin', 'primary-admin'];
+    }
+
+    // Regla principal para la carpeta de empresas.
     match /companies/{companyId}/{allPaths=**} {
-      
-      // Función para verificar si el usuario pertenece a la empresa.
-      // Se usa el custom claim 'companyId' del token de autenticación.
-      function isMemberOfCompany(cId) {
-        return request.auth != null && request.auth.token.companyId == cId;
-      }
-
-      // Función para verificar si el usuario es administrador de la empresa.
-      // Se usa el custom claim 'role'.
-      function isAdminOfCompany(cId) {
-        return isMemberOfCompany(cId) && request.auth.token.role in ['admin', 'primary-admin'];
-      }
-
-      // PERMISOS
-      // Lectura: Cualquier miembro autenticado de la empresa puede leer archivos.
-      // Útil para que todos los usuarios puedan ver imágenes de productos, logos, etc.
+      // PERMISOS DE LECTURA (read):
+      // Cualquier miembro autenticado de la empresa puede leer archivos.
+      // Esto permite a los empleados ver imágenes de productos, etc.
       allow read: if isMemberOfCompany(companyId);
-
-      // Escritura: Solo los administradores pueden crear, actualizar o eliminar archivos.
-      // Esto protege contra la subida de archivos no deseados por parte de empleados.
+      
+      // PERMISOS DE ESCRITURA (create, update, delete):
+      // Solo los administradores de esa empresa pueden subir, actualizar o eliminar archivos.
+      // Esto protege las imágenes de productos y logos para que solo los admins los gestionen.
       allow write: if isAdminOfCompany(companyId);
+    }
+
+    // Denegar por defecto cualquier otra ruta que no coincida.
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }
