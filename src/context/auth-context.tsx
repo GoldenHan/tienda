@@ -83,7 +83,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (!companyDocSnap.exists()) {
              throw new Error(`La empresa con ID ${userCompanyId} asignada al usuario no fue encontrada.`);
           }
-          const companyData = companyDocSnap.data() as Company;
+          const companyData = { ...companyDocSnap.data(), id: companyDocSnap.id } as Company;
           
           // 5. Serialize firebase user and merge all data to set the user state
           const plainFirebaseUser = {
