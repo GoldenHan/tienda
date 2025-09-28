@@ -3,56 +3,38 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // ---------------------------------------------------------------------
-    // Funciones de Ayuda (Helpers)
-    // ---------------------------------------------------------------------
-    
-    // Verifica si un usuario autenticado pertenece a una empresa específica.
-    // Utiliza los custom claims del token para eficiencia y seguridad.
-    function isMemberOfCompany(companyId) {
-      return request.auth != null && request.auth.token.companyId == companyId;
-    }
-    
-    // Verifica si el usuario es un administrador ('admin' o 'primary-admin') de una empresa.
-    function isAdminOfCompany(companyId) {
-      return isMemberOfCompany(companyId) && request.auth.token.role in ['admin', 'primary-admin'];
-    }
-    
-    // ---------------------------------------------------------------------
-    // Reglas Principales
-    // ---------------------------------------------------------------------
-    
-    // Denegar todo por defecto para garantizar que ninguna ruta quede desprotegida.
+    // Por defecto, denegar todas las lecturas y escrituras
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Colección de Usuarios
-    // Permite a un usuario leer su propio documento de perfil, pero no el de otros.
-    // La creación y actualización se maneja a través de Server Actions.
+    // Permitir a los usuarios autenticados leer su propio perfil de usuario
     match /users/{userId} {
       allow read: if request.auth != null && request.auth.uid == userId;
-      // La escritura (create, update, delete) se deniega en el cliente para forzar el uso de Server Actions seguras.
-      allow write: if false;
+      // La escritura de perfiles solo se permite desde el servidor (server actions)
+    }
+    
+    // Permitir a los miembros de una empresa leer documentos dentro del path de su empresa
+    match /companies/{companyId}/{document=**} {
+      allow read: if isMemberOfCompany(companyId);
     }
 
-    // Colección de Empresas y todas sus subcolecciones
-    match /companies/{companyId} {
-      // Un usuario solo puede leer la información de su propia empresa.
-      allow read: if isMemberOfCompany(companyId);
-      // Solo los administradores pueden actualizar la configuración de la empresa (nombre, logo, etc.).
-      allow update: if isAdminOfCompany(companyId);
+    // Permitir a los administradores escribir en la mayoría de las colecciones de su empresa
+    // Las reglas más específicas para colecciones concretas pueden anular esta
+    match /companies/{companyId}/{collect}/{docId} {
+      allow write: if isAdminOfCompany(companyId);
+    }
+    
+    // FUNCIONES HELPER BASADAS EN CUSTOM CLAIMS (MÁS EFICIENTES)
 
-      // Regla para TODAS las subcolecciones de una empresa (products, sales, etc.)
-      match /{subcollection}/{docId} {
-        // LECTURA: Cualquier miembro de la empresa puede leer los documentos.
-        allow read: if isMemberOfCompany(companyId);
-        
-        // ESCRITURA (Crear, Actualizar, Eliminar):
-        // Solo los administradores pueden modificar los datos de inventario, arqueos, etc.
-        // Las ventas de los empleados se crean a través de Server Actions, que se ejecutan con privilegios de admin.
-        allow write: if isAdminOfCompany(companyId);
-      }
+    // Devuelve true si el usuario está autenticado y su claim 'companyId' coincide
+    function isMemberOfCompany(companyId) {
+      return request.auth != null && request.auth.token.companyId == companyId;
+    }
+    
+    // Devuelve true si el usuario es miembro y su claim 'role' es admin o primary-admin
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
     }
   }
 }
