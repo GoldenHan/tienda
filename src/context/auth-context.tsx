@@ -59,7 +59,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true);
       if (firebaseUser) {
         try {
-          // 1. Force refresh the token to get custom claims
+          // 1. Force refresh the token to get custom claims. This is CRITICAL.
           await firebaseUser.getIdToken(true);
           const idTokenResult = await firebaseUser.getIdTokenResult();
           const claims = idTokenResult.claims;
