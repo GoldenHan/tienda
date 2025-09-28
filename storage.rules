@@ -1,0 +1,35 @@
+
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Helper functions to check user's role and company membership from custom claims.
+    // These are more secure and efficient as they don't require DB lookups.
+    function isMemberOfCompany(companyId) {
+      return request.auth != null && request.auth.token.companyId == companyId;
+    }
+
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && request.auth.token.role in ['admin', 'primary-admin'];
+    }
+
+    // Default deny all access to prevent unauthorized access to any file.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Rules for company-specific files (product images, logos, etc.)
+    // Path structure: /companies/{companyId}/{folder}/{file}
+    match /companies/{companyId}/{allPaths=**} {
+
+      // Any authenticated member of the company can read files.
+      // This allows employees to see product images in the POS, for example.
+      allow read: if isMemberOfCompany(companyId);
+
+      // Only admins of the company can upload, update, or delete files.
+      // This restricts actions like changing product images or the company logo.
+      allow write: if isAdminOfCompany(companyId);
+    }
+  }
+}
