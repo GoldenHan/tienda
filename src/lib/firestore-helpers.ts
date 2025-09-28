@@ -88,7 +88,15 @@ export async function getProducts(userId: string): Promise<Product[]> {
     const q = query(productsCollectionRef, orderBy("name"));
     try {
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Product));
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            const product = {
+                ...data,
+                id: doc.id,
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : undefined,
+            } as Product;
+            return product;
+        });
     } catch (error) {
         console.error("Error al obtener los productos:", error);
         throw error;

@@ -5,6 +5,12 @@ import type { InitialAdminData, User, Category, NewUserData, Product, Sale, Cash
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
+// Cart type for server action
+type PlainCartItem = {
+    id: string;
+    name: string;
+    quantityInCart: number;
+}
 
 // -----------------
 // Helpers Admin
@@ -296,7 +302,7 @@ export async function deleteProduct(productId: string, userId: string): Promise<
 // -----------------
 // Sales Management
 // -----------------
-export async function addSale(newSale: Omit<Sale, 'id'>, cart: (Product & { quantityInCart: number; })[], userId: string): Promise<string> {
+export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], userId: string): Promise<string> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const salesCollection = db.collection(`companies/${companyId}/sales`);

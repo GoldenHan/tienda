@@ -145,9 +145,15 @@ export default function POSPage() {
       employeeName: user.name,
       paymentCurrency: paymentCurrency,
     };
+    
+    const plainCart = cart.map(item => ({
+        id: item.id,
+        name: item.name,
+        quantityInCart: item.quantityInCart,
+    }));
 
     try {
-      const saleId = await addSale(saleData, cart, user.uid);
+      const saleId = await addSale(saleData, plainCart, user.uid);
       
       setCart([]);
       await fetchData(); 
