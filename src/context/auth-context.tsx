@@ -13,7 +13,7 @@ import { auth, db } from "@/lib/firebase/client";
 import type { User as AppUser, Company } from "@/lib/types";
 
 // 🔹 Tipo del usuario en contexto (mezcla Firebase + AppUser + Company)
-export type AuthUser = FirebaseUser & AppUser & { company: Company | null };
+export type AuthUser = AppUser & { company: Company | null; } & Pick<FirebaseUser, 'uid' | 'email' | 'displayName' | 'photoURL'>;
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -65,28 +65,36 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const claims = idTokenResult.claims;
           const userCompanyId = claims.companyId as string | undefined;
 
+          // 2. CRITICAL: If no companyId in claims, user is not properly set up.
           if (!userCompanyId) {
             throw new Error("El token del usuario no contiene un companyId. No se puede proceder.");
           }
 
-          // 2. Fetch user profile from Firestore (with retry)
+          // 3. Fetch user profile from Firestore (with retry)
           const userDocSnap = await fetchUserProfile(firebaseUser.uid);
           if (!userDocSnap.exists()) {
             throw new Error("El perfil del usuario no fue encontrado en la base de datos tras el reintento.");
           }
           const userData = userDocSnap.data() as AppUser;
 
-          // 3. Fetch associated company data using the companyId from claims
+          // 4. Fetch associated company data using the companyId from claims
           const companyDocRef = doc(db, "companies", userCompanyId);
           const companyDocSnap = await getDoc(companyDocRef);
           if (!companyDocSnap.exists()) {
              throw new Error(`La empresa con ID ${userCompanyId} asignada al usuario no fue encontrada.`);
           }
           const companyData = companyDocSnap.data() as Company;
+          
+          // 5. Serialize firebase user and merge all data to set the user state
+          const plainFirebaseUser = {
+              uid: firebaseUser.uid,
+              email: firebaseUser.email,
+              displayName: firebaseUser.displayName,
+              photoURL: firebaseUser.photoURL,
+          };
 
-          // 4. Merge all data and set the user state
           setUser({
-            ...firebaseUser,
+            ...plainFirebaseUser,
             ...userData,
             company: companyData,
           });
