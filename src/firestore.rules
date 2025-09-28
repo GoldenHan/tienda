@@ -1,67 +1,57 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =========================
-    // Helpers
-    // =========================
-    function getUserData() {
-      return (request.auth != null && exists(/databases/$(database)/documents/users/$(request.auth.uid)))
-             ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
-             : { role: null, companyId: null };
-    }
-
-    function isRole(role) {
-      return getUserData().role == role;
-    }
-
-    // Comparación segura de companyId (tipo y mayúsculas)
-    function isCompanyMember(companyId) {
-      return getUserData().companyId != null && 
-             getUserData().companyId.toString().toLowerCase() == companyId.toString().toLowerCase();
-    }
-
-    // =========================
-    // Users
-    // =========================
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // =========================
-    // Empresa única
-    // =========================
-    match /companies/{companyId} {
-
-      // Empresa
-      allow create: if request.auth != null;
-      allow read: if isCompanyMember(companyId);
-      allow update: if isCompanyMember(companyId) && isRole('admin');
-      allow delete: if false;
-
-      // Subcolecciones flexibles (products, categories, etc.)
-      match /{subcollection}/{docId} {
-        // Lectura: admin y employee
-        allow read: if isCompanyMember(companyId);
-
-        // Escritura: solo admin
-        allow create, update, delete: if isCompanyMember(companyId) && isRole('admin');
-      }
-
-      // Ventas: admin y employee pueden crear
-      match /sales/{saleId} {
-        allow read: if isCompanyMember(companyId);
-        allow create: if isCompanyMember(companyId) && (isRole('admin') || isRole('employee'));
-        allow update: if isCompanyMember(companyId) && isRole('admin');
-        allow delete: if false;
-      }
-    }
-
-    // =========================
-    // Bloqueo general
-    // =========================
+    // =======================================
+    // Bloqueo por defecto
+    // =======================================
     match /{document=**} {
       allow read, write: if false;
+    }
+
+    // =======================================
+    // Colección de usuarios individual
+    // =======================================
+    match /users/{userId} {
+      // El usuario puede leer su propio perfil
+      allow read: if request.auth != null && request.auth.uid == userId;
+      // Escritura desde el cliente no permitida, solo server actions
+      allow write: if false;
+    }
+
+    // =======================================
+    // Usuarios de la empresa (para administradores)
+    // =======================================
+    match /companies/{companyId}/users/{userId} {
+      // Lectura: admins de la empresa
+      allow read: if request.auth != null && isAdminOfCompany(companyId);
+
+      // Escritura: admins de la empresa
+      allow create, update, delete: if request.auth != null && isAdminOfCompany(companyId);
+    }
+
+    // =======================================
+    // Colecciones generales de la empresa
+    // =======================================
+    match /companies/{companyId}/{document=**} {
+      allow read: if isMemberOfCompany(companyId);
+    }
+
+    match /companies/{companyId}/{collect}/{docId} {
+      allow write: if isAdminOfCompany(companyId);
+    }
+
+    // =======================================
+    // Funciones helper
+    // =======================================
+    function isMemberOfCompany(companyId) {
+      return request.auth != null && request.auth.token.companyId == companyId;
+    }
+
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) &&
+             (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
     }
   }
 }
