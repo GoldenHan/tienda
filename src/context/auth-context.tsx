@@ -29,7 +29,7 @@ const missingFirebaseError =
 
 // 🔹 Helper para traer perfil con retry (por si el doc aún no existe al crearse el user)
 const fetchUserProfile = async (uid: string): Promise<DocumentSnapshot> => {
-  const userDocRef = doc(db, "users", uid); // ✅ db ya nunca es null
+  const userDocRef = doc(db, "users", uid);
   let userDocSnap = await getDoc(userDocRef);
 
   // If user doc doesn't exist, wait and retry. This handles latency.
