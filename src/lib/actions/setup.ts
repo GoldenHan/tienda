@@ -308,12 +308,14 @@ export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], 
     const salesCollection = db.collection(`companies/${companyId}/sales`);
     
     const saleId = await db.runTransaction(async (transaction) => {
-        const saleRef = salesCollection.doc();
-        transaction.set(saleRef, newSale);
+        // --- 1. READS ---
+        const productRefs = cart.map(item => db.doc(`companies/${companyId}/products/${item.id}`));
+        const productDocs = await transaction.getAll(...productRefs);
+        const productsToUpdate: { ref: FirebaseFirestore.DocumentReference, newStock: number }[] = [];
 
-        for (const cartItem of cart) {
-            const productRef = db.doc(`companies/${companyId}/products/${cartItem.id}`);
-            const productDoc = await transaction.get(productRef);
+        for (let i = 0; i < productDocs.length; i++) {
+            const productDoc = productDocs[i];
+            const cartItem = cart[i];
 
             if (!productDoc.exists) {
                 throw new Error(`Producto ${cartItem.name} no encontrado.`);
@@ -325,8 +327,17 @@ export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], 
             if (newStock < 0) {
                 throw new Error(`Stock insuficiente para ${cartItem.name}.`);
             }
-            transaction.update(productRef, { quantity: newStock });
+            productsToUpdate.push({ ref: productDoc.ref, newStock });
         }
+
+        // --- 2. WRITES ---
+        const saleRef = salesCollection.doc();
+        transaction.set(saleRef, newSale);
+
+        productsToUpdate.forEach(p => {
+            transaction.update(p.ref, { quantity: p.newStock });
+        });
+        
         return saleRef.id;
     });
 
@@ -339,11 +350,7 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
     
     await db.runTransaction(async (transaction) => {
         const saleRef = db.doc(`companies/${companyId}/sales/${updatedSale.id}`);
-        transaction.update(saleRef, {
-            items: updatedSale.items,
-            grandTotal: updatedSale.grandTotal,
-        });
-
+        
         const productQuantityChanges: { [productId: string]: number } = {};
 
         // Calculate deltas
@@ -355,21 +362,38 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
             productQuantityChanges[item.productId] = (productQuantityChanges[item.productId] || 0) - item.quantity;
         });
 
-        for (const productId in productQuantityChanges) {
-            const delta = productQuantityChanges[productId];
-            if (delta !== 0) {
-                const productRef = db.doc(`companies/${companyId}/products/${productId}`);
-                const productDoc = await transaction.get(productRef);
-                const currentStock = productDoc.data()?.quantity || 0;
-                
-                if (currentStock + delta < 0) {
-                    const productName = productDoc.data()?.name || productId;
-                    throw new Error(`No se puede completar la actualización. El stock de "${productName}" sería negativo.`);
-                }
+        // --- READS ---
+        const productRefsToRead = Object.keys(productQuantityChanges)
+            .filter(productId => productQuantityChanges[productId] !== 0)
+            .map(productId => db.doc(`companies/${companyId}/products/${productId}`));
+        
+        const productDocs = productRefsToRead.length > 0 ? await transaction.getAll(...productRefsToRead) : [];
+        
+        const updates: { ref: FirebaseFirestore.DocumentReference, newStock: number }[] = [];
 
-                transaction.update(productRef, { quantity: FieldValue.increment(delta) });
+        for (const productDoc of productDocs) {
+            const productId = productDoc.id;
+            const delta = productQuantityChanges[productId];
+            
+            const currentStock = productDoc.data()?.quantity || 0;
+            const newStock = currentStock + delta;
+
+            if (newStock < 0) {
+                const productName = productDoc.data()?.name || productId;
+                throw new Error(`No se puede completar la actualización. El stock de "${productName}" sería negativo.`);
             }
+            updates.push({ ref: productDoc.ref, newStock });
         }
+        
+        // --- WRITES ---
+        transaction.update(saleRef, {
+            items: updatedSale.items,
+            grandTotal: updatedSale.grandTotal,
+        });
+
+        updates.forEach(update => {
+            transaction.update(update.ref, { quantity: update.newStock });
+        });
     });
 };
 
