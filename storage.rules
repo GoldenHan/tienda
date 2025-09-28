@@ -1,37 +1,27 @@
 rules_version = '2';
-
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    // Función para verificar si el usuario pertenece a la empresa.
-    // Compara el companyId del token con el companyId de la ruta, ignorando mayúsculas/minúsculas.
-    function isMemberOfCompany(cId) {
-      return request.auth != null && request.auth.token.companyId != null &&
-             request.auth.token.companyId.toLowerCase() == cId.toLowerCase();
-    }
-    
-    // Función para verificar si el usuario es un administrador de la empresa.
-    function isAdminOfCompany(cId) {
-      return isMemberOfCompany(cId) && 
-             request.auth.token.role in ['admin', 'primary-admin'];
+
+    function isMemberOfCompany(companyId) {
+      return request.auth != null && 
+             request.auth.token.companyId.toLowerCase() == companyId.toLowerCase();
     }
 
-    // Regla principal para la carpeta de empresas.
-    match /companies/{companyId}/{allPaths=**} {
-      // PERMISOS DE LECTURA (read):
-      // Cualquier miembro autenticado de la empresa puede leer archivos.
-      // Esto permite a los empleados ver imágenes de productos, etc.
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && 
+             (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
+    }
+
+    // Path para los logos de la empresa
+    match /companies/{companyId}/logos/{allPaths=**} {
       allow read: if isMemberOfCompany(companyId);
-      
-      // PERMISOS DE ESCRITURA (create, update, delete):
-      // Solo los administradores de esa empresa pueden subir, actualizar o eliminar archivos.
-      // Esto protege las imágenes de productos y logos para que solo los admins los gestionen.
       allow write: if isAdminOfCompany(companyId);
     }
-
-    // Denegar por defecto cualquier otra ruta que no coincida.
-    match /{allPaths=**} {
-      allow read, write: if false;
+    
+    // Path para las imágenes de productos
+    match /companies/{companyId}/products/{allPaths=**} {
+      allow read: if isMemberOfCompany(companyId);
+      allow write: if isAdminOfCompany(companyId);
     }
   }
 }
