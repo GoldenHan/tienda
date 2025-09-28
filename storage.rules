@@ -1,34 +1,29 @@
-
 rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // Helper functions to check user's role and company membership from custom claims.
-    // These are more secure and efficient as they don't require DB lookups.
-    function isMemberOfCompany(companyId) {
-      return request.auth != null && request.auth.token.companyId == companyId;
-    }
-
-    function isAdminOfCompany(companyId) {
-      return isMemberOfCompany(companyId) && request.auth.token.role in ['admin', 'primary-admin'];
-    }
-
-    // Default deny all access to prevent unauthorized access to any file.
-    match /{allPaths=**} {
-      allow read, write: if false;
-    }
-
-    // Rules for company-specific files (product images, logos, etc.)
-    // Path structure: /companies/{companyId}/{folder}/{file}
+    // Las reglas se basan en el path: companies/{companyId}/...
     match /companies/{companyId}/{allPaths=**} {
+      
+      // Función para verificar si el usuario pertenece a la empresa.
+      // Se usa el custom claim 'companyId' del token de autenticación.
+      function isMemberOfCompany(cId) {
+        return request.auth != null && request.auth.token.companyId == cId;
+      }
 
-      // Any authenticated member of the company can read files.
-      // This allows employees to see product images in the POS, for example.
+      // Función para verificar si el usuario es administrador de la empresa.
+      // Se usa el custom claim 'role'.
+      function isAdminOfCompany(cId) {
+        return isMemberOfCompany(cId) && request.auth.token.role in ['admin', 'primary-admin'];
+      }
+
+      // PERMISOS
+      // Lectura: Cualquier miembro autenticado de la empresa puede leer archivos.
+      // Útil para que todos los usuarios puedan ver imágenes de productos, logos, etc.
       allow read: if isMemberOfCompany(companyId);
 
-      // Only admins of the company can upload, update, or delete files.
-      // This restricts actions like changing product images or the company logo.
+      // Escritura: Solo los administradores pueden crear, actualizar o eliminar archivos.
+      // Esto protege contra la subida de archivos no deseados por parte de empleados.
       allow write: if isAdminOfCompany(companyId);
     }
   }
