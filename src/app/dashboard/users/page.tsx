@@ -15,7 +15,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { NewUserData } from '@/lib/types';
-import { Shield, ShieldCheck, ShieldPlus, UserPlus, Loader2, Trash2 } from 'lucide-react';
+import { Shield, ShieldCheck, ShieldPlus, UserPlus, Loader2, Trash2, Lock } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
@@ -32,9 +32,14 @@ export default function UsersPage() {
     setLoading(true);
     try {
       const usersData = await getUsers(user.uid);
+      // Sort so primary-admin and admins appear first
+      usersData.sort((a, b) => {
+        const roleOrder = { 'primary-admin': 0, 'admin': 1, 'employee': 2 };
+        return roleOrder[a.role] - roleOrder[b.role];
+      });
       setUsers(usersData);
     } catch (error) {
-      console.error("Users fetch error:", error);
+      console.error("Error al obtener los usuarios:", error);
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los usuarios.' });
     } finally {
       setLoading(false);
@@ -150,8 +155,6 @@ export default function UsersPage() {
     );
   }
 
-  const otherUsers = users.filter(u => u.uid !== user?.uid);
-
   return (
     <TooltipProvider>
     <div className="flex flex-col">
@@ -181,14 +184,14 @@ export default function UsersPage() {
         </Dialog>
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
-        {otherUsers.length === 0 ? (
+        {users.length === 0 ? (
             <div className="flex flex-col items-center justify-center text-center p-8 border rounded-lg h-64">
-                <h3 className="text-xl font-semibold">No hay otros usuarios registrados</h3>
+                <h3 className="text-xl font-semibold">No hay usuarios registrados</h3>
                 <p className="text-muted-foreground mt-2">Añade tu primer empleado para empezar a construir tu equipo.</p>
             </div>
         ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {otherUsers.map(u => (
+                {users.map(u => (
                     <Card key={u.uid} className="flex flex-col">
                         <CardHeader>
                             <div className="flex justify-between items-start">
@@ -250,10 +253,19 @@ export default function UsersPage() {
                                     </AlertDialog>
                                 </>
                             )}
-                             {u.role === 'admin' && (
+                             {(u.role === 'admin' || u.role === 'primary-admin') && (
                                 <div className="flex items-center gap-2 text-sm text-purple-600 font-medium h-9">
-                                    <Shield className="h-4 w-4" />
-                                    <span>Permisos de Administrador</span>
+                                  { u.uid === user?.uid ? (
+                                    <>
+                                        <ShieldCheck className="h-4 w-4" />
+                                        <span>(Eres tú)</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                        <Lock className="h-4 w-4" />
+                                        <span>No se puede modificar</span>
+                                    </>
+                                  )}
                                 </div>
                             )}
                         </CardFooter>
@@ -266,3 +278,5 @@ export default function UsersPage() {
     </TooltipProvider>
   );
 }
+
+    

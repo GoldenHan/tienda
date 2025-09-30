@@ -3,55 +3,73 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // =======================================
-    // Bloqueo por defecto
-    // =======================================
-    match /{document=**} {
-      allow read, write: if false;
+    // Funciones de ayuda reutilizables
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.companyId != null;
     }
-
-    // =======================================
-    // Colección de usuarios individual
-    // =======================================
-    match /users/{userId} {
-      // El usuario puede leer su propio perfil
-      allow read: if request.auth != null && request.auth.uid == userId;
-      // Escritura desde el cliente no permitida, solo server actions
-      allow write: if false;
-    }
-
-    // =======================================
-    // Usuarios de la empresa (para administradores)
-    // =======================================
-    match /companies/{companyId}/users/{userId} {
-      // Lectura: admins de la empresa
-      allow read: if request.auth != null && isAdminOfCompany(companyId);
-
-      // Escritura: admins de la empresa
-      allow create, update, delete: if request.auth != null && isAdminOfCompany(companyId);
-    }
-
-    // =======================================
-    // Colecciones generales de la empresa
-    // =======================================
-    match /companies/{companyId}/{document=**} {
-      allow read: if isMemberOfCompany(companyId);
-    }
-
-    match /companies/{companyId}/{collect}/{docId} {
-      allow write: if isAdminOfCompany(companyId);
-    }
-
-    // =======================================
-    // Funciones helper
-    // =======================================
+    
     function isMemberOfCompany(companyId) {
-      return request.auth != null && request.auth.token.companyId == companyId;
+      return isSignedIn() && request.auth.token.companyId == companyId;
+    }
+    
+    function isAdmin() {
+      return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
+    }
+    
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && isAdmin();
     }
 
-    function isAdminOfCompany(companyId) {
-      return isMemberOfCompany(companyId) &&
-             (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
+    // --- COLECCIÓN DE USUARIOS ---
+    match /users/{userId} {
+      // Un usuario puede leer y escribir su propio documento
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Admin puede listar y leer usuarios de su propia empresa
+      allow list, get: if isAdmin() &&
+                       resource.data.companyId != null &&
+                       resource.data.companyId == request.auth.token.companyId;
+    }
+
+    // --- COLECCIÓN DE EMPRESAS ---
+    match /companies/{companyId} {
+      allow read: if isMemberOfCompany(companyId);
+      allow write: if isMemberOfCompany(companyId) && request.auth.token.role == 'primary-admin';
+
+      // Subcolecciones
+      match /products/{productId} {
+        allow read: if isMemberOfCompany(companyId);
+        allow create, update, delete: if isAdminOfCompany(companyId);
+      }
+      
+      match /sales/{saleId} {
+        allow read: if isMemberOfCompany(companyId);
+        allow create, update, delete: if isAdminOfCompany(companyId);
+      }
+
+      match /categories/{categoryId} {
+        allow read: if isMemberOfCompany(companyId);
+        allow create, update, delete: if isAdminOfCompany(companyId);
+      }
+
+      match /cash_outflows/{outflowId} {
+        allow read, create: if isMemberOfCompany(companyId);
+        allow update, delete: if isAdminOfCompany(companyId);
+      }
+
+      match /inflows/{inflowId} {
+        allow read, create: if isMemberOfCompany(companyId);
+        allow update, delete: if isAdminOfCompany(companyId);
+      }
+      
+      match /cash_transfers/{transferId} {
+        allow read, create: if isMemberOfCompany(companyId);
+        allow update, delete: if isAdminOfCompany(companyId);
+      }
+
+      match /reconciliations/{dateId} {
+        allow read, write: if isAdminOfCompany(companyId);
+      }
     }
   }
 }
