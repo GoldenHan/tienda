@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import * as React from "react"
@@ -30,22 +31,23 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { ProductForm } from "./product-form"
 import { ProductImporter } from "./product-importer";
 
-interface ProductsTableProps extends Omit<ProductColumnActions, 'categories'> {
+interface ProductsTableProps extends Omit<ProductColumnActions, 'categories' | 'onAdjustLoss'> {
   data: Product[];
   categories: Category[];
   onAddProduct: (product: Omit<Product, 'id'>) => void;
   onImportComplete: () => void;
+  onAdjustLoss: () => void;
 }
 
-export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct, onDeleteProduct, onImportComplete }: ProductsTableProps) {
+export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct, onDeleteProduct, onImportComplete, onAdjustLoss }: ProductsTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
   const [isAddDialogOpen, setIsAddDialogOpen] = React.useState(false)
   const [isImportDialogOpen, setIsImportDialogOpen] = React.useState(false)
 
   const columns = React.useMemo(
-    () => getColumns({ onUpdateProduct, onDeleteProduct, categories }),
-    [onUpdateProduct, onDeleteProduct, categories]
+    () => getColumns({ onUpdateProduct, onDeleteProduct, onAdjustLoss, categories }),
+    [onUpdateProduct, onDeleteProduct, onAdjustLoss, categories]
   );
   
   const table = useReactTable({

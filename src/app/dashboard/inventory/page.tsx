@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -109,6 +110,7 @@ export default function InventoryPage() {
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
             onImportComplete={fetchData}
+            onAdjustLoss={fetchData}
           />
         )}
       </main>

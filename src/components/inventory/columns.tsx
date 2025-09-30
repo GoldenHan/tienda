@@ -1,4 +1,5 @@
 
+
 "use client"
 
 import { ColumnDef } from "@tanstack/react-table"
@@ -14,10 +15,11 @@ import { DataTableRowActions } from "./data-table-row-actions"
 export type ProductColumnActions = {
   onUpdateProduct: (product: Product) => void
   onDeleteProduct: (productId: string) => void
+  onAdjustLoss: () => void;
   categories: Category[]
 }
 
-export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: ProductColumnActions): ColumnDef<Product>[] => {
+export const getColumns = ({ onUpdateProduct, onDeleteProduct, onAdjustLoss, categories }: ProductColumnActions): ColumnDef<Product>[] => {
   const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
 
   const unitLabels: Record<Product['stockingUnit'], string> = {
@@ -25,7 +27,8 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
     lb: 'lb',
     oz: 'oz',
     L: 'L',
-    kg: 'kg'
+    kg: 'kg',
+    qq: 'qq'
   };
 
   return [
@@ -141,7 +144,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
     {
       id: "actions",
       cell: ({ row }) => {
-        return <DataTableRowActions row={row} onUpdateProduct={onUpdateProduct} onDeleteProduct={onDeleteProduct} categories={categories} />
+        return <DataTableRowActions row={row} onUpdateProduct={onUpdateProduct} onDeleteProduct={onDeleteProduct} onAdjustLoss={onAdjustLoss} categories={categories} />
       },
     },
   ]

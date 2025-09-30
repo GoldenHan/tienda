@@ -72,7 +72,7 @@ export type CashOutflow = {
   reason: string;
   currency: Currency;
   cashBox: CashBox;
-  type: 'manual' | 'restock' | 'adjustment' | 'withdrawal';
+  type: 'manual' | 'restock' | 'adjustment' | 'withdrawal' | 'loss';
 };
 
 export type CashTransfer = {

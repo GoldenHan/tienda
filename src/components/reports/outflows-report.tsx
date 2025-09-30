@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from "react";
@@ -62,6 +63,25 @@ export function OutflowsReport({ allOutflows }: OutflowsReportProps) {
     setSelectedOutflow(outflow);
     setIsReceiptOpen(true);
   }
+  
+  const getBadgeVariant = (type: CashOutflow['type']): "default" | "secondary" | "destructive" => {
+    switch(type) {
+        case 'restock': return 'default';
+        case 'withdrawal': return 'secondary';
+        case 'loss': return 'destructive';
+        default: return 'secondary';
+    }
+  }
+  const getTypeText = (type: CashOutflow['type']): string => {
+    switch(type) {
+        case 'restock': return 'Abastecimiento';
+        case 'withdrawal': return 'Retiro';
+        case 'loss': return 'Pérdida/Merma';
+        case 'adjustment': return 'Ajuste Venta';
+        default: return 'Manual';
+    }
+  }
+
 
   return (
     <>
@@ -84,8 +104,8 @@ export function OutflowsReport({ allOutflows }: OutflowsReportProps) {
                   <TableCell>{formatDateFns(parseISO(outflow.date), "Pp", { locale: es })}</TableCell>
                   <TableCell className="font-medium">{outflow.reason}</TableCell>
                   <TableCell>
-                    <Badge variant={outflow.type === 'restock' ? "default" : "secondary"}>
-                      {outflow.type === 'restock' ? 'Abastecimiento' : 'Manual'}
+                    <Badge variant={getBadgeVariant(outflow.type)}>
+                      {getTypeText(outflow.type)}
                     </Badge>
                   </TableCell>
                   <TableCell>

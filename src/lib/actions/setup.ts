@@ -1,5 +1,6 @@
 
 
+
 'use server';
 
 import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company, UserRole, OrderItem, OrderDraft } from "@/lib/types";
@@ -554,6 +555,47 @@ export async function markSaleForReview(saleId: string, notes: string, userId: s
     const saleRef = db.doc(`companies/${companyId}/sales/${saleId}`);
     await saleRef.update({ needsReview: true, reviewNotes: notes });
 }
+
+// -----------------
+// Inventory Loss Management
+// -----------------
+
+export async function adjustStockForLoss(productId: string, lostQuantity: number, reason: string, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+
+    await db.runTransaction(async (transaction) => {
+        const productRef = db.doc(`companies/${companyId}/products/${productId}`);
+        const productDoc = await transaction.get(productRef);
+
+        if (!productDoc.exists) {
+            throw new Error("El producto que intentas ajustar no existe.");
+        }
+
+        const productData = productDoc.data() as Product;
+        const currentStock = productData.quantity;
+        const newStock = currentStock - lostQuantity;
+
+        if (newStock < 0) {
+            throw new Error(`La cantidad a dar de baja (${lostQuantity}) es mayor que el stock actual (${currentStock}).`);
+        }
+
+        const lossValue = productData.purchaseCost * lostQuantity;
+
+        const outflowRef = db.collection(`companies/${companyId}/cash_outflows`).doc();
+        transaction.set(outflowRef, {
+            date: new Date().toISOString(),
+            amount: lossValue,
+            currency: 'NIO', // Losses are always calculated in base currency
+            cashBox: 'general', // This is a virtual outflow from 'general' box
+            reason: `Pérdida de ${lostQuantity} ${productData.stockingUnit} de "${productData.name}": ${reason}`,
+            type: 'loss' as const,
+        });
+
+        transaction.update(productRef, { quantity: newStock });
+    });
+}
+
 
 // -----------------
 // Cash Flow & Reconciliation
