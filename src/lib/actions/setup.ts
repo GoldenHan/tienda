@@ -5,9 +5,9 @@
 import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company, UserRole, OrderItem, OrderDraft } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
-import { getFunctions, httpsCallable, HttpsCallable } from "firebase-functions/v2/client";
+import { getFunctions, httpsCallable, HttpsCallable } from "firebase/functions";
 import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
-import { auth as clientAuth } from "../firebase/client";
+import { auth as clientAuth, app as clientApp } from "../firebase/client";
 
 // Cart type for server action
 type PlainCartItem = {
@@ -639,10 +639,10 @@ export async function initiateCompanyWipe(password: string, securityCode: string
     const auth = getAdminAuthOrThrow();
     const { email } = await auth.getUser(userId);
      if (!clientAuth.currentUser) {
-       await clientAuth.signInWithEmailAndPassword(email, password).catch(() => { throw new Error("No se pudo reautenticar.") });
+       await clientAuth.signInWithEmailAndPassword(email!, password).catch(() => { throw new Error("No se pudo reautenticar.") });
     }
     const userCredential = EmailAuthProvider.credential(email!, password);
-    await reauthenticateWithCredential(clientAuth.currentUser, userCredential);
+    await reauthenticateWithCredential(clientAuth.currentUser!, userCredential);
 
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
@@ -653,7 +653,8 @@ export async function initiateCompanyWipe(password: string, securityCode: string
         throw new Error("El código de seguridad es incorrecto.");
     }
     
-    const wipeCompanyData: HttpsCallable = httpsCallable(getFunctions(), 'wipeCompanyData');
+    const functions = getFunctions(clientApp);
+    const wipeCompanyData: HttpsCallable = httpsCallable(functions, 'wipeCompanyData');
 
     try {
         const result = await wipeCompanyData();
