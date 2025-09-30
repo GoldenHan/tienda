@@ -86,10 +86,11 @@ export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct,
                 <DialogHeader>
                     <DialogTitle>Importar Productos desde Excel</DialogTitle>
                     <DialogDescription>
-                        Sube un archivo .xlsx con tus productos. Asegúrate de que las columnas coincidan con la plantilla.
+                        Sube un archivo .xlsx con tus productos. El sistema omitirá los productos cuyo nombre ya exista.
                     </DialogDescription>
                 </DialogHeader>
-                <ProductImporter 
+                <ProductImporter
+                    allProducts={data} 
                     categories={categories} 
                     onImport={() => {
                         setIsImportDialogOpen(false);
@@ -184,3 +185,5 @@ export function ProductsTable({ data, categories, onAddProduct, onUpdateProduct,
     </div>
   )
 }
+
+    

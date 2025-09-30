@@ -13,6 +13,7 @@ import { Category, Product } from "@/lib/types";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 interface ProductImporterProps {
+    allProducts: Product[];
     categories: Category[];
     onImport: () => void;
 }
@@ -22,7 +23,7 @@ const OPTIONAL_COLUMNS = ["Descripcion", "Umbral Stock Bajo", "Nombre Categoria"
 
 const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'kg', 'L', 'qq'];
 
-export function ProductImporter({ categories, onImport }: ProductImporterProps) {
+export function ProductImporter({ allProducts, categories, onImport }: ProductImporterProps) {
     const { user } = useAuth();
     const { toast } = useToast();
     const [isImporting, setIsImporting] = useState(false);
@@ -46,7 +47,6 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
             const worksheet = workbook.Sheets[sheetName];
             const json = XLSX.utils.sheet_to_json<any>(worksheet);
 
-            // Validate columns
             const headers = Object.keys(json[0] || {});
             const missingColumns = REQUIRED_COLUMNS.filter(col => !headers.includes(col));
             if (missingColumns.length > 0) {
@@ -54,10 +54,20 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
             }
 
             const existingCategoryMap = new Map(categories.map(c => [c.name.toLowerCase(), c.id]));
-
+            const existingProductNames = new Set(allProducts.map(p => p.name.toLowerCase()));
+            
             const productsToCreate: Omit<Product, "id">[] = [];
+            let skippedCount = 0;
 
             for (const row of json) {
+                const productName = row["Nombre"]?.toString().trim();
+                if (!productName) continue;
+
+                if (existingProductNames.has(productName.toLowerCase())) {
+                    skippedCount++;
+                    continue;
+                }
+
                 const categoryName = row["Nombre Categoria"]?.toString().trim();
                 let categoryId = "";
 
@@ -66,13 +76,11 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     if (existingCategoryMap.has(lowerCategoryName)) {
                         categoryId = existingCategoryMap.get(lowerCategoryName)!;
                     } else {
-                        // Create category on the fly
                         const newId = await addCategory(categoryName, user.uid);
                         existingCategoryMap.set(lowerCategoryName, newId);
                         categoryId = newId;
                     }
                 } else {
-                     // Assign to 'Sin Categoría' if not specified
                      const sinCategoria = "Sin Categoría";
                      if (existingCategoryMap.has(sinCategoria.toLowerCase())) {
                         categoryId = existingCategoryMap.get(sinCategoria.toLowerCase())!;
@@ -92,8 +100,8 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                      console.warn(`Unidad de medida no válida "${unitInput}" para el producto "${row["Nombre"]}". Se usará "unidad" por defecto.`);
                 }
 
-                productsToCreate.push({
-                    name: row["Nombre"],
+                const newProduct: Omit<Product, "id"> = {
+                    name: productName,
                     description: row["Descripcion"] || "",
                     quantity: Number(row["Cantidad"]) || 0,
                     salePrice: Number(row["Precio de Venta"]) || 0,
@@ -103,23 +111,22 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     imageUrl: randomPlaceholder.imageUrl,
                     imageHint: randomPlaceholder.imageHint,
                     stockingUnit: stockingUnit,
-                });
+                };
+
+                productsToCreate.push(newProduct);
+                existingProductNames.add(productName.toLowerCase());
             }
 
             if (productsToCreate.length > 0) {
-                const { successCount, errorCount } = await addMultipleProducts(productsToCreate, user.uid);
-                toast({
-                    title: "Importación Completada",
-                    description: `${successCount} productos importados exitosamente. ${errorCount > 0 ? `${errorCount} filas tuvieron errores.` : ''}`,
-                });
-                onImport();
-            } else {
-                toast({
-                    variant: "destructive",
-                    title: "Archivo Vacío",
-                    description: "No se encontraron productos para importar en el archivo.",
-                });
+                await addMultipleProducts(productsToCreate, user.uid);
             }
+            
+            toast({
+                title: "Importación Completada",
+                description: `${productsToCreate.length} productos nuevos añadidos. ${skippedCount > 0 ? `${skippedCount} productos omitidos por ya existir.` : ''}`,
+            });
+            onImport();
+
         } catch (error: any) {
             console.error("Error al importar productos:", error);
             toast({
@@ -213,3 +220,5 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
         </div>
     );
 }
+
+    
