@@ -24,7 +24,7 @@ import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription as DialogDescriptionComponent, DialogHeader as DialogHeaderComponent, DialogTitle as DialogTitleComponent } from "@/components/ui/dialog";
 
 const passwordFormSchema = z.object({
   currentPassword: z.string().min(1, { message: "La contraseña actual es requerida." }),
@@ -664,9 +664,14 @@ export default function SettingsPage() {
                                     </AlertDialogContent>
                                 </AlertDialog>
                                 <DialogContent>
+                                    <DialogHeaderComponent>
+                                        <DialogTitleComponent>Verificación Final</DialogTitleComponent>
+                                        <DialogDescriptionComponent>
+                                             Para confirmar, introduce tu contraseña, tu código de seguridad y escribe la frase <strong className="text-destructive">eliminar todos los datos</strong> en el campo de abajo.
+                                        </DialogDescriptionComponent>
+                                    </DialogHeaderComponent>
                                      <Form {...wipeDataForm}>
-                                        <form onSubmit={wipeDataForm.handleSubmit(onWipeDataSubmit)} className="space-y-4">
-                                            <p className="text-sm">Para confirmar, introduce tu contraseña, tu código de seguridad y escribe la frase <strong className="text-destructive">eliminar todos los datos</strong> en el campo de abajo.</p>
+                                        <form onSubmit={wipeDataForm.handleSubmit(onWipeDataSubmit)} className="space-y-4 pt-4">
                                             <FormField control={wipeDataForm.control} name="password" render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Contraseña</FormLabel>
@@ -705,3 +710,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
