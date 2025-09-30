@@ -398,7 +398,7 @@ export default function SettingsPage() {
                                   <div className="flex items-center gap-4">
                                       <div className="relative w-24 h-24 rounded-full border flex items-center justify-center bg-muted">
                                         {previewUrl ? (
-                                            <Image src={previewUrl} alt="Logo" fill className="object-cover rounded-full" />
+                                            <Image src={previewUrl} alt="Logo" width={96} height={96} className="object-cover rounded-full" />
                                         ) : (
                                             <UploadCloud className="w-8 h-8 text-muted-foreground" />
                                         )}
@@ -710,5 +710,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
