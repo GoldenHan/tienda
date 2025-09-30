@@ -8,7 +8,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
-import type { NewUserData } from "@/lib/types";
+import type { NewUserData, UserRole } from "@/lib/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const formSchema = z.object({
@@ -24,9 +24,10 @@ interface UserFormProps {
   onSubmit: (data: NewUserData) => Promise<void>;
   onClose: () => void;
   isSubmitting?: boolean;
+  currentUserRole?: UserRole;
 }
 
-export function UserForm({ onSubmit, onClose, isSubmitting }: UserFormProps) {
+export function UserForm({ onSubmit, onClose, isSubmitting, currentUserRole }: UserFormProps) {
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -130,5 +131,3 @@ export function UserForm({ onSubmit, onClose, isSubmitting }: UserFormProps) {
     </Form>
   );
 }
-
-    

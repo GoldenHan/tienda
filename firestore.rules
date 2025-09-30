@@ -1,88 +1,51 @@
+
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Funciones de ayuda reutilizables
-    // Verifica si el usuario está autenticado y tiene un companyId en su token
-    function isSignedIn() {
-      return request.auth != null && request.auth.token.companyId != null;
-    }
-    
-    // Verifica si el usuario es miembro de una empresa específica
+    // Helpers
     function isMemberOfCompany(companyId) {
-      return isSignedIn() && request.auth.token.companyId == companyId;
-    }
-    
-    // Verifica si el usuario es administrador (admin o primary-admin)
-    function isAdmin() {
-      return isSignedIn() && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
-    }
-    
-    // Verifica si el usuario es administrador de una empresa específica
-    function isAdminOfCompany(companyId) {
-      return isMemberOfCompany(companyId) && isAdmin();
+      return request.auth != null && request.auth.token.companyId == companyId;
     }
 
-    // --- REGLAS PARA COLECCIÓN DE USUARIOS ---
+    function isAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && (request.auth.token.role == 'admin' || request.auth.token.role == 'primary-admin');
+    }
+    
+    function isPrimaryAdminOfCompany(companyId) {
+      return isMemberOfCompany(companyId) && request.auth.token.role == 'primary-admin';
+    }
+
+    // Reglas para la colección 'companies'
+    match /companies/{companyId} {
+      allow read: if isMemberOfCompany(companyId);
+      allow update: if isPrimaryAdminOfCompany(companyId);
+      allow create: if false; // Nadie puede crear empresas directamente, se hace desde el backend
+      allow delete: if false; // Nadie puede borrar empresas
+    }
+
+    // Reglas para subcolecciones de una empresa
+    match /companies/{companyId}/{document=**} {
+      allow read: if isMemberOfCompany(companyId);
+      allow write: if isAdminOfCompany(companyId);
+    }
+    
+    // Reglas para la colección 'users'
     match /users/{userId} {
-      // Un usuario puede leer y escribir su propio documento.
+      // Un usuario siempre puede leer y escribir su propio documento.
       allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Un administrador puede leer (get) y listar (list) los usuarios de su propia empresa.
-      // La condición "list" permite las queries con "where('companyId', '==', ...)"
-      allow get, list: if isSignedIn() && isAdmin() &&
-                       request.query.resource.data.companyId == request.auth.token.companyId;
-    }
-    
-    // --- REGLAS PARA LA COLECCIÓN DE EMPRESAS Y SUS SUBCOLECCIONES ---
-    match /companies/{companyId} {
-      // Solo miembros de la empresa pueden leer el documento de la empresa.
-      allow read: if isMemberOfCompany(companyId);
-      // Solo el administrador principal puede escribir/actualizar el documento de la empresa.
-      allow write: if isMemberOfCompany(companyId) && request.auth.token.role == 'primary-admin';
+      // Un administrador puede leer la lista de usuarios de su empresa.
+      allow list: if isAdminOfCompany(request.auth.token.companyId) && 
+                      request.query.where[0][0] == 'companyId' && 
+                      request.query.where[0][2] == request.auth.token.companyId;
 
-      // --- REGLAS PARA SUBCOLECCIONES ---
-      // Productos: Solo los administradores pueden crear, actualizar o eliminar. Todos los miembros pueden leer.
-      match /products/{productId} {
-        allow read: if isMemberOfCompany(companyId);
-        allow create, update, delete: if isAdminOfCompany(companyId);
-      }
-      
-      // Ventas: Solo los administradores pueden manipular el historial.
-      match /sales/{saleId} {
-        allow read: if isMemberOfCompany(companyId);
-        allow create, update, delete: if isAdminOfCompany(companyId);
-      }
+      // Un administrador puede leer los datos de otro usuario de su empresa.
+      allow get: if isAdminOfCompany(request.auth.token.companyId);
 
-      // Categorías: Solo los administradores pueden gestionarlas.
-       match /categories/{categoryId} {
-        allow read: if isMemberOfCompany(companyId);
-        allow create, update, delete: if isAdminOfCompany(companyId);
-      }
-
-      // Egresos (Outflows): Solo miembros pueden crear y leer.
-      match /cash_outflows/{outflowId} {
-          allow read, create: if isMemberOfCompany(companyId);
-          allow update, delete: if isAdminOfCompany(companyId);
-      }
-
-      // Ingresos (Inflows): Solo miembros pueden crear y leer.
-      match /inflows/{inflowId} {
-          allow read, create: if isMemberOfCompany(companyId);
-          allow update, delete: if isAdminOfCompany(companyId);
-      }
-      
-      // Transferencias: Solo miembros pueden crear y leer.
-      match /cash_transfers/{transferId} {
-        allow read, create: if isMemberOfCompany(companyId);
-        allow update, delete: if isAdminOfCompany(companyId);
-      }
-
-      // Arqueos (Reconciliations): Solo administradores pueden gestionar.
-      match /reconciliations/{dateId} {
-        allow read, write: if isAdminOfCompany(companyId);
-      }
+      // Los administradores pueden actualizar el rol de otros usuarios.
+      allow update: if isAdminOfCompany(request.auth.token.companyId) && 'role' in request.resource.data;
     }
   }
 }

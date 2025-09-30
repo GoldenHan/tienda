@@ -2,9 +2,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
-import { User } from '@/lib/types';
+import { User, UserRole } from '@/lib/types';
 import { getUsers } from '@/lib/firestore-helpers';
-import { addUser, promoteToAdmin, deleteUser } from '@/lib/actions/setup';
+import { updateUserRole, deleteUser, transferPrimaryAdmin } from '@/lib/actions/setup';
 import { useAuth } from '@/context/auth-context';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -15,12 +15,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import type { NewUserData } from '@/lib/types';
-import { Shield, ShieldCheck, ShieldPlus, UserPlus, Loader2, Trash2, Lock } from 'lucide-react';
+import { Shield, ShieldCheck, UserPlus, Loader2, Trash2, MoreVertical, Crown, UserCog } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { addUser } from "@/lib/actions/setup";
+
 
 export default function UsersPage() {
-  const { user } = useAuth();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -28,11 +30,10 @@ export default function UsersPage() {
   const { toast } = useToast();
 
   const fetchUsers = useCallback(async () => {
-    if (!user) return;
+    if (!currentUser) return;
     setLoading(true);
     try {
-      const usersData = await getUsers(user.uid);
-      // Sort so primary-admin and admins appear first
+      const usersData = await getUsers(currentUser.uid);
       usersData.sort((a, b) => {
         const roleOrder = { 'primary-admin': 0, 'admin': 1, 'employee': 2 };
         return roleOrder[a.role] - roleOrder[b.role];
@@ -44,21 +45,21 @@ export default function UsersPage() {
     } finally {
       setLoading(false);
     }
-  }, [toast, user]);
+  }, [toast, currentUser]);
 
   useEffect(() => {
-    if (user) {
+    if (currentUser) {
       fetchUsers();
     } else {
       setLoading(false);
     }
-  }, [user, fetchUsers]);
+  }, [currentUser, fetchUsers]);
 
   const handleAddUser = async (data: NewUserData) => {
-    if (!user) return;
+    if (!currentUser) return;
     setIsProcessing('add');
     try {
-      await addUser(data, user.uid);
+      await addUser(data, currentUser.uid);
       await fetchUsers(); 
       setIsAddDialogOpen(false);
       toast({ title: 'Éxito', description: 'Usuario añadido correctamente.' });
@@ -70,26 +71,42 @@ export default function UsersPage() {
     }
   };
 
-  const handlePromoteUser = async (userIdToPromote: string) => {
-      if (!user) return;
-      setIsProcessing(userIdToPromote);
+  const handleUpdateRole = async (userId: string, newRole: UserRole) => {
+      if (!currentUser) return;
+      setIsProcessing(userId);
       try {
-          await promoteToAdmin(userIdToPromote, user.uid);
+          await updateUserRole(userId, newRole, currentUser.uid);
           await fetchUsers();
-          toast({ title: 'Usuario Promovido', description: 'El usuario ahora tiene permisos de administrador.' });
+          toast({ title: 'Rol Actualizado', description: 'El rol del usuario ha sido cambiado.' });
       } catch (error: any) {
-          console.error("Error al promover usuario:", error);
-          toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo promover al usuario.' });
+          console.error("Error al actualizar rol:", error);
+          toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo actualizar el rol.' });
       } finally {
         setIsProcessing(null);
       }
   };
+  
+  const handleTransferOwnership = async (targetUserId: string) => {
+    if (!currentUser) return;
+    setIsProcessing(targetUserId);
+    try {
+        await transferPrimaryAdmin(targetUserId, currentUser.uid);
+        await fetchUsers();
+        toast({ title: 'Propiedad Transferida', description: 'El nuevo administrador principal ha sido asignado. Tu rol ha cambiado a Admin.' });
+    } catch (error: any) {
+        console.error("Error al transferir propiedad:", error);
+        toast({ variant: 'destructive', title: 'Error', description: error.message || 'No se pudo completar la transferencia.' });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
 
   const handleDeleteUser = async (userIdToDelete: string) => {
-      if (!user) return;
+      if (!currentUser) return;
       setIsProcessing(userIdToDelete);
       try {
-        await deleteUser(userIdToDelete, user.uid);
+        await deleteUser(userIdToDelete, currentUser.uid);
         await fetchUsers();
         toast({ title: 'Usuario Eliminado', description: 'El usuario ha sido eliminado permanentemente.' });
       } catch (error: any) {
@@ -108,9 +125,9 @@ export default function UsersPage() {
     switch (u.role) {
         case 'primary-admin':
             return (
-                <Badge variant="default" className="bg-amber-500 hover:bg-amber-600">
-                    <ShieldCheck className="mr-2 text-white" />
-                    Admin Principal
+                <Badge variant="default" className="bg-amber-500 hover:bg-amber-600 text-white">
+                    <Crown className="mr-2" />
+                    Propietario
                 </Badge>
             );
         case 'admin':
@@ -124,6 +141,13 @@ export default function UsersPage() {
             return <Badge variant="outline">Empleado</Badge>;
     }
   };
+
+  const canManage = (targetUser: User): boolean => {
+    if (!currentUser || currentUser.uid === targetUser.uid) return false;
+    if (currentUser.role === 'primary-admin') return true;
+    if (currentUser.role === 'admin' && targetUser.role === 'employee') return true;
+    return false;
+  }
 
   if (loading) {
     return (
@@ -156,13 +180,13 @@ export default function UsersPage() {
   }
 
   return (
-    <TooltipProvider>
     <div className="flex flex-col">
       <header className="p-4 sm:p-6 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight font-headline">Gestión de Usuarios</h1>
           <p className="text-muted-foreground">Añade, promueve o gestiona los miembros de tu equipo.</p>
         </div>
+        {(currentUser?.role === 'admin' || currentUser?.role === 'primary-admin') && (
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -179,9 +203,11 @@ export default function UsersPage() {
                 onSubmit={handleAddUser} 
                 onClose={() => setIsAddDialogOpen(false)}
                 isSubmitting={isProcessing === 'add'}
+                currentUserRole={currentUser?.role}
             />
           </DialogContent>
         </Dialog>
+        )}
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
         {users.length === 0 ? (
@@ -207,38 +233,62 @@ export default function UsersPage() {
                                 {renderRoleBadge(u)}
                             </div>
                         </CardHeader>
-                        <CardContent className="flex-grow"></CardContent>
+                        <CardContent className="flex-grow">
+                             {u.uid === currentUser?.uid && (
+                                <div className="text-xs text-center text-muted-foreground p-2 bg-muted rounded-md">
+                                    (Eres tú)
+                                </div>
+                            )}
+                        </CardContent>
                          <CardFooter className="bg-muted/50 p-3 flex justify-end gap-2">
-                             {u.role === 'employee' && (
-                                <>
-                                    <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                            <Button variant="outline" size="sm" disabled={!!isProcessing}>
-                                                {isProcessing === u.uid ? <Loader2 className="animate-spin" /> : <ShieldPlus className="mr-2" />}
-                                                Promover
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
-                                            <AlertDialogHeader>
-                                                <AlertDialogTitle>¿Promover a {u.name} a Administrador?</AlertDialogTitle>
-                                                <AlertDialogDescription>
-                                                    Esta acción le dará al usuario acceso a todas las secciones de la aplicación, incluyendo Inventario, Reportes y gestión de Usuarios.
-                                                </AlertDialogDescription>
-                                            </AlertDialogHeader>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                                <AlertDialogAction onClick={() => handlePromoteUser(u.uid)}>Confirmar</AlertDialogAction>
-                                            </AlertDialogFooter>
-                                        </AlertDialogContent>
-                                    </AlertDialog>
-                                     <AlertDialog>
-                                        <AlertDialogTrigger asChild>
-                                             <Button variant="destructive-outline" size="sm" disabled={!!isProcessing}>
-                                                {isProcessing === u.uid ? <Loader2 className="animate-spin" /> : <Trash2 className="mr-2" />}
-                                                Eliminar
-                                            </Button>
-                                        </AlertDialogTrigger>
-                                        <AlertDialogContent>
+                             {canManage(u) ? (
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button variant="ghost" size="icon" disabled={!!isProcessing}>
+                                             {isProcessing === u.uid ? <Loader2 className="h-4 w-4 animate-spin" /> : <MoreVertical className="h-4 w-4" />}
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuLabel>Gestionar Rol</DropdownMenuLabel>
+                                        {currentUser?.role === 'primary-admin' && (
+                                            <AlertDialog>
+                                                <AlertDialogTrigger asChild>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <Crown className="mr-2"/> Transferir Propiedad
+                                                    </DropdownMenuItem>
+                                                </AlertDialogTrigger>
+                                                <AlertDialogContent>
+                                                    <AlertDialogHeader>
+                                                        <AlertDialogTitle>¿Transferir propiedad a {u.name}?</AlertDialogTitle>
+                                                        <AlertDialogDescription>
+                                                            Esta acción es irreversible. {u.name} se convertirá en el nuevo Propietario (Admin Principal) y tú pasarás a ser un Admin normal.
+                                                        </AlertDialogDescription>
+                                                    </AlertDialogHeader>
+                                                    <AlertDialogFooter>
+                                                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                                        <AlertDialogAction className="bg-amber-500 hover:bg-amber-600" onClick={() => handleTransferOwnership(u.uid)}>Confirmar Transferencia</AlertDialogAction>
+                                                    </AlertDialogFooter>
+                                                </AlertDialogContent>
+                                            </AlertDialog>
+                                        )}
+                                        {u.role !== 'admin' && (
+                                            <DropdownMenuItem onClick={() => handleUpdateRole(u.uid, 'admin')}>
+                                                <Shield className="mr-2"/> Hacer Admin
+                                            </DropdownMenuItem>
+                                        )}
+                                        {u.role === 'admin' && currentUser?.role === 'primary-admin' && (
+                                            <DropdownMenuItem onClick={() => handleUpdateRole(u.uid, 'employee')}>
+                                                <UserCog className="mr-2"/> Hacer Empleado
+                                            </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
+                                                    <Trash2 className="mr-2"/> Eliminar Usuario
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent>
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>¿Eliminar permanentemente a {u.name}?</AlertDialogTitle>
                                                 <AlertDialogDescription>
@@ -250,24 +300,12 @@ export default function UsersPage() {
                                                 <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={() => handleDeleteUser(u.uid)}>Confirmar Eliminación</AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
-                                    </AlertDialog>
-                                </>
-                            )}
-                             {(u.role === 'admin' || u.role === 'primary-admin') && (
-                                <div className="flex items-center gap-2 text-sm text-purple-600 font-medium h-9">
-                                  { u.uid === user?.uid ? (
-                                    <>
-                                        <ShieldCheck className="h-4 w-4" />
-                                        <span>(Eres tú)</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                        <Lock className="h-4 w-4" />
-                                        <span>No se puede modificar</span>
-                                    </>
-                                  )}
-                                </div>
-                            )}
+                                        </AlertDialog>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                             ) : (
+                                u.uid !== currentUser?.uid && <span className="text-xs text-muted-foreground p-2">No tienes permiso</span>
+                             )}
                         </CardFooter>
                     </Card>
                 ))}
@@ -275,8 +313,5 @@ export default function UsersPage() {
         )}
       </main>
     </div>
-    </TooltipProvider>
   );
 }
-
-    

@@ -1,14 +1,13 @@
 
 'use server';
 
-import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company } from "@/lib/types";
+import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company, UserRole } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
 // Cart type for server action
 type PlainCartItem = {
     id: string;
-    name: string;
     quantityInCart: number;
 }
 
@@ -158,30 +157,78 @@ export async function addUser(userData: NewUserData, adminUserId: string) {
     }
 };
 
-export async function promoteToAdmin(userIdToPromote: string, currentAdminId: string) {
+export async function updateUserRole(userIdToUpdate: string, newRole: UserRole, currentAdminId: string) {
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
-    const companyId = await getCompanyIdForUser(currentAdminId);
 
-    // Check if the user to promote belongs to the same company
-    const userToPromoteRef = db.doc(`users/${userIdToPromote}`);
-    const userDoc = await userToPromoteRef.get();
+    const [companyId, { claims: adminClaims }] = await Promise.all([
+        getCompanyIdForUser(currentAdminId),
+        auth.getUser(currentAdminId),
+    ]);
+
+    if (newRole === 'primary-admin') {
+        throw new Error("La transferencia de propiedad debe hacerse a través de la acción 'transferPrimaryAdmin'.");
+    }
+
+    const userToUpdateRef = db.doc(`users/${userIdToUpdate}`);
+    const userDoc = await userToUpdateRef.get();
 
     if (!userDoc.exists || userDoc.data()?.companyId !== companyId) {
-        throw new Error("El usuario a promover no pertenece a la misma empresa.");
+        throw new Error("El usuario a modificar no pertenece a la misma empresa.");
+    }
+
+    const targetUserRole = userDoc.data()?.role;
+
+    if (adminClaims.role === 'admin' && (targetUserRole === 'admin' || targetUserRole === 'primary-admin')) {
+        throw new Error("Un administrador no puede modificar a otro administrador o al propietario.");
     }
     
-    // Set custom claims and update user document
-    await auth.setCustomUserClaims(userIdToPromote, { role: 'admin', companyId });
-    await userToPromoteRef.update({ role: 'admin' });
+    await auth.setCustomUserClaims(userIdToUpdate, { role: newRole, companyId });
+    await userToUpdateRef.update({ role: newRole });
 }
+
+
+export async function transferPrimaryAdmin(targetUserId: string, currentAdminId: string) {
+    const auth = getAdminAuthOrThrow();
+    const db = getAdminDbOrThrow();
+
+    const { claims: adminClaims } = await auth.getUser(currentAdminId);
+
+    if (adminClaims.role !== 'primary-admin') {
+        throw new Error("Solo el propietario actual puede transferir la propiedad.");
+    }
+
+    const companyId = adminClaims.companyId;
+
+    const targetUserRef = db.doc(`users/${targetUserId}`);
+    const targetUserDoc = await targetUserRef.get();
+
+    if (!targetUserDoc.exists() || targetUserDoc.data()?.companyId !== companyId) {
+        throw new Error("El usuario objetivo no pertenece a la misma empresa.");
+    }
+    
+    const batch = db.batch();
+    const currentAdminUserRef = db.doc(`users/${currentAdminId}`);
+
+    // Update custom claims
+    await Promise.all([
+        auth.setCustomUserClaims(targetUserId, { role: 'primary-admin', companyId }),
+        auth.setCustomUserClaims(currentAdminId, { role: 'admin', companyId })
+    ]);
+    
+    // Update user documents in Firestore
+    batch.update(targetUserRef, { role: 'primary-admin' });
+    batch.update(currentAdminUserRef, { role: 'admin' });
+    
+    await batch.commit();
+}
+
 
 export async function deleteUser(userIdToDelete: string, currentAdminId: string) {
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(currentAdminId);
 
-    // Verify the user being deleted belongs to the same company and is not a primary-admin
     const userToDeleteRef = db.doc(`users/${userIdToDelete}`);
     const userDoc = await userToDeleteRef.get();
 
@@ -190,10 +237,9 @@ export async function deleteUser(userIdToDelete: string, currentAdminId: string)
     }
 
     if (userDoc.data()?.role === 'primary-admin') {
-        throw new Error("No se puede eliminar al administrador principal de la empresa.");
+        throw new Error("No se puede eliminar al propietario de la empresa.");
     }
 
-    // Delete user from Firebase Auth and Firestore
     await auth.deleteUser(userIdToDelete);
     await userToDeleteRef.delete();
 }
@@ -223,18 +269,15 @@ export async function deleteCategory(categoryId: string, userId: string): Promis
     const categoryRef = db.doc(`companies/${companyId}/categories/${categoryId}`);
     const productsRef = db.collection(`companies/${companyId}/products`);
     
-    // Find products in this category
     const productsQuery = productsRef.where('categoryId', '==', categoryId);
     const productsSnapshot = await productsQuery.get();
     
     const batch = db.batch();
     
-    // Unset categoryId from products
     productsSnapshot.forEach(doc => {
-      batch.update(doc.ref, { categoryId: FieldValue.delete() });
+      batch.update(doc.ref, { categoryId: "" });
     });
     
-    // Delete the category
     batch.delete(categoryRef);
     
     await batch.commit();
@@ -262,7 +305,6 @@ export async function addMultipleProducts(productsData: Omit<Product, 'id'>[], u
     let successCount = 0;
     let errorCount = 0;
 
-    // Firestore allows a maximum of 500 operations in a single batch.
     const batchSize = 500;
     for (let i = 0; i < productsData.length; i += batchSize) {
         const batch = db.batch();
@@ -310,7 +352,7 @@ export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], 
     const saleId = await db.runTransaction(async (transaction) => {
         // --- 1. READS ---
         const productRefs = cart.map(item => db.doc(`companies/${companyId}/products/${item.id}`));
-        const productDocs = await transaction.getAll(...productRefs);
+        const productDocs = productRefs.length > 0 ? await transaction.getAll(...productRefs) : [];
         const productsToUpdate: { ref: FirebaseFirestore.DocumentReference, newStock: number }[] = [];
 
         for (let i = 0; i < productDocs.length; i++) {
@@ -318,14 +360,14 @@ export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], 
             const cartItem = cart[i];
 
             if (!productDoc.exists) {
-                throw new Error(`Producto ${cartItem.name} no encontrado.`);
+                throw new Error(`Producto con ID ${cartItem.id} no encontrado.`);
             }
 
             const currentStock = productDoc.data()?.quantity || 0;
             const newStock = currentStock - cartItem.quantityInCart;
 
             if (newStock < 0) {
-                throw new Error(`Stock insuficiente para ${cartItem.name}.`);
+                throw new Error(`Stock insuficiente para ${productDoc.data()?.name}.`);
             }
             productsToUpdate.push({ ref: productDoc.ref, newStock });
         }
