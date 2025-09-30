@@ -1,7 +1,8 @@
 
+
 'use server';
 
-import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company, UserRole } from "@/lib/types";
+import type { InitialAdminData, User, Category, NewUserData, Product, Sale, CashOutflow, Inflow, Currency, CashTransfer, Company, UserRole, OrderItem, OrderDraft } from "@/lib/types";
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -9,12 +10,9 @@ import { FieldValue } from "firebase-admin/firestore";
 type PlainCartItem = {
     id: string;
     quantityInCart: number;
+    name: string;
 }
 
-type RestockItem = {
-    productId: string;
-    orderQuantity: number;
-}
 
 // -----------------
 // Helpers Admin
@@ -346,31 +344,64 @@ export async function deleteProduct(productId: string, userId: string): Promise<
     await productRef.delete();
 };
 
-export async function restockInventory(items: RestockItem[], totalCost: number, userId: string): Promise<string> {
+
+// -----------------
+// Order Draft Management
+// -----------------
+export async function addOrderDraft(title: string, items: OrderItem[], totalCost: number, userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
+    const draftsCollection = db.collection(`companies/${companyId}/orderDrafts`);
+    await draftsCollection.add({
+        title,
+        items,
+        totalCost,
+        status: 'draft',
+        createdAt: FieldValue.serverTimestamp(),
+    });
+}
+
+export async function deleteOrderDraft(draftId: string, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const draftRef = db.doc(`companies/${companyId}/orderDrafts/${draftId}`);
+    await draftRef.delete();
+}
+
+export async function restockInventory(drafts: OrderDraft[], userId: string): Promise<string> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+
+    const consolidatedItems = new Map<string, number>();
+    let totalCost = 0;
+    
+    drafts.forEach(draft => {
+        totalCost += draft.totalCost;
+        draft.items.forEach(item => {
+            consolidatedItems.set(item.productId, (consolidatedItems.get(item.productId) || 0) + item.orderQuantity);
+        });
+    });
 
     const newOutflow: Omit<CashOutflow, 'id'> = {
         date: new Date().toISOString(),
         amount: totalCost,
         currency: 'NIO', // Assuming restock is always in NIO
         cashBox: 'general',
-        reason: `Abastecimiento de inventario (${items.length} productos)`,
+        reason: `Abastecimiento de inventario (${drafts.length} borrador/es)`,
         type: 'restock',
     };
 
     const outflowId = await db.runTransaction(async (transaction) => {
         // --- READS ---
-        const productRefs = items.map(item => db.doc(`companies/${companyId}/products/${item.productId}`));
+        const productRefs = Array.from(consolidatedItems.keys()).map(productId => db.doc(`companies/${companyId}/products/${productId}`));
         const productDocs = productRefs.length > 0 ? await transaction.getAll(...productRefs) : [];
         const productsToUpdate: { ref: FirebaseFirestore.DocumentReference, newStock: number }[] = [];
 
-        for (let i = 0; i < productDocs.length; i++) {
-            const productDoc = productDocs[i];
-            const restockItem = items[i];
-            if (productDoc.exists) {
+        for (const productDoc of productDocs) {
+            const orderQuantity = consolidatedItems.get(productDoc.id);
+            if (productDoc.exists && orderQuantity) {
                 const currentStock = productDoc.data()?.quantity || 0;
-                const newStock = currentStock + restockItem.orderQuantity;
+                const newStock = currentStock + orderQuantity;
                 productsToUpdate.push({ ref: productDoc.ref, newStock });
             }
         }
@@ -383,6 +414,12 @@ export async function restockInventory(items: RestockItem[], totalCost: number, 
         // 2. Update stock for all products
         productsToUpdate.forEach(p => {
             transaction.update(p.ref, { quantity: p.newStock });
+        });
+
+        // 3. Mark drafts as completed
+        drafts.forEach(draft => {
+            const draftRef = db.doc(`companies/${companyId}/orderDrafts/${draft.id}`);
+            transaction.update(draftRef, { status: 'completed' });
         });
         
         return outflowRef.id;
@@ -519,7 +556,7 @@ export async function addCashTransfer(transfer: Omit<CashTransfer, 'id'>, userId
 export async function updateReconciliationStatus(dateId: string, status: 'open' | 'closed', userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const reconRef = db.doc(`companies/${companyId}/reconciliations/${dateId}`);
+s    const reconRef = db.doc(`companies/${companyId}/reconciliations/${dateId}`);
     await reconRef.set({
         status: status,
         updatedAt: FieldValue.serverTimestamp()

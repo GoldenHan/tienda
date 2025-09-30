@@ -1,9 +1,10 @@
 
+
 import { 
   collection, getDocs, doc, getDoc, query, orderBy, where, addDoc
 } from "firebase/firestore";
 import { firestore as db } from "./firebase/client"; 
-import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category, Company, CashTransfer } from "./types";
+import { Product, Sale, User, CashOutflow, Inflow, Reconciliation, Category, Company, CashTransfer, OrderDraft } from "./types";
 import { getCompanyIdForUser as getServerCompanyIdForUser } from './actions/setup';
 
 
@@ -122,6 +123,30 @@ export async function getSales(userId: string): Promise<Sale[]> {
 };
 
 // -----------------
+// Order Draft Management
+// -----------------
+export async function getOrderDrafts(userId: string): Promise<OrderDraft[]> {
+    const db = getClientDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const draftsCollectionRef = collection(db, `companies/${companyId}/orderDrafts`);
+    const q = query(draftsCollectionRef, where("status", "==", "draft"), orderBy("createdAt", "desc"));
+    try {
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : new Date().toISOString(),
+            } as OrderDraft;
+        });
+    } catch (error) {
+        console.error("Error al obtener los borradores de pedidos:", error);
+        throw error;
+    }
+}
+
+// -----------------
 // Cash Flow & Reconciliation (Client-facing reads)
 // -----------------
 async function getSubcollection<T>(userId: string, subcollectionName: string): Promise<T[]> {
@@ -153,7 +178,7 @@ export async function getCashTransfers(userId: string): Promise<CashTransfer[]> 
 export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string) {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const inflowsCollection = collection(db, `companies/${companyId}/inflows`);
+s    const inflowsCollection = collection(db, `companies/${companyId}/inflows`);
     await addDoc(inflowsCollection, inflow);
 }
 

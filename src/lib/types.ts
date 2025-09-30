@@ -1,4 +1,5 @@
 
+
 export type Product = {
   id: string;
   name: string;
@@ -20,6 +21,22 @@ export type SaleItem = {
   salePrice: number; // Price at the time of sale
   total: number;
 };
+
+export type OrderItem = {
+  productId: string;
+  productName: string;
+  orderQuantity: number;
+  purchaseCost: number;
+}
+
+export type OrderDraft = {
+  id: string;
+  title: string;
+  items: OrderItem[];
+  totalCost: number;
+  status: 'draft' | 'completed';
+  createdAt: string;
+}
 
 export type Currency = 'NIO' | 'USD';
 export type CashBox = 'general' | 'petty';
