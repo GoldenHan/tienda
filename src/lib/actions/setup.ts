@@ -168,7 +168,7 @@ export async function updateUserRole(userIdToUpdate: string, newRole: UserRole, 
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
 
-    const [companyId, { claims: adminClaims }] = await Promise.all([
+    const [companyId, { customClaims: adminClaims }] = await Promise.all([
         getCompanyIdForUser(currentAdminId),
         auth.getUser(currentAdminId),
     ]);
@@ -186,7 +186,7 @@ export async function updateUserRole(userIdToUpdate: string, newRole: UserRole, 
 
     const targetUserRole = userDoc.data()?.role;
 
-    if (adminClaims.role === 'admin' && (targetUserRole === 'admin' || targetUserRole === 'primary-admin')) {
+    if (adminClaims?.role === 'admin' && (targetUserRole === 'admin' || targetUserRole === 'primary-admin')) {
         throw new Error("Un administrador no puede modificar a otro administrador o al propietario.");
     }
     
@@ -199,9 +199,9 @@ export async function transferPrimaryAdmin(targetUserId: string, currentAdminId:
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
 
-    const { claims: adminClaims } = await auth.getUser(currentAdminId);
+    const { customClaims: adminClaims } = await auth.getUser(currentAdminId);
 
-    if (adminClaims.role !== 'primary-admin') {
+    if (adminClaims?.role !== 'primary-admin') {
         throw new Error("Solo el propietario actual puede transferir la propiedad.");
     }
 
@@ -614,16 +614,16 @@ export async function setCompanySecurityCode(password: string, securityCode: str
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
     
-    const { claims, email } = await auth.getUser(userId);
+    const { customClaims: claims, email } = await auth.getUser(userId);
 
-    if (claims.role !== 'primary-admin' || !email) {
+    if (claims?.role !== 'primary-admin' || !email) {
         throw new Error("Solo el propietario puede configurar un código de seguridad.");
     }
     if (!clientAuth.currentUser) {
        await clientAuth.signInWithEmailAndPassword(email, password).catch(() => { throw new Error("No se pudo reautenticar.") });
     }
     const userCredential = EmailAuthProvider.credential(email, password);
-    await reauthenticateWithCredential(clientAuth.currentUser, userCredential);
+    await reauthenticateWithCredential(clientAuth.currentUser!, userCredential);
 
     const companyId = await getCompanyIdForUser(userId);
     const companyRef = db.doc(`companies/${companyId}`);
