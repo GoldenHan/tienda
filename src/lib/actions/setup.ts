@@ -6,7 +6,7 @@ import type { InitialAdminData, User, Category, NewUserData, Product, Sale, Cash
 import { adminDb, adminAuth } from "../firebase/server";
 import { FieldValue } from "firebase-admin/firestore";
 import { getFunctions, httpsCallable, HttpsCallable } from "firebase/functions";
-import { reauthenticateWithCredential, EmailAuthProvider } from "firebase/auth";
+import { reauthenticateWithCredential, EmailAuthProvider, signInWithEmailAndPassword } from "firebase/auth";
 import { auth as clientAuth, app as clientApp } from "../firebase/client";
 
 // Cart type for server action
@@ -614,23 +614,26 @@ export async function setCompanySecurityCode(password: string, securityCode: str
     const auth = getAdminAuthOrThrow();
     const db = getAdminDbOrThrow();
     
-    const { customClaims: claims, email } = await auth.getUser(userId);
+    const { customClaims, email } = await auth.getUser(userId);
 
-    if (claims?.role !== 'primary-admin' || !email) {
+    if (customClaims?.role !== 'primary-admin' || !email) {
         throw new Error("Solo el propietario puede configurar un código de seguridad.");
     }
-    if (!clientAuth.currentUser) {
-       await clientAuth.signInWithEmailAndPassword(email, password).catch(() => { throw new Error("No se pudo reautenticar.") });
+    
+    try {
+        if (!clientAuth.currentUser) {
+            await signInWithEmailAndPassword(clientAuth, email, password);
+        }
+        const userCredential = EmailAuthProvider.credential(email, password);
+        await reauthenticateWithCredential(clientAuth.currentUser!, userCredential);
+    } catch(e) {
+        throw new Error("No se pudo reautenticar. La contraseña actual es incorrecta.");
     }
-    const userCredential = EmailAuthProvider.credential(email, password);
-    await reauthenticateWithCredential(clientAuth.currentUser!, userCredential);
 
     const companyId = await getCompanyIdForUser(userId);
     const companyRef = db.doc(`companies/${companyId}`);
     const securityDocRef = db.doc(`companies/${companyId}/private/security`);
 
-    // We're not actually hashing for simplicity here, but in a real-world scenario you absolutely would.
-    // The security is in the re-authentication and the callable function check.
     await securityDocRef.set({ code: securityCode });
     await companyRef.update({ securityCodeSet: true });
 }
@@ -638,18 +641,27 @@ export async function setCompanySecurityCode(password: string, securityCode: str
 export async function initiateCompanyWipe(password: string, securityCode: string, userId: string): Promise<any> {
     const auth = getAdminAuthOrThrow();
     const { email } = await auth.getUser(userId);
-     if (!clientAuth.currentUser) {
-       await clientAuth.signInWithEmailAndPassword(email!, password).catch(() => { throw new Error("No se pudo reautenticar.") });
+    
+    if (!email) {
+        throw new Error("El usuario no tiene un email para reautenticar.");
     }
-    const userCredential = EmailAuthProvider.credential(email!, password);
-    await reauthenticateWithCredential(clientAuth.currentUser!, userCredential);
+
+    try {
+        if (!clientAuth.currentUser) {
+           await signInWithEmailAndPassword(clientAuth, email, password);
+        }
+        const userCredential = EmailAuthProvider.credential(email, password);
+        await reauthenticateWithCredential(clientAuth.currentUser!, userCredential);
+    } catch(e) {
+        throw new Error("No se pudo reautenticar. La contraseña actual es incorrecta.");
+    }
 
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const securityDocRef = db.doc(`companies/${companyId}/private/security`);
     const securityDoc = await securityDocRef.get();
     
-    if (!securityDoc.exists || securityDoc.data()?.code !== securityCode) {
+    if (!securityDoc.exists() || securityDoc.data()?.code !== securityCode) {
         throw new Error("El código de seguridad es incorrecto.");
     }
     
