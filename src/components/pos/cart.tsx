@@ -95,7 +95,7 @@ export function Cart({ cartItems, exchangeRate, onUpdateQuantity, onRemoveItem, 
                   <div className="flex-1">
                     <p className="font-medium text-sm truncate">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground">
-                       <Badge variant="outline" className="mr-1">{item.quantity} {item.unit}</Badge>
+                       <Badge variant="outline" className="mr-1">{item.unit}</Badge>
                        {formatCurrency(item.totalPrice, 'NIO')}
                     </p>
                   </div>

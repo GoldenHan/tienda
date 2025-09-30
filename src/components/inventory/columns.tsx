@@ -99,7 +99,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, onAdjustLoss, cat
       cell: ({ row }) => {
         const quantity = row.getValue("quantity") as number;
         const unit = row.original.stockingUnit;
-        const unitLabel = unitLabels[unit] || 'u';
+        const unitLabel = unitLabels[unit] || unit;
         return <div className="text-center">{quantity} {unitLabel}</div>
       }
     },
@@ -133,7 +133,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, onAdjustLoss, cat
       },
       cell: ({ row }) => {
         const amount = parseFloat(row.getValue("salePrice"))
-        const unitLabel = unitLabels[row.original.stockingUnit] || 'u';
+        const unitLabel = unitLabels[row.original.stockingUnit] || row.original.stockingUnit;
         const formatted = new Intl.NumberFormat("es-NI", {
           style: "currency",
           currency: "NIO",

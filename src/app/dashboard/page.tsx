@@ -163,6 +163,16 @@ export default function DashboardPage() {
       </div>
     );
   }
+  
+  const unitLabels: Record<Product['stockingUnit'], string> = {
+    unidad: 'u',
+    lb: 'lb',
+    oz: 'oz',
+    L: 'L',
+    kg: 'kg',
+    qq: 'qq'
+  };
+
 
   const welcomeMessage = user ? `Bienvenido de nuevo, ${user.name.split(' ')[0]}` : "Dashboard";
   const welcomeDescription = "Aquí tienes un resumen de la actividad de tu tienda.";
@@ -301,7 +311,7 @@ export default function DashboardPage() {
                                           <p className="font-medium">{p.name}</p>
                                           <p className="text-sm text-muted-foreground">{formatCurrency(p.salePrice)}</p>
                                       </div>
-                                      <Badge variant="destructive">{p.quantity} restantes</Badge>
+                                      <Badge variant="destructive">{p.quantity} {unitLabels[p.stockingUnit] || p.stockingUnit} restantes</Badge>
                                   </div>
                               ))}
                           </div>
