@@ -5,6 +5,7 @@ run:
 # Pass environment variables to the backend
 env:
   - variable: FIREBASE_SERVICE_ACCOUNT_JSON
+    value: ${env:FIREBASE_SERVICE_ACCOUNT_JSON}
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
     value: ${env:NEXT_PUBLIC_FIREBASE_API_KEY}
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN

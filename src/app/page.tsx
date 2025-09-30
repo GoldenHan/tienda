@@ -1,6 +1,6 @@
-import { redirect } from 'next/navigation';
 
 export default function Home() {
-  // Redirect to login page as the default entry point
-  redirect('/login');
+  // This page is intentionally left blank.
+  // The redirect to /login is handled in next.config.ts
+  return null;
 }
