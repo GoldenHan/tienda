@@ -24,7 +24,7 @@ import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog } from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 const passwordFormSchema = z.object({
   currentPassword: z.string().min(1, { message: "La contraseña actual es requerida." }),
@@ -96,14 +96,21 @@ export default function SettingsPage() {
   
   const companySettingsForm = useForm<z.infer<typeof companySettingsSchema>>({
     resolver: zodResolver(companySettingsSchema),
+    defaultValues: {
+        name: "",
+        exchangeRate: 0,
+        pettyCashInitial: 0,
+    }
   });
   
   const securityCodeForm = useForm<z.infer<typeof securityCodeSchema>>({
     resolver: zodResolver(securityCodeSchema),
+    defaultValues: { password: "", securityCode: "" },
   });
   
   const wipeDataForm = useForm<z.infer<typeof wipeDataSchema>>({
     resolver: zodResolver(wipeDataSchema),
+    defaultValues: { password: "", securityCode: "", confirmationPhrase: "" },
   });
 
   const { reset: resetCompanyForm } = companySettingsForm;
@@ -657,7 +664,7 @@ export default function SettingsPage() {
                                     </AlertDialogContent>
                                 </AlertDialog>
                                 <DialogContent>
-                                    <Form {...wipeDataForm}>
+                                     <Form {...wipeDataForm}>
                                         <form onSubmit={wipeDataForm.handleSubmit(onWipeDataSubmit)} className="space-y-4">
                                             <p className="text-sm">Para confirmar, introduce tu contraseña, tu código de seguridad y escribe la frase <strong className="text-destructive">eliminar todos los datos</strong> en el campo de abajo.</p>
                                             <FormField control={wipeDataForm.control} name="password" render={({ field }) => (
