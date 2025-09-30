@@ -435,7 +435,6 @@ export async function restockInventory(drafts: OrderDraft[], userId: string): Pr
 export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], userId: string): Promise<string> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-    const salesCollection = db.collection(`companies/${companyId}/sales`);
     
     const saleId = await db.runTransaction(async (transaction) => {
         // --- 1. READS ---
@@ -461,6 +460,7 @@ export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], 
         }
 
         // --- 2. WRITES ---
+        const salesCollection = db.collection(`companies/${companyId}/sales`);
         const saleRef = salesCollection.doc();
         transaction.set(saleRef, newSale);
 
@@ -480,10 +480,9 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
     
     await db.runTransaction(async (transaction) => {
         const saleRef = db.doc(`companies/${companyId}/sales/${updatedSale.id}`);
-        
         const productQuantityChanges: { [productId: string]: number } = {};
 
-        // Calculate deltas
+        // Calculate deltas: Positive value means stock should increase (product returned)
         originalSale.items.forEach(item => {
             productQuantityChanges[item.productId] = (productQuantityChanges[item.productId] || 0) + item.quantity;
         });
@@ -499,12 +498,13 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
         
         const productDocs = productRefsToRead.length > 0 ? await transaction.getAll(...productRefsToRead) : [];
         
+        // --- WRITES ---
         const updates: { ref: FirebaseFirestore.DocumentReference, newStock: number }[] = [];
 
         for (const productDoc of productDocs) {
+            if (!productDoc.exists) continue; // Skip if product somehow got deleted
             const productId = productDoc.id;
             const delta = productQuantityChanges[productId];
-            
             const currentStock = productDoc.data()?.quantity || 0;
             const newStock = currentStock + delta;
 
@@ -514,25 +514,41 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
             }
             updates.push({ ref: productDoc.ref, newStock });
         }
+
+        // Create refund outflow if necessary
+        const refundAmount = originalSale.grandTotal - updatedSale.grandTotal;
+        if (refundAmount > 0) {
+            const outflowRef = db.collection(`companies/${companyId}/cash_outflows`).doc();
+            transaction.set(outflowRef, {
+                date: new Date().toISOString(),
+                amount: refundAmount,
+                currency: originalSale.paymentCurrency,
+                cashBox: 'general',
+                reason: `Ajuste/reembolso de Venta ID: ${originalSale.id.substring(0,8)}...`,
+                type: 'adjustment' as const,
+            });
+        }
         
-        // --- WRITES ---
+        // Update the sale document
         transaction.update(saleRef, {
             items: updatedSale.items,
             grandTotal: updatedSale.grandTotal,
-            needsReview: false, // Mark as reviewed upon editing
+            needsReview: false,
+            reviewNotes: FieldValue.delete() // Remove notes after review
         });
 
+        // Apply stock updates
         updates.forEach(update => {
             transaction.update(update.ref, { quantity: update.newStock });
         });
     });
 };
 
-export async function markSaleForReview(saleId: string, userId: string): Promise<void> {
+export async function markSaleForReview(saleId: string, notes: string, userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     const saleRef = db.doc(`companies/${companyId}/sales/${saleId}`);
-    await saleRef.update({ needsReview: true });
+    await saleRef.update({ needsReview: true, reviewNotes: notes });
 }
 
 // -----------------

@@ -35,7 +35,9 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
     });
   };
 
-  if (sales.length === 0) {
+  const sortedSales = [...sales].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  if (sortedSales.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center text-center p-8 border rounded-lg h-64">
         <h3 className="text-xl font-semibold">No hay ventas registradas</h3>
@@ -49,7 +51,7 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
   return (
     <>
       <Accordion type="single" collapsible className="w-full space-y-2">
-        {sales.map((sale) => (
+        {sortedSales.map((sale) => (
           <AccordionItem 
             value={sale.id} 
             key={sale.id} 
@@ -64,8 +66,8 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
                     <div className="text-left flex items-center gap-3">
                       {sale.needsReview && <Flag className="h-5 w-5 text-destructive" />}
                       <div>
-                        <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id}</p>
-                        <p className="text-sm text-muted-foreground">{formatDate(sale.date)}</p>
+                        <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id.substring(0,8)}...</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(sale.date)} por {sale.employeeName}</p>
                       </div>
                     </div>
                   </div>
@@ -74,7 +76,7 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
                     <p className="font-semibold text-lg">
                         {new Intl.NumberFormat("es-NI", {
                         style: "currency",
-                        currency: "NIO",
+                        currency: sale.paymentCurrency,
                         }).format(sale.grandTotal)}
                     </p>
                     <Button variant="ghost" size="icon" onClick={() => {
@@ -92,11 +94,11 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
       </Accordion>
 
       <Dialog open={!!editingSale} onOpenChange={(isOpen) => !isOpen && setEditingSale(null)}>
-        <DialogContent className="max-w-xl">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Editar Transacción {editingSale?.id}</DialogTitle>
+            <DialogTitle>Editar Transacción</DialogTitle>
             <DialogDescription>
-              Ajusta las cantidades de los productos de esta venta. El stock se recalculará y la marca de revisión se eliminará al guardar.
+              Ajusta las cantidades o elimina productos. El stock y la caja se ajustarán automáticamente.
             </DialogDescription>
           </DialogHeader>
           {editingSale && (

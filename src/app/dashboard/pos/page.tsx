@@ -14,6 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Invoice } from "@/components/pos/invoice";
+import { ReviewForm } from "@/components/sales/review-form";
 
 export type CartItem = Product & { quantityInCart: number };
 export type { Currency };
@@ -30,6 +31,7 @@ export default function POSPage() {
   
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
+  const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -138,7 +140,7 @@ export default function POSPage() {
       total: cartItem.salePrice * cartItem.quantityInCart,
     }));
     
-    const saleData: Omit<Sale, 'id'> = {
+    const saleData: Omit<Sale, 'id' | 'reviewNotes'> = {
       date: new Date().toISOString(),
       items: newSaleItems,
       grandTotal: newSaleItems.reduce((acc, item) => acc + item.total, 0),
@@ -177,15 +179,16 @@ export default function POSPage() {
     }
   };
 
-  const handleMarkForReview = async (saleId: string) => {
-    if (!user) return;
+  const handleMarkForReview = async (notes: string) => {
+    if (!user || !lastSale) return;
     try {
-        await markSaleForReview(saleId, user.uid);
+        await markSaleForReview(lastSale.id, notes, user.uid);
         toast({
             title: "Venta Marcada para Revisión",
             description: "Un administrador revisará esta transacción."
         });
-        setIsInvoiceDialogOpen(false); // Close dialog after marking
+        setIsReviewDialogOpen(false);
+        setIsInvoiceDialogOpen(false);
     } catch (error) {
         console.error("Error marking sale for review:", error);
         toast({
@@ -302,7 +305,10 @@ export default function POSPage() {
         </div>
       </main>
     </div>
-    <Dialog open={isInvoiceDialogOpen} onOpenChange={setIsInvoiceDialogOpen}>
+    <Dialog open={isInvoiceDialogOpen} onOpenChange={(isOpen) => {
+        if (!isOpen) setLastSale(null);
+        setIsInvoiceDialogOpen(isOpen);
+    }}>
         <DialogContent className="sm:max-w-md">
             <DialogHeader>
                 <DialogTitle>Venta Realizada con Éxito</DialogTitle>
@@ -315,9 +321,21 @@ export default function POSPage() {
                     sale={lastSale}
                     companyName={company.name}
                     onPrint={handlePrint}
-                    onMarkForReview={handleMarkForReview}
+                    onMarkForReview={() => setIsReviewDialogOpen(true)}
                 />
             )}
+        </DialogContent>
+    </Dialog>
+
+    <Dialog open={isReviewDialogOpen} onOpenChange={setIsReviewDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Marcar Venta para Revisión</DialogTitle>
+                <DialogDescription>
+                    Explica por qué esta venta necesita ser revisada por un administrador.
+                </DialogDescription>
+            </DialogHeader>
+            <ReviewForm onSubmit={handleMarkForReview} onClose={() => setIsReviewDialogOpen(false)} />
         </DialogContent>
     </Dialog>
     </>

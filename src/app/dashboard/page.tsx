@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -297,19 +298,31 @@ export default function DashboardPage() {
                             </TableRow>
                         </TableHeader>
                          <TableBody>
-                            {salesForReview.map(sale => (
-                                <TableRow key={sale.id}>
-                                    <TableCell className="font-mono text-xs">{sale.id.substring(0,8)}...</TableCell>
-                                    <TableCell>{sale.employeeName}</TableCell>
-                                    <TableCell>{format(new Date(sale.date), 'Pp', { locale: es })}</TableCell>
-                                    <TableCell className="text-right font-medium">{formatCurrency(sale.grandTotal, sale.paymentCurrency)}</TableCell>
-                                    <TableCell className="text-center">
-                                        <Button size="sm" onClick={() => router.push('/dashboard/sales')}>
-                                            Revisar en Historial
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                            <TooltipProvider>
+                                {salesForReview.map(sale => (
+                                    <Tooltip key={sale.id} delayDuration={100}>
+                                        <TableRow>
+                                            <TooltipTrigger asChild>
+                                                <TableCell className="font-mono text-xs cursor-help">{sale.id.substring(0,8)}...</TableCell>
+                                            </TooltipTrigger>
+                                            <TableCell>{sale.employeeName}</TableCell>
+                                            <TableCell>{format(new Date(sale.date), 'Pp', { locale: es })}</TableCell>
+                                            <TableCell className="text-right font-medium">{formatCurrency(sale.grandTotal, sale.paymentCurrency)}</TableCell>
+                                            <TableCell className="text-center">
+                                                <Button size="sm" onClick={() => router.push('/dashboard/sales')}>
+                                                    Revisar en Historial
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                        {sale.reviewNotes && (
+                                            <TooltipContent side="top" className="max-w-xs">
+                                                <p className="font-bold">Motivo de revisión:</p>
+                                                <p>{sale.reviewNotes}</p>
+                                            </TooltipContent>
+                                        )}
+                                    </Tooltip>
+                                ))}
+                            </TooltipProvider>
                         </TableBody>
                     </Table>
                 </CardContent>

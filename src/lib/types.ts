@@ -50,6 +50,7 @@ export type Sale = {
   employeeName: string;
   paymentCurrency: Currency;
   needsReview?: boolean;
+  reviewNotes?: string;
 };
 
 export type Inflow = {
@@ -68,7 +69,7 @@ export type CashOutflow = {
   reason: string;
   currency: Currency;
   cashBox: CashBox;
-  type: 'manual' | 'restock';
+  type: 'manual' | 'restock' | 'adjustment';
 };
 
 export type CashTransfer = {

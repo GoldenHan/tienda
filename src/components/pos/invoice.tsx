@@ -13,7 +13,7 @@ interface InvoiceProps {
   sale: Sale;
   companyName: string;
   onPrint: () => void;
-  onMarkForReview: (saleId: string) => void;
+  onMarkForReview: () => void;
 }
 
 const formatCurrency = (amount: number, currency: 'NIO' | 'USD') =>
@@ -84,7 +84,7 @@ export function Invoice({ sale, companyName, onPrint, onMarkForReview }: Invoice
           <Printer className="mr-2" />
           Imprimir Recibo
         </Button>
-        <Button variant="secondary" onClick={() => onMarkForReview(sale.id)} className="flex-1">
+        <Button variant="secondary" onClick={onMarkForReview} className="flex-1">
             <Flag className="mr-2"/>
             Marcar para Revisión
         </Button>
