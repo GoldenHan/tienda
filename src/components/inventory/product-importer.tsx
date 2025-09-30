@@ -20,6 +20,15 @@ interface ProductImporterProps {
 const REQUIRED_COLUMNS = ["Nombre", "Cantidad", "Precio de Venta", "Costo de Compra", "Unidad de Medida"];
 const OPTIONAL_COLUMNS = ["Descripcion", "Umbral Stock Bajo", "Nombre Categoria"];
 
+const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'oz', 'L', 'kg'];
+const unitLabels: Record<Product['stockingUnit'], string> = {
+    unidad: 'Unidad', lb: 'Libra', oz: 'Onza', L: 'Litro', kg: 'Kilogramo'
+};
+const unitAbbr: Record<Product['stockingunit'], string> = {
+    unidad: 'u', lb: 'lb', oz: 'oz', L: 'L', kg: 'kg'
+};
+
+
 export function ProductImporter({ categories, onImport }: ProductImporterProps) {
     const { user } = useAuth();
     const { toast } = useToast();
@@ -55,13 +64,6 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
 
             const productsToCreate: Omit<Product, "id">[] = [];
 
-            const unitLabels: Record<Product['stockingUnit'], string> = {
-                unidad: 'Unidad', lb: 'Libra', oz: 'Onza', L: 'Litro', kg: 'Kilo'
-            };
-            const unitAbbr: Record<Product['stockingUnit'], string> = {
-                unidad: 'u', lb: 'lb', oz: 'oz', L: 'L', kg: 'kg'
-            };
-
             for (const row of json) {
                 const categoryName = row["Nombre Categoria"]?.toString().trim();
                 let categoryId = "";
@@ -88,9 +90,12 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
 
                 const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
                 
-                const unit = (row["Unidad de Medida"] || 'unidad').toLowerCase();
-                const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'oz', 'L', 'kg'];
-                const stockingUnit = validUnits.includes(unit) ? unit as Product['stockingUnit'] : 'unidad';
+                const unitInput = (row["Unidad de Medida"] || 'unidad').toString().toLowerCase();
+                const stockingUnit: Product['stockingUnit'] = validUnits.includes(unitInput as any) ? unitInput as Product['stockingUnit'] : 'unidad';
+                
+                if (!validUnits.includes(unitInput as any)) {
+                     console.warn(`Unidad de medida no válida "${unitInput}" para el producto "${row["Nombre"]}". Se usará "unidad" por defecto.`);
+                }
 
                 const defaultSellingUnit: SellingUnit = {
                     name: unitLabels[stockingUnit],
@@ -174,7 +179,8 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800">
                 <p className="font-bold mb-2">Columnas Obligatorias:</p>
                 <ul className="list-disc list-inside">
-                    {REQUIRED_COLUMNS.map(col => <li key={col}><strong>{col}</strong> (Valores para Unidad de Medida: 'unidad', 'lb', 'oz', 'L', 'kg')</li>)}
+                    {REQUIRED_COLUMNS.slice(0, -1).map(col => <li key={col}><strong>{col}</strong></li>)}
+                     <li><strong>Unidad de Medida</strong> (Valores válidos: 'unidad', 'lb', 'oz', 'L', 'kg')</li>
                 </ul>
                  <p className="font-bold mt-2 mb-2">Columnas Opcionales:</p>
                 <ul className="list-disc list-inside">
