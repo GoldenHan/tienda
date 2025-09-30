@@ -251,18 +251,26 @@ export default function DashboardPage() {
                       </div>
                       <CardDescription>Navega rápidamente a las secciones principales.</CardDescription>
                   </CardHeader>
-                  <CardContent className="grid grid-cols-2 gap-2 text-sm">
+                  <CardContent className="grid grid-cols-2 gap-3 text-sm">
                       <Link href="/dashboard/pos" passHref>
-                          <Button variant="outline" className="w-full justify-start"><ShoppingCart className="mr-2"/> Nueva Venta</Button>
+                          <Button variant="outline" className="w-full justify-start h-12 text-base font-semibold hover:bg-primary/10 hover:scale-105 hover:border-primary transition-all duration-200">
+                              <ShoppingCart className="mr-2"/> Nueva Venta
+                          </Button>
                       </Link>
                        <Link href="/dashboard/orders" passHref>
-                          <Button variant="outline" className="w-full justify-start"><PackagePlus className="mr-2"/> Planificar Pedido</Button>
+                          <Button variant="secondary" className="w-full justify-start h-12 text-base font-semibold hover:scale-105 transition-transform duration-200">
+                              <PackagePlus className="mr-2"/> Pedidos
+                          </Button>
                       </Link>
                        <Link href="/dashboard/inventory" passHref>
-                          <Button variant="outline" className="w-full justify-start"><Package className="mr-2"/> Ver Inventario</Button>
+                          <Button variant="secondary" className="w-full justify-start h-12 text-base font-semibold hover:scale-105 transition-transform duration-200">
+                              <Package className="mr-2"/> Inventario
+                          </Button>
                       </Link>
                        <Link href="/dashboard/reports" passHref>
-                          <Button variant="outline" className="w-full justify-start"><BarChart3 className="mr-2"/> Generar Reporte</Button>
+                          <Button variant="secondary" className="w-full justify-start h-12 text-base font-semibold hover:scale-105 transition-transform duration-200">
+                              <BarChart3 className="mr-2"/> Reportes
+                          </Button>
                       </Link>
                   </CardContent>
               </Card>
