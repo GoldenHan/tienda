@@ -1,3 +1,4 @@
+
 import Image from "next/image";
 import { Product } from "@/lib/types";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,12 +7,15 @@ import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart: (product: Product) => void;
+  onProductSelect: (product: Product) => void;
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product, onProductSelect }: ProductCardProps) {
   const isOutOfStock = product.quantity <= 0;
 
+  const unitLabels = { unidad: "u", lb: "lb", oz: "oz", L: "L", kg: "kg", qq: "qq" };
+  const unitLabel = unitLabels[product.stockingUnit as keyof typeof unitLabels] || 'u';
+  
   return (
     <Card 
       className={cn(
@@ -20,7 +24,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
           ? "cursor-not-allowed bg-muted/50" 
           : "cursor-pointer hover:shadow-lg hover:shadow-primary/20 hover:-translate-y-1 hover:border-primary/50"
       )}
-      onClick={() => !isOutOfStock && onAddToCart(product)}
+      onClick={() => !isOutOfStock && onProductSelect(product)}
       role="button"
       aria-disabled={isOutOfStock}
     >
@@ -47,6 +51,7 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
             style: "currency",
             currency: "NIO",
           }).format(product.salePrice)}
+          <span className="text-xs font-normal text-muted-foreground"> / {unitLabel}</span>
         </p>
         <p className="text-xs text-muted-foreground">
           Stock: {product.quantity}

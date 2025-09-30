@@ -1,3 +1,4 @@
+
 import {
   Table,
   TableBody,
@@ -28,7 +29,7 @@ export function SalesHistoryTable({ items }: SalesHistoryTableProps) {
           {items.map((item) => (
             <TableRow key={item.productId}>
               <TableCell className="font-medium">{item.productName}</TableCell>
-              <TableCell className="text-center">{item.quantity}</TableCell>
+              <TableCell className="text-center">{item.quantity} {item.unit}</TableCell>
               <TableCell className="text-right">
                 {new Intl.NumberFormat("es-NI", {
                   style: "currency",

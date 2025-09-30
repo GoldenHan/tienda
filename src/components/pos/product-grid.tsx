@@ -5,10 +5,10 @@ import { useAuth } from "@/context/auth-context";
 
 interface ProductGridProps {
   products: Product[];
-  onAddToCart: (product: Product) => void;
+  onProductSelect: (product: Product) => void;
 }
 
-export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
+export function ProductGrid({ products, onProductSelect }: ProductGridProps) {
   const { user } = useAuth();
   const isEmployee = user?.role === 'employee';
 
@@ -26,7 +26,7 @@ export function ProductGrid({ products, onAddToCart }: ProductGridProps) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
       {products.map((product) => (
-        <ProductCard key={product.id} product={product} onAddToCart={onAddToCart} />
+        <ProductCard key={product.id} product={product} onProductSelect={onProductSelect} />
       ))}
     </div>
   );

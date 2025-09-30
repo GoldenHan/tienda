@@ -5,16 +5,17 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Trash2, ShoppingCart, Loader2, ChevronsRight, Minus, Plus } from "lucide-react";
+import { Trash2, ShoppingCart, Loader2, ChevronsRight } from "lucide-react";
 import type { CartItem, Currency } from "@/app/dashboard/pos/page";
 import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
 import { Label } from "../ui/label";
+import { Badge } from "../ui/badge";
 
 interface CartProps {
   cartItems: CartItem[];
   exchangeRate: number;
-  onUpdateQuantity: (productId: string, quantity: number) => void;
-  onRemoveItem: (productId: string) => void;
+  onUpdateQuantity: (productId: string, unit: string, newQuantity: number) => void;
+  onRemoveItem: (productId: string, unit: string) => void;
   onCompleteSale: (paymentCurrency: Currency) => void;
   disabled?: boolean;
 }
@@ -24,7 +25,7 @@ export function Cart({ cartItems, exchangeRate, onUpdateQuantity, onRemoveItem, 
   const [changeCurrency, setChangeCurrency] = useState<Currency>('NIO');
   const [amountReceived, setAmountReceived] = useState(0);
 
-  const subtotalNio = cartItems.reduce((acc, item) => acc + item.salePrice * item.quantityInCart, 0);
+  const subtotalNio = cartItems.reduce((acc, item) => acc + item.totalPrice, 0);
 
   // Reset states when cart changes
   useEffect(() => {
@@ -89,31 +90,16 @@ export function Cart({ cartItems, exchangeRate, onUpdateQuantity, onRemoveItem, 
             </div>
           ) : (
             <div className="p-4 space-y-4">
-              {cartItems.map((item) => (
-                <div key={item.id} className="flex items-center gap-4">
+              {cartItems.map((item, index) => (
+                <div key={`${item.product.id}-${item.unit}-${index}`} className="flex items-center gap-4">
                   <div className="flex-1">
-                    <p className="font-medium text-sm truncate">{item.name}</p>
+                    <p className="font-medium text-sm truncate">{item.product.name}</p>
                     <p className="text-xs text-muted-foreground">
-                       {formatCurrency(item.salePrice, 'NIO')}
+                       <Badge variant="outline" className="mr-1">{item.quantity} {item.unit}</Badge>
+                       {formatCurrency(item.totalPrice, 'NIO')}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
-                     <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onUpdateQuantity(item.id, item.quantityInCart - 1)} disabled={disabled}>
-                        <Minus className="h-4 w-4"/>
-                    </Button>
-                    <Input
-                        type="number"
-                        min="1"
-                        value={item.quantityInCart}
-                        onChange={(e) => onUpdateQuantity(item.id, parseInt(e.target.value, 10) || 0)}
-                        className="w-12 h-7 text-center hide-arrows"
-                        disabled={disabled}
-                    />
-                     <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => onUpdateQuantity(item.id, item.quantityInCart + 1)} disabled={disabled}>
-                        <Plus className="h-4 w-4"/>
-                    </Button>
-                  </div>
-                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onRemoveItem(item.id)} disabled={disabled}>
+                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => onRemoveItem(item.product.id, item.unit)} disabled={disabled}>
                       <Trash2 className="h-4 w-4" />
                    </Button>
                 </div>

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Table, Download } from "lucide-react";
 import { addMultipleProducts, addCategory } from "@/lib/actions/setup";
-import { Category, Product, SellingUnit } from "@/lib/types";
+import { Category, Product } from "@/lib/types";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 interface ProductImporterProps {
@@ -20,14 +20,7 @@ interface ProductImporterProps {
 const REQUIRED_COLUMNS = ["Nombre", "Cantidad", "Precio de Venta", "Costo de Compra", "Unidad de Medida"];
 const OPTIONAL_COLUMNS = ["Descripcion", "Umbral Stock Bajo", "Nombre Categoria"];
 
-const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'oz', 'L', 'kg'];
-const unitLabels: Record<Product['stockingUnit'], string> = {
-    unidad: 'Unidad', lb: 'Libra', oz: 'Onza', L: 'Litro', kg: 'Kilogramo'
-};
-const unitAbbr: Record<Product['stockingunit'], string> = {
-    unidad: 'u', lb: 'lb', oz: 'oz', L: 'L', kg: 'kg'
-};
-
+const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'oz', 'L', 'kg', 'qq'];
 
 export function ProductImporter({ categories, onImport }: ProductImporterProps) {
     const { user } = useAuth();
@@ -97,12 +90,6 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                      console.warn(`Unidad de medida no válida "${unitInput}" para el producto "${row["Nombre"]}". Se usará "unidad" por defecto.`);
                 }
 
-                const defaultSellingUnit: SellingUnit = {
-                    name: unitLabels[stockingUnit],
-                    abbreviation: unitAbbr[stockingUnit],
-                    factor: 1,
-                };
-
                 productsToCreate.push({
                     name: row["Nombre"],
                     description: row["Descripcion"] || "",
@@ -114,7 +101,6 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     imageUrl: randomPlaceholder.imageUrl,
                     imageHint: randomPlaceholder.imageHint,
                     stockingUnit: stockingUnit,
-                    sellingUnits: [defaultSellingUnit]
                 });
             }
 
@@ -180,7 +166,7 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                 <p className="font-bold mb-2">Columnas Obligatorias:</p>
                 <ul className="list-disc list-inside">
                     {REQUIRED_COLUMNS.slice(0, -1).map(col => <li key={col}><strong>{col}</strong></li>)}
-                     <li><strong>Unidad de Medida</strong> (Valores válidos: 'unidad', 'lb', 'oz', 'L', 'kg')</li>
+                     <li><strong>Unidad de Medida</strong> (Valores válidos: 'unidad', 'lb', 'kg', 'L', 'qq')</li>
                 </ul>
                  <p className="font-bold mt-2 mb-2">Columnas Opcionales:</p>
                 <ul className="list-disc list-inside">

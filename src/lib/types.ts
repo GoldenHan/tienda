@@ -19,7 +19,6 @@ export type Product = {
   createdAt?: string;
   categoryId: string;
   stockingUnit: 'unidad' | 'lb' | 'oz' | 'L' | 'kg';
-  sellingUnits: SellingUnit[];
 };
 
 export type SaleItem = {
@@ -28,6 +27,7 @@ export type SaleItem = {
   quantity: number;
   salePrice: number; // Price at the time of sale
   total: number;
+  unit?: string; // e.g. 'lb', 'oz', 'unidad'
 };
 
 export type OrderItem = {

@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Product, Sale, SaleItem, Category, Currency, Company } from "@/lib/types";
+import { Product, Sale, SaleItem, Category, Currency } from "@/lib/types";
 import { ProductGrid } from "@/components/pos/product-grid";
 import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
@@ -15,8 +14,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Invoice } from "@/components/pos/invoice";
 import { ReviewForm } from "@/components/sales/review-form";
+import { QuantityDialog } from "@/components/pos/quantity-dialog";
 
-export type CartItem = Product & { quantityInCart: number };
+export type CartItem = {
+    product: Product;
+    quantity: number; // The quantity to be sold, in stockingUnit
+    unit: string; // The display unit (e.g., '1/2 lb', 'oz', 'unidad')
+    totalPrice: number;
+};
 export type { Currency };
 
 export default function POSPage() {
@@ -32,6 +37,9 @@ export default function POSPage() {
   const [lastSale, setLastSale] = useState<Sale | null>(null);
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
   const [isReviewDialogOpen, setIsReviewDialogOpen] = useState(false);
+  
+  // State for quantity dialog
+  const [quantityDialogProduct, setQuantityDialogProduct] = useState<Product | null>(null);
 
   const fetchData = useCallback(async () => {
     if (!user) return;
@@ -59,62 +67,97 @@ export default function POSPage() {
     }
   }, [user, fetchData]);
 
-  const handleAddToCart = (product: Product) => {
+  const handleProductSelect = (product: Product) => {
+    if (product.quantity <= 0) {
+      toast({
+        variant: "destructive",
+        title: "Sin stock",
+        description: `${product.name} está agotado.`,
+      });
+      return;
+    }
+    
+    if (product.stockingUnit !== 'unidad') {
+        setQuantityDialogProduct(product);
+    } else {
+        handleAddToCart({
+            product,
+            quantity: 1,
+            unit: 'u',
+            totalPrice: product.salePrice,
+        });
+    }
+  };
+
+  const handleAddToCart = (item: CartItem) => {
     setCart((prevCart) => {
-      const existingItem = prevCart.find((item) => item.id === product.id);
-      if (existingItem) {
-        if (existingItem.quantityInCart < product.quantity) {
-          return prevCart.map((item) =>
-            item.id === product.id
-              ? { ...item, quantityInCart: item.quantityInCart + 1 }
-              : item
-          );
-        } else {
+      const existingItemIndex = prevCart.findIndex((i) => i.product.id === item.product.id && i.unit === item.unit);
+      
+      const totalQuantityInCart = prevCart
+        .filter(i => i.product.id === item.product.id)
+        .reduce((sum, i) => sum + i.quantity, 0);
+
+      if (totalQuantityInCart + item.quantity > item.product.quantity) {
           toast({
             variant: "destructive",
             title: "Stock insuficiente",
-            description: `No hay más stock de ${product.name}.`,
+            description: `No puedes añadir más ${item.product.name}. Stock disponible: ${item.product.quantity}.`,
           });
           return prevCart;
+      }
+
+      if (existingItemIndex > -1) {
+        // Update existing item with same unit
+        const newCart = [...prevCart];
+        newCart[existingItemIndex] = {
+            ...newCart[existingItemIndex],
+            quantity: newCart[existingItemIndex].quantity + item.quantity,
+            totalPrice: newCart[existingItemIndex].totalPrice + item.totalPrice,
         }
+        return newCart;
       } else {
-        if (product.quantity > 0) {
-          return [...prevCart, { ...product, quantityInCart: 1 }];
-        } else {
-           toast({
-            variant: "destructive",
-            title: "Sin stock",
-            description: `${product.name} está agotado.`,
-          });
-          return prevCart;
-        }
+        // Add as a new item
+        return [...prevCart, item];
       }
     });
+    setQuantityDialogProduct(null);
   };
 
-  const handleRemoveFromCart = (productId: string) => {
-    setCart((prevCart) => prevCart.filter((item) => item.id !== productId));
+  const handleRemoveFromCart = (productId: string, unit: string) => {
+    setCart((prevCart) => prevCart.filter((item) => !(item.product.id === productId && item.unit === unit)));
   };
   
-  const handleUpdateCartQuantity = (productId: string, quantity: number) => {
-    setCart(prevCart => {
-        const productInStock = products.find(p => p.id === productId);
-        if (!productInStock) return prevCart;
+  const handleUpdateCartQuantity = (productId: string, unit: string, newQuantity: number) => {
+      setCart(prevCart => {
+        const itemIndex = prevCart.findIndex(i => i.product.id === productId && i.unit === unit);
+        if (itemIndex === -1) return prevCart;
 
-        if (quantity > productInStock.quantity) {
+        const item = prevCart[itemIndex];
+        
+        if (newQuantity <= 0) {
+            return prevCart.filter((_, index) => index !== itemIndex);
+        }
+
+        const totalOtherItemsQuantity = prevCart
+            .filter(i => i.product.id === productId && i.unit !== unit)
+            .reduce((sum, i) => sum + i.quantity, 0);
+
+        if (totalOtherItemsQuantity + newQuantity > item.product.quantity) {
             toast({
                 variant: "destructive",
                 title: "Stock insuficiente",
-                description: `Solo hay ${productInStock.quantity} unidades de ${productInStock.name}.`,
+                description: `Solo hay ${item.product.quantity} ${item.product.stockingUnit} de ${item.product.name} en total.`,
             });
-            return prevCart.map(item => item.id === productId ? { ...item, quantityInCart: productInStock.quantity } : item);
+            return prevCart;
         }
-
-        if (quantity <= 0) {
-            return prevCart.filter(item => item.id !== productId);
-        }
-
-        return prevCart.map(item => item.id === productId ? { ...item, quantityInCart: quantity } : item);
+        
+        const newCart = [...prevCart];
+        newCart[itemIndex] = {
+            ...item,
+            quantity: newQuantity,
+            totalPrice: (item.totalPrice / item.quantity) * newQuantity,
+        };
+        return newCart;
     });
   };
 
@@ -133,11 +176,12 @@ export default function POSPage() {
     setIsCompletingSale(true);
     
     const newSaleItems: SaleItem[] = cart.map((cartItem) => ({
-      productId: cartItem.id,
-      productName: cartItem.name,
-      quantity: cartItem.quantityInCart,
-      salePrice: cartItem.salePrice,
-      total: cartItem.salePrice * cartItem.quantityInCart,
+      productId: cartItem.product.id,
+      productName: cartItem.product.name,
+      quantity: cartItem.quantity,
+      salePrice: cartItem.totalPrice / cartItem.quantity,
+      total: cartItem.totalPrice,
+      unit: cartItem.unit,
     }));
     
     const saleData: Omit<Sale, 'id' | 'reviewNotes'> = {
@@ -150,10 +194,10 @@ export default function POSPage() {
       needsReview: false,
     };
     
+    // Server action needs a plain cart without product objects
     const plainCart = cart.map(item => ({
-        id: item.id,
-        name: item.name,
-        quantityInCart: item.quantityInCart,
+        id: item.product.id,
+        quantityInCart: item.quantity, // This is the amount to deduct from stock
     }));
 
     try {
@@ -270,7 +314,7 @@ export default function POSPage() {
             <TabsContent key={cat.id} value={cat.id} className="flex-1 overflow-y-auto mt-4">
               <ProductGrid
                 products={cat.id === 'all' ? products : products.filter(p => p.categoryId === cat.id)}
-                onAddToCart={handleAddToCart}
+                onProductSelect={handleProductSelect}
               />
             </TabsContent>
           ))}
@@ -305,6 +349,15 @@ export default function POSPage() {
         </div>
       </main>
     </div>
+    
+    {quantityDialogProduct && (
+      <QuantityDialog 
+        product={quantityDialogProduct}
+        onClose={() => setQuantityDialogProduct(null)}
+        onAddToCart={handleAddToCart}
+      />
+    )}
+
     <Dialog open={isInvoiceDialogOpen} onOpenChange={(isOpen) => {
         if (!isOpen) setLastSale(null);
         setIsInvoiceDialogOpen(isOpen);

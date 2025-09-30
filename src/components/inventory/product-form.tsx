@@ -4,27 +4,20 @@
 import { useState } from "react";
 import Image from "next/image";
 import { z } from "zod";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Product, Category, SellingUnit } from "@/lib/types";
+import { Product, Category } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UploadCloud, Trash2, PlusCircle } from "lucide-react";
+import { Loader2, UploadCloud } from "lucide-react";
 import { uploadImage } from "@/lib/storage-helpers";
 import { Textarea } from "../ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { useAuth } from "@/context/auth-context";
 import { getCompanyIdForUser } from "@/lib/firestore-helpers";
-import { Separator } from "../ui/separator";
-
-const sellingUnitSchema = z.object({
-  name: z.string().min(1, "El nombre es requerido"),
-  abbreviation: z.string().min(1, "La abreviatura es requerida"),
-  factor: z.coerce.number().min(0.0001, "El factor debe ser positivo"),
-});
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -35,7 +28,6 @@ const formSchema = z.object({
   lowStockThreshold: z.coerce.number().min(0, "El umbral debe ser un número positivo"),
   categoryId: z.string().min(1, "Debes seleccionar una categoría"),
   stockingUnit: z.enum(['unidad', 'lb', 'oz', 'L', 'kg']),
-  sellingUnits: z.array(sellingUnitSchema).min(1, "Debe haber al menos una unidad de venta."),
 });
 
 
@@ -68,13 +60,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
       lowStockThreshold: 10,
       categoryId: "",
       stockingUnit: 'unidad',
-      sellingUnits: [{ name: "Unidad", abbreviation: "u", factor: 1 }],
     },
-  });
-
-  const { fields, append, remove, update } = useFieldArray({
-    control: form.control,
-    name: "sellingUnits",
   });
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -145,7 +131,10 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
   const isLoading = isUploading || isSubmitting;
   
   const stockingUnit = form.watch('stockingUnit');
-  const unitLabels = { unidad: "Unidad", lb: "Libra", oz: "Onza", L: "Litro", kg: "Kilogramo"};
+  const unitLabels = { unidad: "Unidad", lb: "Libra (lb)", oz: "Onza (oz)", L: "Litro (L)", kg: "Kilogramo (kg)", qq: "Quintal (qq)" };
+  
+  const currentUnitLabel = unitLabels[stockingUnit as keyof typeof unitLabels] || "Unidad";
+
 
   return (
     <Form {...form}>
@@ -252,9 +241,9 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
                         <SelectContent>
                             <SelectItem value="unidad">Unidad</SelectItem>
                             <SelectItem value="lb">Libra (lb)</SelectItem>
-                            <SelectItem value="oz">Onza (oz)</SelectItem>
-                            <SelectItem value="L">Litro (L)</SelectItem>
                             <SelectItem value="kg">Kilogramo (kg)</SelectItem>
+                            <SelectItem value="L">Litro (L)</SelectItem>
+                            <SelectItem value="qq">Quintal (qq)</SelectItem>
                         </SelectContent>
                     </Select>
                     <FormDescription>La unidad en que compras y gestionas el stock.</FormDescription>
@@ -267,7 +256,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
                 name="quantity"
                 render={({ field }) => (
                 <FormItem>
-                    <FormLabel>Cantidad en Stock ({unitLabels[stockingUnit]})</FormLabel>
+                    <FormLabel>Cantidad en Stock ({currentUnitLabel})</FormLabel>
                     <FormControl>
                     <Input type="number" step="any" {...field} disabled={isLoading} />
                     </FormControl>
@@ -276,73 +265,6 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
                 )}
             />
         </div>
-
-        <Separator />
-        
-        <div>
-            <FormLabel>Unidades de Venta</FormLabel>
-            <FormDescription className="mb-4">Define cómo se venderá este producto. El precio base y el factor de conversión se basan en la unidad de almacenamiento.</FormDescription>
-            <div className="space-y-4">
-                 {fields.map((field, index) => (
-                    <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md">
-                        <div className="grid grid-cols-3 gap-2 flex-1">
-                             <FormField
-                                control={form.control}
-                                name={`sellingUnits.${index}.name`}
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs">Nombre</FormLabel>
-                                    <FormControl><Input placeholder="Ej. Onza" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name={`sellingUnits.${index}.abbreviation`}
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs">Abreviatura</FormLabel>
-                                    <FormControl><Input placeholder="Ej. oz" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name={`sellingUnits.${index}.factor`}
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-xs">Factor vs {unitLabels[stockingUnit]}</FormLabel>
-                                    <FormControl><Input type="number" step="any" placeholder="Ej. 16" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        </div>
-                        <Button type="button" variant="ghost" size="icon" className="text-destructive mt-6" onClick={() => remove(index)}>
-                            <Trash2 className="h-4 w-4" />
-                        </Button>
-                    </div>
-                ))}
-                 <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => append({ name: '', abbreviation: '', factor: 1 })}
-                    >
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Añadir Unidad de Venta
-                </Button>
-                <FormField
-                    control={form.control}
-                    name="sellingUnits"
-                    render={() => <FormMessage />}
-                />
-            </div>
-        </div>
-
-        <Separator />
         
          <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -350,7 +272,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             name="purchaseCost"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Costo de Compra (por {unitLabels[stockingUnit]})</FormLabel>
+                <FormLabel>Costo de Compra (por {currentUnitLabel})</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} disabled={isLoading} />
                 </FormControl>
@@ -363,7 +285,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             name="salePrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Precio de Venta (por {unitLabels[stockingUnit]})</FormLabel>
+                <FormLabel>Precio de Venta (por {currentUnitLabel})</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} disabled={isLoading} />
                 </FormControl>
@@ -378,7 +300,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             name="lowStockThreshold"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Umbral Stock Bajo (en {unitLabels[stockingUnit]})</FormLabel>
+                <FormLabel>Umbral Stock Bajo (en {currentUnitLabel})</FormLabel>
                 <FormControl>
                   <Input type="number" step="any" {...field} disabled={isLoading} />
                 </FormControl>
