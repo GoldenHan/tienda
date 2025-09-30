@@ -4,18 +4,20 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { getSales, getProducts } from "@/lib/firestore-helpers";
-import { Sale, Product } from "@/lib/types";
+import { getSales, getProducts, getCashOutflows } from "@/lib/firestore-helpers";
+import { Sale, Product, CashOutflow } from "@/lib/types";
 import { SalesReport } from "@/components/reports/sales-report";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InventoryReport } from "@/components/reports/inventory-report";
+import { OutflowsReport } from "@/components/reports/outflows-report";
 
 
 export default function ReportsPage() {
   const { user } = useAuth();
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [outflows, setOutflows] = useState<CashOutflow[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -23,12 +25,14 @@ export default function ReportsPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [salesData, productsData] = await Promise.all([
+      const [salesData, productsData, outflowsData] = await Promise.all([
         getSales(user.uid),
-        getProducts(user.uid)
+        getProducts(user.uid),
+        getCashOutflows(user.uid)
       ]);
       setSales(salesData);
       setProducts(productsData);
+      setOutflows(outflowsData);
     } catch (error) {
       console.error("Reports fetch error:", error);
       toast({
@@ -89,12 +93,16 @@ export default function ReportsPage() {
             <TabsList>
                 <TabsTrigger value="sales">Ventas y Beneficios</TabsTrigger>
                 <TabsTrigger value="inventory">Inventario</TabsTrigger>
+                <TabsTrigger value="outflows">Egresos de Caja</TabsTrigger>
             </TabsList>
             <TabsContent value="sales" className="mt-4">
                 <SalesReport allSales={sales} allProducts={products} />
             </TabsContent>
             <TabsContent value="inventory" className="mt-4">
                 <InventoryReport allProducts={products} />
+            </TabsContent>
+             <TabsContent value="outflows" className="mt-4">
+                <OutflowsReport allOutflows={outflows} />
             </TabsContent>
         </Tabs>
       </main>
