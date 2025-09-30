@@ -4,6 +4,7 @@ const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { getAuth } = require("firebase-admin/auth");
 const { initializeApp, getApps } = require("firebase-admin/app");
 
+// Initialize Firebase Admin SDK if not already initialized
 if (getApps().length === 0) {
   initializeApp();
 }
@@ -11,47 +12,54 @@ if (getApps().length === 0) {
 const db = getFirestore();
 const auth = getAuth();
 
-/**
- * Recursively deletes a collection and all its subcollections.
- * @param {FirebaseFirestore.CollectionReference} collectionRef The collection to delete.
- * @param {number} batchSize The number of documents to delete in each batch.
- * @returns {Promise<void>}
- */
-async function deleteCollection(collectionRef, batchSize) {
-  const query = collectionRef.limit(batchSize);
-
-  return new Promise((resolve, reject) => {
-    deleteQueryBatch(query, resolve).catch(reject);
-  });
-}
-
-/**
- * Deletes a batch of documents from a query.
- * @param {FirebaseFirestore.Query} query The query to delete.
- * @param {Function} resolve The promise resolve function.
- * @returns {Promise<void>}
- */
-async function deleteQueryBatch(query, resolve) {
-  const snapshot = await query.get();
-
-  if (snapshot.size === 0) {
-    resolve();
-    return;
-  }
-
-  const batch = db.batch();
-  snapshot.docs.forEach((doc) => {
-    batch.delete(doc.ref);
-  });
-
-  await batch.commit();
-
-  process.nextTick(() => {
-    deleteQueryBatch(query, resolve);
-  });
-}
 
 exports.wipeCompanyData = onCall(async (request) => {
+  // --- Helper functions defined inside the onCall handler ---
+  
+  /**
+   * Recursively deletes a collection and all its subcollections.
+   * @param {FirebaseFirestore.CollectionReference} collectionRef The collection to delete.
+   * @param {number} batchSize The number of documents to delete in each batch.
+   * @returns {Promise<void>}
+   */
+  async function deleteCollection(collectionRef, batchSize) {
+    const query = collectionRef.limit(batchSize);
+
+    return new Promise((resolve, reject) => {
+      deleteQueryBatch(query, resolve).catch(reject);
+    });
+  }
+
+  /**
+   * Deletes a batch of documents from a query.
+   * @param {FirebaseFirestore.Query} query The query to delete.
+   * @param {Function} resolve The promise resolve function.
+   * @returns {Promise<void>}
+   */
+  async function deleteQueryBatch(query, resolve) {
+    const snapshot = await query.get();
+
+    if (snapshot.size === 0) {
+      resolve();
+      return;
+    }
+
+    const batch = db.batch();
+    snapshot.docs.forEach((doc) => {
+      batch.delete(doc.ref);
+    });
+
+    await batch.commit();
+
+    // Recurse on the next process tick, to avoid
+    // exploding the stack.
+    process.nextTick(() => {
+      deleteQueryBatch(query, resolve);
+    });
+  }
+
+  // --- Main function logic starts here ---
+  
   const uid = request.auth?.uid;
   if (!uid) {
     throw new HttpsError("unauthenticated", "El usuario no está autenticado.");
