@@ -11,6 +11,11 @@ type PlainCartItem = {
     quantityInCart: number;
 }
 
+type RestockItem = {
+    productId: string;
+    orderQuantity: number;
+}
+
 // -----------------
 // Helpers Admin
 // -----------------
@@ -340,6 +345,52 @@ export async function deleteProduct(productId: string, userId: string): Promise<
     const productRef = db.doc(`companies/${companyId}/products/${productId}`);
     await productRef.delete();
 };
+
+export async function restockInventory(items: RestockItem[], totalCost: number, userId: string): Promise<string> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+
+    const newOutflow: Omit<CashOutflow, 'id'> = {
+        date: new Date().toISOString(),
+        amount: totalCost,
+        currency: 'NIO', // Assuming restock is always in NIO
+        cashBox: 'general',
+        reason: `Abastecimiento de inventario (${items.length} productos)`,
+        type: 'restock',
+    };
+
+    const outflowId = await db.runTransaction(async (transaction) => {
+        // --- READS ---
+        const productRefs = items.map(item => db.doc(`companies/${companyId}/products/${item.productId}`));
+        const productDocs = productRefs.length > 0 ? await transaction.getAll(...productRefs) : [];
+        const productsToUpdate: { ref: FirebaseFirestore.DocumentReference, newStock: number }[] = [];
+
+        for (let i = 0; i < productDocs.length; i++) {
+            const productDoc = productDocs[i];
+            const restockItem = items[i];
+            if (productDoc.exists) {
+                const currentStock = productDoc.data()?.quantity || 0;
+                const newStock = currentStock + restockItem.orderQuantity;
+                productsToUpdate.push({ ref: productDoc.ref, newStock });
+            }
+        }
+        
+        // --- WRITES ---
+        // 1. Create the cash outflow document
+        const outflowRef = db.collection(`companies/${companyId}/cash_outflows`).doc();
+        transaction.set(outflowRef, newOutflow);
+        
+        // 2. Update stock for all products
+        productsToUpdate.forEach(p => {
+            transaction.update(p.ref, { quantity: p.newStock });
+        });
+        
+        return outflowRef.id;
+    });
+
+    return outflowId;
+}
+
 
 // -----------------
 // Sales Management

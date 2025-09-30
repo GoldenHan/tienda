@@ -11,10 +11,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AlertCircle, ShoppingBag, DollarSign, PackagePlus, Trash2, PlusCircle, Search } from 'lucide-react';
+import { AlertCircle, ShoppingBag, DollarSign, PackagePlus, Trash2, PlusCircle, Search, Loader2, CheckCircle } from 'lucide-react';
 import { isSameDay, startOfDay } from 'date-fns';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { restockInventory } from '@/lib/actions/setup';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { OutflowReceipt } from '@/components/cash-reconciliation/outflow-receipt';
 
 type OrderItem = {
     product: Product;
@@ -33,6 +37,9 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true);
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [orderList, setOrderList] = useState<OrderItem[]>([]);
+  const [isProcessingRestock, setIsProcessingRestock] = useState(false);
+  const [lastRestockOutflow, setLastRestockOutflow] = useState<CashOutflow | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   
   // State for cash balances
   const [sales, setSales] = useState<Sale[]>([]);
@@ -154,6 +161,69 @@ export default function OrdersPage() {
     })
   }
 
+  const handleConfirmRestock = async () => {
+    if (!user || orderList.length === 0) return;
+    setIsProcessingRestock(true);
+    try {
+        const itemsToRestock = orderList.map(item => ({
+            productId: item.product.id,
+            orderQuantity: item.orderQuantity,
+        }));
+        
+        const outflowId = await restockInventory(itemsToRestock, totalOrderCost, user.uid);
+        
+        toast({
+            title: "Abastecimiento Exitoso",
+            description: "El inventario ha sido actualizado y se ha registrado el egreso de caja.",
+        });
+
+        const newOutflow: CashOutflow = {
+            id: outflowId,
+            date: new Date().toISOString(),
+            amount: totalOrderCost,
+            currency: 'NIO',
+            cashBox: 'general',
+            reason: `Abastecimiento de inventario (${itemsToRestock.length} productos)`,
+            type: 'restock',
+        };
+        setLastRestockOutflow(newOutflow);
+        setIsReceiptOpen(true);
+        
+        setOrderList([]);
+        fetchData();
+
+    } catch (error: any) {
+        console.error("Error confirming restock:", error);
+        toast({
+            variant: "destructive",
+            title: "Error al Abastecer",
+            description: error.message || "No se pudo completar la operación."
+        });
+    } finally {
+        setIsProcessingRestock(false);
+    }
+  }
+
+  const handlePrintReceipt = () => {
+    const printContent = document.getElementById("outflow-receipt-to-print");
+    if (!printContent || !window) return;
+
+    const printWindow = window.open('', '', 'height=800,width=800');
+    if (!printWindow) return;
+
+    printWindow.document.write('<html><head><title>Comprobante de Egreso</title>');
+    printWindow.document.write('<style>body { font-family: sans-serif; } @media print { @page { size: auto; margin: 0.5in; } }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(printContent.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
+  };
+
 
   if (loading) {
     return (
@@ -170,6 +240,7 @@ export default function OrdersPage() {
   }
 
   return (
+    <>
     <div className="flex flex-col">
       <header className="p-4 sm:p-6">
         <h1 className="text-2xl font-bold tracking-tight font-headline">Planificador de Pedidos</h1>
@@ -231,7 +302,7 @@ export default function OrdersPage() {
                         <div className="flex gap-2">
                             <Popover onOpenChange={(open) => !open && setSearchQuery('')}>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline"><Search className="mr-2"/> Buscar Producto</Button>
+                                    <Button variant="outline"><Search className="mr-2"/> Buscar</Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-80">
                                     <div className="grid gap-4">
@@ -316,10 +387,60 @@ export default function OrdersPage() {
                             </TableFooter>
                         </Table>
                     </div>
+                     <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                             <Button className="w-full mt-4" disabled={orderList.length === 0 || isProcessingRestock || totalOrderCost > mainCashNioBalance}>
+                                {isProcessingRestock && <Loader2 className="mr-2 animate-spin" />}
+                                {totalOrderCost > mainCashNioBalance ? 'Fondos insuficientes' : 'Confirmar Abastecimiento'}
+                                {!isProcessingRestock && <CheckCircle className="ml-2"/>}
+                            </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>¿Confirmar Abastecimiento de Inventario?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    Estás a punto de confirmar un pedido con un costo de <span className="font-bold">{formatCurrency(totalOrderCost, 'NIO')}</span>.
+                                    Esta acción es irreversible:
+                                    <ul className="list-disc pl-5 mt-2 space-y-1">
+                                        <li>Se añadirá la cantidad de productos a tu inventario.</li>
+                                        <li>Se creará un egreso automático en la Caja General por el costo total.</li>
+                                    </ul>
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleConfirmRestock}>Confirmar y Abastecer</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                    {totalOrderCost > mainCashNioBalance && orderList.length > 0 && (
+                        <p className="text-sm text-destructive text-center mt-2">
+                            El costo del pedido excede el saldo de la Caja General.
+                        </p>
+                    )}
                 </CardContent>
             </Card>
         </div>
       </main>
     </div>
+    <Dialog open={isReceiptOpen} onOpenChange={setIsReceiptOpen}>
+        <DialogContent className="max-w-3xl">
+            <DialogHeader>
+                <DialogTitle>Comprobante de Egreso por Abastecimiento</DialogTitle>
+                <DialogDescription>
+                    La operación se ha completado. Puedes imprimir el comprobante a continuación.
+                </DialogDescription>
+            </DialogHeader>
+            {lastRestockOutflow && user && user.company && (
+                <OutflowReceipt
+                    outflow={lastRestockOutflow}
+                    company={user.company}
+                    employeeName={user.name}
+                    onPrint={handlePrintReceipt}
+                />
+            )}
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }

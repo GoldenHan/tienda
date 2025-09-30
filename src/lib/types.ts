@@ -50,6 +50,7 @@ export type CashOutflow = {
   reason: string;
   currency: Currency;
   cashBox: CashBox;
+  type: 'manual' | 'restock';
 };
 
 export type CashTransfer = {

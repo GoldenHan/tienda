@@ -86,12 +86,13 @@ export function OutflowForm({ onOutflowAdded, date, balances }: OutflowFormProps
 
     setIsSubmitting(true);
     try {
-      const newOutflowData = {
+      const newOutflowData: Omit<CashOutflow, 'id'> = {
         date: date.toISOString(),
         amount: data.amount,
         reason: data.reason,
         currency: data.currency,
         cashBox: data.cashBox,
+        type: 'manual',
       };
       const outflowId = await addCashOutflow(newOutflowData, user.uid);
       toast({
