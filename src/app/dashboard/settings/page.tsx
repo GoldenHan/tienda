@@ -14,16 +14,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Loader2, Unlock, Trash2, PlusCircle, UploadCloud } from "lucide-react";
+import { Loader2, Unlock, Trash2, PlusCircle, UploadCloud, AlertTriangle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { getClosedReconciliations, getCategories } from "@/lib/firestore-helpers";
-import { updateCompanySettings, addCategory, updateReconciliationStatus, deleteCategory } from "@/lib/actions/setup";
+import { updateCompanySettings, addCategory, updateReconciliationStatus, deleteCategory, setCompanySecurityCode, initiateCompanyWipe } from "@/lib/actions/setup";
 import { uploadFileToStorage } from "@/lib/storage-helpers";
 import { Reconciliation, Category, Company } from "@/lib/types";
 import { format as formatDateFns, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog } from "@/components/ui/dialog";
 
 const passwordFormSchema = z.object({
   currentPassword: z.string().min(1, { message: "La contraseña actual es requerida." }),
@@ -38,6 +39,19 @@ const companySettingsSchema = z.object({
     name: z.string().min(2, "El nombre de la empresa es requerido."),
     exchangeRate: z.coerce.number().min(0, "La tasa de cambio debe ser un número positivo."),
     pettyCashInitial: z.coerce.number().min(0, "El fondo inicial debe ser un número positivo."),
+});
+
+const securityCodeSchema = z.object({
+    password: z.string().min(1, "Tu contraseña es requerida."),
+    securityCode: z.string().min(4, "El código debe tener al menos 4 caracteres."),
+});
+
+const wipeDataSchema = z.object({
+    password: z.string().min(1, "Tu contraseña es requerida."),
+    securityCode: z.string().min(1, "El código de seguridad es requerido."),
+    confirmationPhrase: z.string().refine(phrase => phrase === 'eliminar todos los datos', {
+        message: "La frase de confirmación no coincide."
+    }),
 });
 
 export default function SettingsPage() {
@@ -60,8 +74,15 @@ export default function SettingsPage() {
   // Logo upload state
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  // Danger Zone State
+  const [isSecurityCodeSubmitting, setIsSecurityCodeSubmitting] = useState(false);
+  const [isWipeDialogOpen, setIsWipeDialogOpen] = useState(false);
+  const [isWipingData, setIsWipingData] = useState(false);
 
   const isAdmin = user?.role === 'admin' || user?.role === 'primary-admin';
+  const isOwner = user?.role === 'primary-admin';
+
 
   const passwordForm = useForm<z.infer<typeof passwordFormSchema>>({
     resolver: zodResolver(passwordFormSchema),
@@ -77,6 +98,14 @@ export default function SettingsPage() {
     resolver: zodResolver(companySettingsSchema),
   });
   
+  const securityCodeForm = useForm<z.infer<typeof securityCodeSchema>>({
+    resolver: zodResolver(securityCodeSchema),
+  });
+  
+  const wipeDataForm = useForm<z.infer<typeof wipeDataSchema>>({
+    resolver: zodResolver(wipeDataSchema),
+  });
+
   const { reset: resetCompanyForm } = companySettingsForm;
 
   const fetchPageData = useCallback(async () => {
@@ -248,6 +277,46 @@ export default function SettingsPage() {
       setIsDeletingCategory(null);
     }
   };
+
+  async function onSecurityCodeSubmit(values: z.infer<typeof securityCodeSchema>) {
+    if (!user) return;
+    setIsSecurityCodeSubmitting(true);
+    try {
+        await setCompanySecurityCode(values.password, values.securityCode, user.uid);
+        toast({ title: "Código de Seguridad Configurado", description: "Ya puedes realizar acciones de alto riesgo." });
+        window.location.reload();
+    } catch (error: any) {
+        console.error("Error setting security code:", error);
+        toast({ variant: "destructive", title: "Error", description: error.message || "No se pudo configurar el código." });
+    } finally {
+        setIsSecurityCodeSubmitting(false);
+    }
+  }
+  
+  async function onWipeDataSubmit(values: z.infer<typeof wipeDataSchema>) {
+    if (!user) return;
+    setIsWipingData(true);
+    try {
+        const result = await initiateCompanyWipe(values.password, values.securityCode, user.uid);
+        toast({
+            title: "Eliminación Iniciada",
+            description: "El proceso de borrado de datos ha comenzado. Serás desconectado en breve.",
+            duration: 10000,
+        });
+        setTimeout(() => {
+            // Force logout and redirect
+            user.company = null; // Clear company data locally
+            window.location.href = '/login';
+        }, 5000);
+    } catch (error: any) {
+        console.error("Error wiping data:", error);
+        toast({ variant: "destructive", title: "Error de Eliminación", description: error.message || "No se pudo iniciar el borrado." });
+    } finally {
+        setIsWipingData(false);
+        setIsWipeDialogOpen(false);
+    }
+  }
+
 
   return (
     <div className="flex flex-col">
@@ -517,6 +586,113 @@ export default function SettingsPage() {
                     </CardContent>
                 </Card>
             </>
+        )}
+        {isOwner && (
+            <Card className="md:col-span-2 border-destructive bg-destructive/5">
+                <CardHeader>
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                        <CardTitle className="text-destructive">Zona de Peligro</CardTitle>
+                    </div>
+                    <CardDescription className="text-destructive/80">
+                        Las acciones en esta sección son irreversibles y pueden causar la pérdida permanente de datos.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    {!company?.securityCodeSet ? (
+                        <div className="p-4 border border-dashed border-destructive/50 rounded-lg">
+                            <h4 className="font-semibold">Configurar Código de Seguridad</h4>
+                            <p className="text-sm text-muted-foreground mb-4">
+                                Para realizar acciones de alto riesgo, como eliminar todos los datos de la empresa, primero debes configurar un código de seguridad.
+                                Este código se te pedirá junto con tu contraseña.
+                            </p>
+                            <Form {...securityCodeForm}>
+                                <form onSubmit={securityCodeForm.handleSubmit(onSecurityCodeSubmit)} className="space-y-4">
+                                    <FormField control={securityCodeForm.control} name="password" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Tu Contraseña Actual</FormLabel>
+                                            <FormControl><Input type="password" {...field} disabled={isSecurityCodeSubmitting} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <FormField control={securityCodeForm.control} name="securityCode" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nuevo Código de Seguridad</FormLabel>
+                                            <FormControl><Input type="password" placeholder="Crea un código de 4+ caracteres" {...field} disabled={isSecurityCodeSubmitting} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                    <Button type="submit" variant="destructive" disabled={isSecurityCodeSubmitting}>
+                                        {isSecurityCodeSubmitting && <Loader2 className="animate-spin mr-2"/>}
+                                        Guardar Código de Seguridad
+                                    </Button>
+                                </form>
+                            </Form>
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between p-4 border border-destructive/50 rounded-lg">
+                            <div>
+                                <h4 className="font-semibold">Eliminar Todos los Datos de la Empresa</h4>
+                                <p className="text-sm text-muted-foreground">Esta acción eliminará permanentemente todos los productos, ventas, arqueos y usuarios. No se puede deshacer.</p>
+                            </div>
+                            <Dialog open={isWipeDialogOpen} onOpenChange={setIsWipeDialogOpen}>
+                                <AlertDialog>
+                                    <AlertDialogTrigger asChild>
+                                        <Button variant="destructive">Eliminar Datos</Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta acción es irreversible. Se eliminarán todos los productos, ventas, arqueos, categorías y usuarios de la empresa.
+                                                La cuenta del propietario permanecerá, pero la empresa se restablecerá.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>He cambiado de opinión</AlertDialogCancel>
+                                            <AlertDialogAction onClick={() => setIsWipeDialogOpen(true)}>
+                                                Entiendo, proceder a la verificación final
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                                <DialogContent>
+                                    <Form {...wipeDataForm}>
+                                        <form onSubmit={wipeDataForm.handleSubmit(onWipeDataSubmit)} className="space-y-4">
+                                            <p className="text-sm">Para confirmar, introduce tu contraseña, tu código de seguridad y escribe la frase <strong className="text-destructive">eliminar todos los datos</strong> en el campo de abajo.</p>
+                                            <FormField control={wipeDataForm.control} name="password" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Contraseña</FormLabel>
+                                                    <FormControl><Input type="password" {...field} disabled={isWipingData} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={wipeDataForm.control} name="securityCode" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Código de Seguridad</FormLabel>
+                                                    <FormControl><Input type="password" {...field} disabled={isWipingData} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            <FormField control={wipeDataForm.control} name="confirmationPhrase" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Frase de Confirmación</FormLabel>
+                                                    <FormControl><Input {...field} disabled={isWipingData} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                            <Button type="submit" variant="destructive" className="w-full" disabled={isWipingData}>
+                                                {isWipingData && <Loader2 className="animate-spin mr-2"/>}
+                                                Eliminar Permanentemente Todos los Datos
+                                            </Button>
+                                        </form>
+                                    </Form>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         )}
       </main>
     </div>

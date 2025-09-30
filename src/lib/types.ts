@@ -147,4 +147,5 @@ export type Company = {
     pettyCashInitial: number;
     createdAt: any; // Using 'any' for Firestore ServerTimestamp flexibility
     logoUrl?: string;
+    securityCodeSet?: boolean;
 }
