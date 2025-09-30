@@ -9,7 +9,7 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale, CashOutflow, Company } from '@/lib/types';
 import { getProducts, getSales, getCashOutflows } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Eye, Flag, PackagePlus, ArrowRight, BookOpen } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Eye, Flag, PackagePlus, ArrowRight, BookOpen, Wallet } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -89,6 +89,7 @@ export default function DashboardPage() {
     recentSales,
     todaySalesInUSD,
     salesForReview,
+    availableProfit,
   } = useMemo(() => {
     const today = new Date();
     const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), today));
@@ -108,26 +109,35 @@ export default function DashboardPage() {
     );
 
     const productsMap = new Map(products.map(p => [p.id, p]));
-    const todayProfit = todaySales.reduce((totalProfit, sale) => {
-        const saleProfit = sale.items.reduce((currentSaleProfit, item) => {
+    const calculateProfit = (sale: Sale) => {
+        return sale.items.reduce((currentSaleProfit, item) => {
             const product = productsMap.get(item.productId);
             const cost = product?.purchaseCost || 0;
             return currentSaleProfit + ((item.salePrice - cost) * item.quantity);
         }, 0);
-        return totalProfit + saleProfit;
-    }, 0);
+    }
+
+    const todayProfit = todaySales.reduce((totalProfit, sale) => totalProfit + calculateProfit(sale), 0);
     
     const recentSales = [...sales].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0,5);
 
     const salesForReview = sales.filter(s => s.needsReview === true);
 
+    const totalAccumulatedProfit = sales.reduce((totalProfit, sale) => totalProfit + calculateProfit(sale), 0);
+    const totalWithdrawals = outflows
+      .filter(o => o.type === 'withdrawal' && o.currency === 'NIO') // Assuming withdrawals are always in NIO for simplicity
+      .reduce((sum, o) => sum + o.amount, 0);
+      
+    const availableProfit = totalAccumulatedProfit - totalWithdrawals;
+
     return { 
         todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, 
         employeeTodaySales, todayProfit,
-        recentSales, todaySalesInUSD, salesForReview
+        recentSales, todaySalesInUSD, salesForReview,
+        availableProfit,
     };
 
-  }, [sales, products, user]);
+  }, [sales, products, user, outflows]);
 
   if (loading) {
     return (
@@ -161,18 +171,18 @@ export default function DashboardPage() {
     <>
       <div className="grid gap-4 md:gap-6 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard
+          title="Ganancias Disponibles"
+          value={formatCurrency(availableProfit)}
+          icon={Wallet}
+          description="Capital que puedes retirar."
+          variant="info"
+        />
+        <StatCard
           title="Ventas de Hoy (C$)"
           value={formatCurrency(todayRevenue)}
           icon={TrendingUp}
           description={`${todaySalesCount} transacciones`}
           variant="success"
-        />
-        <StatCard
-          title="Ventas de Hoy (USD)"
-          value={formatCurrency(todaySalesInUSD, 'USD')}
-          icon={DollarSign}
-          description="Total de ventas en dólares"
-           variant="success"
         />
         <StatCard
             title="Beneficio de Hoy"

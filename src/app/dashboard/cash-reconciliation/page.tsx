@@ -10,10 +10,11 @@ import { Sale, CashOutflow, Inflow, Reconciliation, Company, Currency, CashTrans
 import { isSameDay, startOfDay, format as formatDateFns } from 'date-fns';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { ArrowDown, ArrowUp, Scale, Lock, Unlock, ChevronDown, PackagePlus, DollarSign, Repeat, ArrowRightLeft } from 'lucide-react';
+import { ArrowDown, ArrowUp, Scale, Lock, Unlock, ChevronDown, PackagePlus, DollarSign, Repeat, ArrowRightLeft, Wallet } from 'lucide-react';
 import { OutflowForm } from '@/components/cash-reconciliation/outflow-form';
 import { InflowForm } from '@/components/cash-reconciliation/inflow-form';
 import { CashTransferForm } from '@/components/cash-reconciliation/cash-transfer-form';
+import { WithdrawalForm } from '@/components/cash-reconciliation/withdrawal-form';
 import { ReconciliationTable } from '@/components/cash-reconciliation/reconciliation-table';
 import { OutflowReceipt } from '@/components/cash-reconciliation/outflow-receipt';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -44,6 +45,7 @@ export default function CashReconciliationPage() {
   const [isOutflowDialogOpen, setIsOutflowDialogOpen] = useState(false);
   const [isInflowDialogOpen, setIsInflowDialogOpen] = useState(false);
   const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [isWithdrawalDialogOpen, setIsWithdrawalDialogOpen] = useState(false);
   const [lastOutflow, setLastOutflow] = useState<CashOutflow | null>(null);
   const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
   const { toast } = useToast();
@@ -329,6 +331,29 @@ export default function CashReconciliationPage() {
                     />
                 </DialogContent>
             </Dialog>
+            <Dialog open={isWithdrawalDialogOpen} onOpenChange={setIsWithdrawalDialogOpen}>
+                <DialogTrigger asChild>
+                    <Button variant="outline" className="border-green-500 text-green-600 hover:bg-green-50 hover:text-green-700" disabled={isClosed}>
+                        <Wallet className="mr-2"/> Retirar Ganancias
+                    </Button>
+                </DialogTrigger>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Registrar Retiro de Ganancias</DialogTitle>
+                        <DialogDescription>Crea un egreso desde la Caja General para registrar un retiro de capital o ganancias.</DialogDescription>
+                    </DialogHeader>
+                     <WithdrawalForm 
+                        date={selectedDate} 
+                        mainNioBalance={mainCashNioBalance}
+                        onWithdrawalAdded={(newWithdrawal) => {
+                            fetchData();
+                            setLastOutflow(newWithdrawal);
+                            setIsWithdrawalDialogOpen(false);
+                            setIsReceiptDialogOpen(true);
+                        }}
+                     />
+                </DialogContent>
+            </Dialog>
              <AlertDialog>
                 <AlertDialogTrigger asChild>
                     <Button disabled={isClosed || isSubmitting}>
@@ -436,4 +461,3 @@ export default function CashReconciliationPage() {
     </>
   );
 }
-

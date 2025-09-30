@@ -563,6 +563,20 @@ export async function addCashOutflow(outflow: Omit<CashOutflow, 'id'>, userId: s
     return docRef.id;
 };
 
+export async function addWithdrawal(withdrawalData: Omit<CashOutflow, 'id'>, userId: string): Promise<string> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const outflowsCollection = db.collection(`companies/${companyId}/cash_outflows`);
+    
+    const outflowToCreate: Omit<CashOutflow, 'id'> = {
+        ...withdrawalData,
+        type: 'withdrawal',
+    };
+
+    const docRef = await outflowsCollection.add(outflowToCreate);
+    return docRef.id;
+}
+
 export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
