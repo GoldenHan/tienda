@@ -11,12 +11,8 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: ${env:NEXT_PUBLIC_FIREBASE_PROJECT_ID}
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: ${env:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
+    value: ${env:NEXT_public_firebase_storage_bucket}
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: ${env:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: ${env:NEXT_PUBLIC_FIREBASE_APP_ID}
-  - variable: FIREBASE_SERVICE_ACCOUNT_JSON
-    # You will need to set this environment variable in the App Hosting settings
-    # with the content of your Firebase service account JSON file.
-    value: ${env:FIREBASE_SERVICE_ACCOUNT_JSON}
