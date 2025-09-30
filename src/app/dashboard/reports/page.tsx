@@ -4,13 +4,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useToast } from "@/hooks/use-toast";
-import { getSales, getProducts, getCashOutflows } from "@/lib/firestore-helpers";
-import { Sale, Product, CashOutflow } from "@/lib/types";
+import { getSales, getProducts, getCashOutflows, getInflows } from "@/lib/firestore-helpers";
+import { Sale, Product, CashOutflow, Inflow } from "@/lib/types";
 import { SalesReport } from "@/components/reports/sales-report";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InventoryReport } from "@/components/reports/inventory-report";
 import { OutflowsReport } from "@/components/reports/outflows-report";
+import { InflowsReport } from "@/components/reports/inflows-report";
 
 
 export default function ReportsPage() {
@@ -18,6 +19,7 @@ export default function ReportsPage() {
   const [sales, setSales] = useState<Sale[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [outflows, setOutflows] = useState<CashOutflow[]>([]);
+  const [inflows, setInflows] = useState<Inflow[]>([]);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
@@ -25,14 +27,16 @@ export default function ReportsPage() {
     if (!user) return;
     setLoading(true);
     try {
-      const [salesData, productsData, outflowsData] = await Promise.all([
+      const [salesData, productsData, outflowsData, inflowsData] = await Promise.all([
         getSales(user.uid),
         getProducts(user.uid),
-        getCashOutflows(user.uid)
+        getCashOutflows(user.uid),
+        getInflows(user.uid)
       ]);
       setSales(salesData);
       setProducts(productsData);
       setOutflows(outflowsData);
+      setInflows(inflowsData);
     } catch (error) {
       console.error("Reports fetch error:", error);
       toast({
@@ -90,10 +94,11 @@ export default function ReportsPage() {
       </header>
       <main className="flex-1 p-4 pt-0 sm:p-6 sm:pt-0">
          <Tabs defaultValue="sales">
-            <TabsList>
+            <TabsList className="flex-wrap h-auto justify-start">
                 <TabsTrigger value="sales">Ventas y Beneficios</TabsTrigger>
                 <TabsTrigger value="inventory">Inventario</TabsTrigger>
                 <TabsTrigger value="outflows">Egresos de Caja</TabsTrigger>
+                <TabsTrigger value="inflows">Ingresos de Caja</TabsTrigger>
             </TabsList>
             <TabsContent value="sales" className="mt-4">
                 <SalesReport allSales={sales} allProducts={products} />
@@ -104,10 +109,11 @@ export default function ReportsPage() {
              <TabsContent value="outflows" className="mt-4">
                 <OutflowsReport allOutflows={outflows} />
             </TabsContent>
+            <TabsContent value="inflows" className="mt-4">
+                <InflowsReport allInflows={inflows} />
+            </TabsContent>
         </Tabs>
       </main>
     </div>
   );
 }
-
-    
