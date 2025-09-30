@@ -1,0 +1,16 @@
+"use client";
+
+import { useEffect } from 'react';
+
+export function PwaInstaller() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .then((registration) => console.log('Service Worker registrado con éxito:', registration))
+        .catch((error) => console.log('Error en el registro del Service Worker:', error));
+    }
+  }, []);
+
+  return null; // Este componente no renderiza nada
+}

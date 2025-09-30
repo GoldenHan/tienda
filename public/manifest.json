@@ -1,11 +1,7 @@
 {
   "name": "Punto de Venta e Inventario",
   "short_name": "POS App",
-  "description": "Un sistema de Punto de Venta e Inventario completo.",
-  "start_url": "/dashboard",
-  "display": "standalone",
-  "background_color": "#F4F0E9",
-  "theme_color": "#A15858",
+  "description": "Un sistema completo de Punto de Venta (POS) y gestión de inventario con capacidades offline.",
   "icons": [
     {
       "src": "/icons/icon-72x72.png",
@@ -47,5 +43,10 @@
       "sizes": "512x512",
       "type": "image/png"
     }
-  ]
+  ],
+  "start_url": "/login",
+  "display": "standalone",
+  "background_color": "#020817",
+  "theme_color": "#020817",
+  "orientation": "portrait-primary"
 }

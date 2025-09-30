@@ -5,6 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/context/auth-context";
 import { ThemeProvider } from '@/components/theme-provider';
 import './globals.css';
+import { PwaInstaller } from '@/components/pwa-installer';
 
 const inter = Inter({ 
   subsets: ['latin'], 
@@ -47,6 +48,7 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster />
+            <PwaInstaller />
           </AuthProvider>
         </ThemeProvider>
       </body>
