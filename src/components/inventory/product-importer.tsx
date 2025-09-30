@@ -17,7 +17,7 @@ interface ProductImporterProps {
     onImport: () => void;
 }
 
-const REQUIRED_COLUMNS = ["Nombre", "Cantidad", "Precio de Venta", "Costo de Compra"];
+const REQUIRED_COLUMNS = ["Nombre", "Cantidad", "Precio de Venta", "Costo de Compra", "Unidad de Medida"];
 const OPTIONAL_COLUMNS = ["Descripcion", "Umbral Stock Bajo", "Nombre Categoria"];
 
 export function ProductImporter({ categories, onImport }: ProductImporterProps) {
@@ -82,6 +82,11 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
 
                 const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
                 
+                const unit = (row["Unidad de Medida"] || 'unidad').toLowerCase();
+                const validUnits = ['unidad', 'lb', 'onz', 'L'];
+                const unitOfMeasure = validUnits.includes(unit) ? unit as Product['unitOfMeasure'] : 'unidad';
+                const isDecimal = unitOfMeasure !== 'unidad';
+
                 productsToCreate.push({
                     name: row["Nombre"],
                     description: row["Descripcion"] || "",
@@ -92,6 +97,8 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     categoryId: categoryId,
                     imageUrl: randomPlaceholder.imageUrl,
                     imageHint: randomPlaceholder.imageHint,
+                    unitOfMeasure: unitOfMeasure,
+                    isDecimal: isDecimal
                 });
             }
 
@@ -125,13 +132,24 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
     const handleDownloadTemplate = () => {
         const data = [
             {
-                "Nombre": "Ejemplo: Taza de Café",
-                "Descripcion": "Ejemplo: Taza de cerámica de 12oz",
-                "Cantidad": 50,
-                "Precio de Venta": 150,
-                "Costo de Compra": 75,
-                "Umbral Stock Bajo": 10,
-                "Nombre Categoria": "Hogar"
+                "Nombre": "Ejemplo: Arroz",
+                "Descripcion": "Ejemplo: Arroz 80/20 de primera",
+                "Cantidad": 100,
+                "Precio de Venta": 18,
+                "Costo de Compra": 14,
+                "Umbral Stock Bajo": 20,
+                "Nombre Categoria": "Granos",
+                "Unidad de Medida": "lb"
+            },
+            {
+                "Nombre": "Ejemplo: Gaseosa",
+                "Descripcion": "Ejemplo: Gaseosa en botella de vidrio",
+                "Cantidad": 24,
+                "Precio de Venta": 30,
+                "Costo de Compra": 22,
+                "Umbral Stock Bajo": 5,
+                "Nombre Categoria": "Bebidas",
+                "Unidad de Medida": "unidad"
             }
         ];
         const worksheet = XLSX.utils.json_to_sheet(data);
@@ -142,10 +160,10 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
 
     return (
         <div className="space-y-4">
-             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800">
+             <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800">
                 <p className="font-bold mb-2">Columnas Obligatorias:</p>
                 <ul className="list-disc list-inside">
-                    {REQUIRED_COLUMNS.map(col => <li key={col}><strong>{col}</strong></li>)}
+                    {REQUIRED_COLUMNS.map(col => <li key={col}><strong>{col}</strong> (Valores para Unidad de Medida: 'unidad', 'lb', 'onz', 'L')</li>)}
                 </ul>
                  <p className="font-bold mt-2 mb-2">Columnas Opcionales:</p>
                 <ul className="list-disc list-inside">

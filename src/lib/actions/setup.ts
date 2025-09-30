@@ -432,7 +432,7 @@ export async function restockInventory(drafts: OrderDraft[], userId: string): Pr
 // -----------------
 // Sales Management
 // -----------------
-export async function addSale(newSale: Omit<Sale, 'id'>, cart: PlainCartItem[], userId: string): Promise<string> {
+export async function addSale(newSale: Omit<Sale, 'id' | 'reviewNotes'>, cart: PlainCartItem[], userId: string): Promise<string> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
     

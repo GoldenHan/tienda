@@ -7,7 +7,7 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Product, Category } from "@/lib/types";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -18,23 +18,36 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { useAuth } from "@/context/auth-context";
 import { getCompanyIdForUser } from "@/lib/firestore-helpers";
+import { Switch } from "../ui/switch";
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
   description: z.string().optional(),
-  quantity: z.coerce.number().int().min(0, "La cantidad debe ser un número entero"),
+  quantity: z.coerce.number().min(0, "La cantidad debe ser un número positivo"),
   salePrice: z.coerce.number().min(0, "El precio de venta debe ser positivo"),
   purchaseCost: z.coerce.number().min(0, "El costo de compra debe ser positivo"),
-  lowStockThreshold: z.coerce.number().int().min(0, "El umbral debe ser un número entero"),
+  lowStockThreshold: z.coerce.number().min(0, "El umbral debe ser un número positivo"),
   categoryId: z.string().min(1, "Debes seleccionar una categoría"),
+  unitOfMeasure: z.enum(['unidad', 'lb', 'onz', 'L']),
+  isDecimal: z.boolean(),
+}).refine(data => {
+    // Si la cantidad no es decimal, debe ser un entero
+    if (!data.isDecimal) {
+        return Number.isInteger(data.quantity);
+    }
+    return true;
+}, {
+    message: "La cantidad debe ser un número entero para productos unitarios.",
+    path: ["quantity"],
 });
+
 
 type ProductFormData = z.infer<typeof formSchema>;
 
 interface ProductFormProps {
   product?: Product;
   categories: Category[];
-  onSubmit: (data: ProductFormData & { imageUrl: string, imageHint: string }) => void;
+  onSubmit: (data: Omit<Product, 'id'>) => void;
   isSubmitting?: boolean;
 }
 
@@ -55,6 +68,8 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
       purchaseCost: product?.purchaseCost || 0,
       lowStockThreshold: product?.lowStockThreshold || 10,
       categoryId: product?.categoryId || "",
+      unitOfMeasure: product?.unitOfMeasure || 'unidad',
+      isDecimal: product?.isDecimal || false,
     },
   });
 
@@ -125,6 +140,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
   };
   
   const isLoading = isUploading || isSubmitting;
+  const watchIsDecimal = form.watch('isDecimal');
 
   return (
     <Form {...form}>
@@ -216,6 +232,60 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             </FormItem>
           )}
         />
+
+        <div className="grid grid-cols-2 gap-4">
+            <FormField
+                control={form.control}
+                name="unitOfMeasure"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Unidad de Medida</FormLabel>
+                    <Select onValueChange={(value) => {
+                        field.onChange(value);
+                        if (value === 'unidad') {
+                            form.setValue('isDecimal', false);
+                        } else {
+                            form.setValue('isDecimal', true);
+                        }
+                    }} defaultValue={field.value} disabled={isLoading}>
+                        <FormControl>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                            <SelectItem value="unidad">Unidad</SelectItem>
+                            <SelectItem value="lb">Libra (lb)</SelectItem>
+                            <SelectItem value="onz">Onza (oz)</SelectItem>
+                            <SelectItem value="L">Litro (L)</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <FormMessage />
+                    </FormItem>
+                )}
+            />
+             <FormField
+                control={form.control}
+                name="isDecimal"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col rounded-lg border p-3">
+                        <div className="flex items-center justify-between space-x-2">
+                             <FormLabel>
+                                Permitir Decimales
+                            </FormLabel>
+                            <FormControl>
+                                <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    disabled={isLoading || form.getValues('unitOfMeasure') !== 'unidad'}
+                                />
+                            </FormControl>
+                        </div>
+                        <FormDescription>
+                            Permite vender este producto en cantidades fraccionadas (ej. 1.5 lb).
+                        </FormDescription>
+                    </FormItem>
+                )}
+            />
+        </div>
         
         <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -225,7 +295,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
               <FormItem>
                 <FormLabel>Cantidad en Stock</FormLabel>
                 <FormControl>
-                  <Input type="number" {...field} disabled={isLoading} />
+                  <Input type="number" step={watchIsDecimal ? '0.01' : '1'} {...field} disabled={isLoading} />
                 </FormControl>
                 <FormMessage />
               </FormItem>

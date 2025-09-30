@@ -20,6 +20,13 @@ export type ProductColumnActions = {
 export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: ProductColumnActions): ColumnDef<Product>[] => {
   const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
 
+  const unitLabels: Record<Product['unitOfMeasure'], string> = {
+    unidad: 'u',
+    lb: 'lb',
+    onz: 'oz',
+    L: 'L',
+  };
+
   return [
     {
       accessorKey: "name",
@@ -86,7 +93,10 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
         )
       },
       cell: ({ row }) => {
-        return <div className="text-center">{row.getValue("quantity")}</div>
+        const quantity = row.getValue("quantity") as number;
+        const unit = row.original.unitOfMeasure;
+        const unitLabel = unitLabels[unit] || 'u';
+        return <div className="text-center">{quantity} {unitLabel}</div>
       }
     },
     {

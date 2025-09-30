@@ -12,6 +12,8 @@ export type Product = {
   imageHint: string;
   createdAt?: string;
   categoryId: string;
+  unitOfMeasure: 'unidad' | 'lb' | 'onz' | 'L';
+  isDecimal: boolean;
 };
 
 export type SaleItem = {
