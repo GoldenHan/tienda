@@ -17,6 +17,6 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
     value: ${env:NEXT_PUBLIC_FIREBASE_APP_ID}
   - variable: FIREBASE_SERVICE_ACCOUNT_JSON
-    # You will need to create this secret in Google Secret Manager
-    # and grant the App Hosting service account access to it.
-    secret: FIREBASE_SERVICE_ACCOUNT_JSON
+    # You will need to set this environment variable in the App Hosting settings
+    # with the content of your Firebase service account JSON file.
+    value: ${env:FIREBASE_SERVICE_ACCOUNT_JSON}
