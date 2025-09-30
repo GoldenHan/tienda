@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -51,7 +52,7 @@ export default function SalesPage() {
       await updateSaleAndAdjustStock(updatedSale, originalSale, user.uid);
       toast({
         title: "Venta Actualizada",
-        description: `La transacción ${updatedSale.id} ha sido modificada.`,
+        description: `La transacción ${updatedSale.id} ha sido modificada y la marca de revisión ha sido eliminada.`,
       });
       await fetchData(); // Refresh data after update
     } catch (error: any) {

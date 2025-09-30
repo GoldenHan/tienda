@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
@@ -8,7 +9,7 @@ import { Cart } from "@/components/pos/cart";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/context/auth-context";
 import { getProducts, getCategories } from "@/lib/firestore-helpers";
-import { addSale } from "@/lib/actions/setup";
+import { addSale, markSaleForReview } from "@/lib/actions/setup";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -144,6 +145,7 @@ export default function POSPage() {
       employeeId: user.uid,
       employeeName: user.name,
       paymentCurrency: paymentCurrency,
+      needsReview: false,
     };
     
     const plainCart = cart.map(item => ({
@@ -174,6 +176,25 @@ export default function POSPage() {
       setIsCompletingSale(false);
     }
   };
+
+  const handleMarkForReview = async (saleId: string) => {
+    if (!user) return;
+    try {
+        await markSaleForReview(saleId, user.uid);
+        toast({
+            title: "Venta Marcada para Revisión",
+            description: "Un administrador revisará esta transacción."
+        });
+        setIsInvoiceDialogOpen(false); // Close dialog after marking
+    } catch (error) {
+        console.error("Error marking sale for review:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "No se pudo marcar la venta para revisión."
+        });
+    }
+  }
 
   const handlePrint = () => {
     const printContent = document.getElementById("invoice-to-print");
@@ -286,7 +307,7 @@ export default function POSPage() {
             <DialogHeader>
                 <DialogTitle>Venta Realizada con Éxito</DialogTitle>
                 <DialogDescription>
-                    La venta ha sido registrada. Puedes imprimir el recibo a continuación.
+                    La venta ha sido registrada. Puedes imprimir el recibo o marcarla para revisión.
                 </DialogDescription>
             </DialogHeader>
             {lastSale && company?.name && (
@@ -294,6 +315,7 @@ export default function POSPage() {
                     sale={lastSale}
                     companyName={company.name}
                     onPrint={handlePrint}
+                    onMarkForReview={handleMarkForReview}
                 />
             )}
         </DialogContent>

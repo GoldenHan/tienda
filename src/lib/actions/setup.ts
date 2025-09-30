@@ -519,6 +519,7 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
         transaction.update(saleRef, {
             items: updatedSale.items,
             grandTotal: updatedSale.grandTotal,
+            needsReview: false, // Mark as reviewed upon editing
         });
 
         updates.forEach(update => {
@@ -526,6 +527,13 @@ export async function updateSaleAndAdjustStock(updatedSale: Sale, originalSale: 
         });
     });
 };
+
+export async function markSaleForReview(saleId: string, userId: string): Promise<void> {
+    const db = getAdminDbOrThrow();
+    const companyId = await getCompanyIdForUser(userId);
+    const saleRef = db.doc(`companies/${companyId}/sales/${saleId}`);
+    await saleRef.update({ needsReview: true });
+}
 
 // -----------------
 // Cash Flow & Reconciliation

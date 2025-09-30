@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState } from "react";
@@ -10,11 +11,12 @@ import {
 } from "@/components/ui/accordion"
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Edit } from "lucide-react";
+import { Edit, Flag } from "lucide-react";
 
 import { Sale, Product } from "@/lib/types";
 import { SalesHistoryTable } from "./sales-history-table";
 import { EditSaleForm } from "./edit-sale-form";
+import { cn } from "@/lib/utils";
 
 interface SalesHistoryAccordionProps {
   sales: Sale[];
@@ -48,13 +50,23 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
     <>
       <Accordion type="single" collapsible className="w-full space-y-2">
         {sales.map((sale) => (
-          <AccordionItem value={sale.id} key={sale.id} className="border rounded-lg px-4 bg-card">
+          <AccordionItem 
+            value={sale.id} 
+            key={sale.id} 
+            className={cn(
+                "border rounded-lg px-4 bg-card",
+                sale.needsReview && "bg-destructive/10 border-destructive"
+            )}
+            >
             <div className="flex justify-between items-center w-full">
                 <AccordionTrigger className="hover:no-underline flex-1 py-4">
                   <div className="flex justify-between items-center w-full">
-                    <div className="text-left">
-                      <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id}</p>
-                      <p className="text-sm text-muted-foreground">{formatDate(sale.date)}</p>
+                    <div className="text-left flex items-center gap-3">
+                      {sale.needsReview && <Flag className="h-5 w-5 text-destructive" />}
+                      <div>
+                        <p className="font-semibold truncate max-w-[150px] sm:max-w-xs">Transacción: {sale.id}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(sale.date)}</p>
+                      </div>
                     </div>
                   </div>
                 </AccordionTrigger>
@@ -84,7 +96,7 @@ export function SalesHistoryAccordion({ sales, products, onUpdateSale, isLoading
           <DialogHeader>
             <DialogTitle>Editar Transacción {editingSale?.id}</DialogTitle>
             <DialogDescription>
-              Ajusta las cantidades de los productos de esta venta. El stock se recalculará al guardar.
+              Ajusta las cantidades de los productos de esta venta. El stock se recalculará y la marca de revisión se eliminará al guardar.
             </DialogDescription>
           </DialogHeader>
           {editingSale && (

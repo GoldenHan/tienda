@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Sale } from "@/lib/types";
@@ -6,12 +7,13 @@ import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
-import { Printer } from "lucide-react";
+import { Printer, Flag } from "lucide-react";
 
 interface InvoiceProps {
   sale: Sale;
   companyName: string;
   onPrint: () => void;
+  onMarkForReview: (saleId: string) => void;
 }
 
 const formatCurrency = (amount: number, currency: 'NIO' | 'USD') =>
@@ -20,7 +22,7 @@ const formatCurrency = (amount: number, currency: 'NIO' | 'USD') =>
     currency: currency,
   }).format(amount);
 
-export function Invoice({ sale, companyName, onPrint }: InvoiceProps) {
+export function Invoice({ sale, companyName, onPrint, onMarkForReview }: InvoiceProps) {
   return (
     <div className="flex flex-col items-center">
       {/* This is the printable receipt area */}
@@ -76,11 +78,15 @@ export function Invoice({ sale, companyName, onPrint }: InvoiceProps) {
         </footer>
       </div>
 
-      {/* This is the on-screen button */}
-      <div className="mt-6 flex justify-center">
-        <Button onClick={onPrint}>
+      {/* This is the on-screen button area */}
+      <div className="mt-6 flex flex-col sm:flex-row gap-2 justify-center w-full">
+        <Button onClick={onPrint} className="flex-1">
           <Printer className="mr-2" />
           Imprimir Recibo
+        </Button>
+        <Button variant="secondary" onClick={() => onMarkForReview(sale.id)} className="flex-1">
+            <Flag className="mr-2"/>
+            Marcar para Revisión
         </Button>
       </div>
     </div>

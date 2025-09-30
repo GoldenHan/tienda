@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -7,16 +8,16 @@ import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale, CashOutflow, Company } from '@/lib/types';
 import { getProducts, getSales, getCashOutflows } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Star, PackagePlus, Briefcase, Eye } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Eye, Flag } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { isToday, format, startOfWeek, eachDayOfInterval, isSameDay, formatDistanceToNow } from 'date-fns';
+import { isToday, format, isSameDay, formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -83,9 +84,9 @@ export default function DashboardPage() {
     lowStockProducts,
     employeeTodaySales,
     todayProfit,
-    pettyCashBalance,
     recentSales,
     todaySalesInUSD,
+    salesForReview,
   } = useMemo(() => {
     const today = new Date();
     const todaySales = sales.filter(sale => isSameDay(new Date(sale.date), today));
@@ -104,9 +105,6 @@ export default function DashboardPage() {
         sale.employeeId === user?.uid && isToday(new Date(sale.date))
     );
 
-    const weekStart = startOfWeek(today, { locale: es });
-    const weekDays = eachDayOfInterval({ start: weekStart, end: today });
-
     const productsMap = new Map(products.map(p => [p.id, p]));
     const todayProfit = todaySales.reduce((totalProfit, sale) => {
         const saleProfit = sale.items.reduce((currentSaleProfit, item) => {
@@ -117,21 +115,17 @@ export default function DashboardPage() {
         return totalProfit + saleProfit;
     }, 0);
     
-    const pettyCashOutflowsToday = outflows
-      .filter(o => o.cashBox === 'petty' && isToday(new Date(o.date)))
-      .reduce((sum, o) => sum + o.amount, 0);
-
-    const pettyCashBalance = (company?.pettyCashInitial || 0) - pettyCashOutflowsToday;
-    
     const recentSales = [...sales].sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0,5);
+
+    const salesForReview = sales.filter(s => s.needsReview === true);
 
     return { 
         todayRevenue, todaySalesCount, totalProducts, lowStockItems, lowStockProducts, 
         employeeTodaySales, todayProfit,
-        pettyCashBalance, recentSales, todaySalesInUSD
+        recentSales, todaySalesInUSD, salesForReview
     };
 
-  }, [sales, products, user, company, outflows]);
+  }, [sales, products, user]);
 
   if (loading) {
     return (
@@ -193,11 +187,11 @@ export default function DashboardPage() {
           variant="info"
         />
         <StatCard
-          title="Alerta de Stock"
-          value={lowStockItems.toString()}
-          icon={AlertTriangle}
-          description={`Productos con bajo stock`}
-          variant={lowStockItems > 0 ? 'destructive' : 'info'}
+          title="Ventas para Revisión"
+          value={salesForReview.length.toString()}
+          icon={Flag}
+          description={`Ventas marcadas por empleados`}
+          variant={salesForReview.length > 0 ? 'destructive' : 'info'}
         />
       </div>
 
@@ -280,44 +274,47 @@ export default function DashboardPage() {
             </div>
       </div>
       
-        <Card className="backdrop-blur-sm bg-background/50">
-            <CardHeader>
-            <CardTitle>Acciones Rápidas</CardTitle>
-            <CardDescription>Tareas comunes para gestionar tu tienda.</CardDescription>
-            </CardHeader>
-            <CardContent className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div
-                onClick={() => router.push('/dashboard/pos')}
-                className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-blue-500 to-blue-600"
-                >
-                <div className="relative z-10">
-                    <ShoppingCart className="h-10 w-10 mb-3" />
-                    <h3 className="text-xl font-bold">Nueva Venta</h3>
-                    <p className="text-sm opacity-80">Ir al POS</p>
-                </div>
-                </div>
-                <div
-                onClick={() => router.push('/dashboard/inventory')}
-                className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-purple-500 to-purple-600"
-                >
-                <div className="relative z-10">
-                    <PackagePlus className="h-10 w-10 mb-3" />
-                    <h3 className="text-xl font-bold">Añadir Producto</h3>
-                    <p className="text-sm opacity-80">Ir a Inventario</p>
-                </div>
-                </div>
-                <div
-                onClick={() => router.push('/dashboard/reports')}
-                className="group relative cursor-pointer overflow-hidden rounded-xl p-6 text-white shadow-lg transition-transform duration-300 ease-in-out hover:scale-105 bg-gradient-to-br from-teal-500 to-teal-600"
-                >
-                <div className="relative z-10">
-                    <BarChart3 className="h-10 w-10 mb-3" />
-                    <h3 className="text-xl font-bold">Ver Reportes</h3>
-                    <p className="text-sm opacity-80">Analizar rendimiento</p>
-                </div>
-                </div>
-            </CardContent>
-        </Card>
+        {salesForReview.length > 0 && (
+             <Card className="backdrop-blur-sm bg-destructive/10 border-destructive">
+                <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-destructive">
+                    <Flag />
+                    Ventas Pendientes de Revisión
+                </CardTitle>
+                <CardDescription>
+                    Las siguientes ventas fueron marcadas por un empleado y necesitan tu atención.
+                </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>ID Venta</TableHead>
+                                <TableHead>Empleado</TableHead>
+                                <TableHead>Fecha</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
+                                <TableHead className="text-center">Acción</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                         <TableBody>
+                            {salesForReview.map(sale => (
+                                <TableRow key={sale.id}>
+                                    <TableCell className="font-mono text-xs">{sale.id.substring(0,8)}...</TableCell>
+                                    <TableCell>{sale.employeeName}</TableCell>
+                                    <TableCell>{format(new Date(sale.date), 'Pp', { locale: es })}</TableCell>
+                                    <TableCell className="text-right font-medium">{formatCurrency(sale.grandTotal, sale.paymentCurrency)}</TableCell>
+                                    <TableCell className="text-center">
+                                        <Button size="sm" onClick={() => router.push('/dashboard/sales')}>
+                                            Revisar en Historial
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        )}
     </>
   );
 
@@ -341,7 +338,7 @@ export default function DashboardPage() {
                 <TableRow key={sale.id}>
                   <TableCell className="font-medium truncate max-w-[200px]">{sale.id}</TableCell>
                   <TableCell className="text-right">
-                    {formatCurrency(sale.grandTotal)}
+                    {formatCurrency(sale.grandTotal, sale.paymentCurrency)}
                   </TableCell>
                 </TableRow>
               ))

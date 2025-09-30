@@ -49,6 +49,7 @@ export type Sale = {
   employeeId: string;
   employeeName: string;
   paymentCurrency: Currency;
+  needsReview?: boolean;
 };
 
 export type Inflow = {
