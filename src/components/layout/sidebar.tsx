@@ -16,6 +16,7 @@ import {
   Users,
   PiggyBank,
   PackagePlus,
+  HelpCircle,
 } from 'lucide-react'
 
 import {
@@ -45,6 +46,7 @@ const allLinks = [
 ]
 
 const bottomLinks = [
+    { href: '/dashboard/guide', label: 'Guía', icon: HelpCircle, adminOnly: false },
     { href: '/dashboard/settings', label: 'Configuración', icon: Settings, adminOnly: false },
 ]
 
@@ -134,3 +136,5 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
     </Sidebar>
   )
 }
+
+    
