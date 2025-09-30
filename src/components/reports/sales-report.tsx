@@ -6,7 +6,7 @@ import { addDays, isWithinInterval, parseISO, startOfDay, endOfDay } from "date-
 import type { DateRange } from "react-day-picker";
 import * as XLSX from "xlsx";
 
-import { Sale, Product } from "@/lib/types";
+import { Sale, Product, Company } from "@/lib/types";
 import { DateRangePicker } from "@/components/reports/date-range-picker";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,11 +18,10 @@ import {
 import { ChevronDown, FileDown, Printer } from "lucide-react";
 import { ReportTable, ReportSaleItem } from "./report-table";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Invoice } from "../pos/invoice";
+import { useAuth } from "@/context/auth-context";
 
-interface SalesReportProps {
-  allSales: Sale[];
-  allProducts: Product[];
-}
 
 const flattenSalesData = (sales: Sale[], products: Product[]): ReportSaleItem[] => {
   const productsMap = new Map(products.map(p => [p.id, p]));
@@ -50,10 +49,15 @@ const flattenSalesData = (sales: Sale[], products: Product[]): ReportSaleItem[] 
 
 export function SalesReport({ allSales, allProducts }: SalesReportProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const company = user?.company ?? null;
   const [date, setDate] = React.useState<DateRange | undefined>({
     from: addDays(new Date(), -30),
     to: new Date(),
   });
+  
+  const [selectedSale, setSelectedSale] = React.useState<Sale | null>(null);
+  const [isInvoiceOpen, setIsInvoiceOpen] = React.useState(false);
 
   const flattenedSales = React.useMemo(() => flattenSalesData(allSales, allProducts), [allSales, allProducts]);
 
@@ -74,6 +78,37 @@ export function SalesReport({ allSales, allProducts }: SalesReportProps) {
   const handlePrint = () => {
     window.print();
   };
+  
+  const handlePrintReceipt = () => {
+    const printContent = document.getElementById("invoice-to-print");
+    if (!printContent) return;
+
+    const printWindow = window.open('', '', 'height=600,width=400');
+    if (!printWindow) return;
+
+    printWindow.document.write('<html><head><title>Recibo</title>');
+    printWindow.document.write('<style>body { font-family: monospace; font-size: 10px; } @media print { @page { size: 80mm auto; margin: 0; } }</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write(printContent.innerHTML);
+    printWindow.document.write('</body></html>');
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+        printWindow.print();
+        printWindow.close();
+    }, 250);
+  };
+  
+  const openInvoiceDialog = (saleId: string) => {
+    const saleToPrint = allSales.find(s => s.id === saleId);
+    if (saleToPrint) {
+        setSelectedSale(saleToPrint);
+        setIsInvoiceOpen(true);
+    } else {
+        toast({ variant: "destructive", title: "Error", description: "No se encontró la venta para imprimir." });
+    }
+  }
+
 
   const handleExportToCSV = () => {
     if (filteredSales.length === 0) {
@@ -157,6 +192,7 @@ export function SalesReport({ allSales, allProducts }: SalesReportProps) {
   };
 
   return (
+    <>
     <div className="space-y-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <DateRangePicker date={date} onDateChange={setDate} />
@@ -185,8 +221,27 @@ export function SalesReport({ allSales, allProducts }: SalesReportProps) {
         </DropdownMenu>
       </div>
 
-      <ReportTable sales={filteredSales} />
+      <ReportTable sales={filteredSales} onPrintReceipt={openInvoiceDialog} />
     </div>
+
+    <Dialog open={isInvoiceOpen} onOpenChange={setIsInvoiceOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Recibo de Venta</DialogTitle>
+                <DialogDescription>
+                    Puedes reimprimir el recibo a continuación.
+                </DialogDescription>
+            </DialogHeader>
+            {selectedSale && company?.name && (
+                <Invoice
+                    sale={selectedSale}
+                    companyName={company.name}
+                    onPrint={handlePrintReceipt}
+                />
+            )}
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
 

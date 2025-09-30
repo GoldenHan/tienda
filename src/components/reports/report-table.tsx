@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/table";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { Button } from "../ui/button";
+import { Printer } from "lucide-react";
 
 export type ReportSaleItem = {
   id: string; // Transaction ID
@@ -26,9 +28,10 @@ export type ReportSaleItem = {
 
 interface ReportTableProps {
   sales: ReportSaleItem[];
+  onPrintReceipt: (saleId: string) => void;
 }
 
-export function ReportTable({ sales }: ReportTableProps) {
+export function ReportTable({ sales, onPrintReceipt }: ReportTableProps) {
   const totalRevenue = sales.reduce((acc, sale) => acc + sale.total, 0);
   const totalProfit = sales.reduce((acc, sale) => acc + sale.profit, 0);
 
@@ -49,10 +52,10 @@ export function ReportTable({ sales }: ReportTableProps) {
           <TableRow>
             <TableHead>Producto</TableHead>
             <TableHead className="text-center">Cantidad</TableHead>
-            <TableHead className="text-right">Precio Unitario</TableHead>
-            <TableHead className="text-right">Subtotal Venta</TableHead>
+            <TableHead className="text-right">Venta</TableHead>
             <TableHead className="text-right">Beneficio</TableHead>
-            <TableHead className="text-right">Fecha</TableHead>
+            <TableHead>Fecha</TableHead>
+            <TableHead className="text-center">Acción</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -62,16 +65,19 @@ export function ReportTable({ sales }: ReportTableProps) {
                 <TableCell className="font-medium">{sale.productName}</TableCell>
                 <TableCell className="text-center">{sale.quantity}</TableCell>
                 <TableCell className="text-right">
-                  {formatCurrency(sale.salePrice)}
-                </TableCell>
-                <TableCell className="text-right">
                   {formatCurrency(sale.total)}
                 </TableCell>
                 <TableCell className="text-right text-green-600 dark:text-green-500">
                   {formatCurrency(sale.profit)}
                 </TableCell>
-                <TableCell className="text-right text-muted-foreground">
+                <TableCell className="text-muted-foreground">
                   {formatDate(sale.date)}
+                </TableCell>
+                <TableCell className="text-center">
+                    <Button variant="ghost" size="sm" onClick={() => onPrintReceipt(sale.id)}>
+                        <Printer className="mr-2 h-4 w-4"/>
+                        Recibo
+                    </Button>
                 </TableCell>
               </TableRow>
             ))
@@ -85,7 +91,7 @@ export function ReportTable({ sales }: ReportTableProps) {
         </TableBody>
         <TableFooter>
           <TableRow className="bg-muted/50">
-            <TableCell colSpan={3} className="text-right font-bold">
+            <TableCell colSpan={2} className="text-right font-bold">
               Totales del Período
             </TableCell>
             <TableCell className="text-right font-bold">
@@ -94,12 +100,10 @@ export function ReportTable({ sales }: ReportTableProps) {
             <TableCell className="text-right font-bold text-green-700 dark:text-green-400">
               {formatCurrency(totalProfit)}
             </TableCell>
-            <TableCell />
+            <TableCell colSpan={2} />
           </TableRow>
         </TableFooter>
       </Table>
     </div>
   );
 }
-
-    
