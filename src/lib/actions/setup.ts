@@ -210,7 +210,7 @@ export async function transferPrimaryAdmin(targetUserId: string, currentAdminId:
     const targetUserRef = db.doc(`users/${targetUserId}`);
     const targetUserDoc = await targetUserRef.get();
 
-    if (!targetUserDoc.exists() || targetUserDoc.data()?.companyId !== companyId) {
+    if (!targetUserDoc.exists || targetUserDoc.data()?.companyId !== companyId) {
         throw new Error("El usuario objetivo no pertenece a la misma empresa.");
     }
     
@@ -661,7 +661,7 @@ export async function initiateCompanyWipe(password: string, securityCode: string
     const securityDocRef = db.doc(`companies/${companyId}/private/security`);
     const securityDoc = await securityDocRef.get();
     
-    if (!securityDoc.exists() || securityDoc.data()?.code !== securityCode) {
+    if (!securityDoc.exists || securityDoc.data()?.code !== securityCode) {
         throw new Error("El código de seguridad es incorrecto.");
     }
     
