@@ -4,11 +4,12 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import StatCard from '@/components/dashboard/stat-card';
 import { Product, Sale, CashOutflow, Company } from '@/lib/types';
 import { getProducts, getSales, getCashOutflows } from '@/lib/firestore-helpers';
 import { useAuth } from '@/context/auth-context';
-import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Eye, Flag } from 'lucide-react';
+import { DollarSign, Package, AlertTriangle, ShoppingCart, TrendingUp, BarChart3, Eye, Flag, PackagePlus, ArrowRight, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -242,7 +243,29 @@ export default function DashboardPage() {
                     )}
                 </CardContent>
             </Card>
-            <div className="lg:col-span-2 grid grid-cols-1 gap-6">
+            <div className="lg:col-span-2 grid grid-cols-1 gap-6 auto-rows-min">
+              <Card className="backdrop-blur-sm bg-background/50">
+                  <CardHeader>
+                      <div className="flex items-center gap-2">
+                        <CardTitle className="text-lg font-semibold">Atajos</CardTitle>
+                      </div>
+                      <CardDescription>Navega rápidamente a las secciones principales.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-2 gap-2 text-sm">
+                      <Link href="/dashboard/pos" passHref>
+                          <Button variant="outline" className="w-full justify-start"><ShoppingCart className="mr-2"/> Nueva Venta</Button>
+                      </Link>
+                       <Link href="/dashboard/orders" passHref>
+                          <Button variant="outline" className="w-full justify-start"><PackagePlus className="mr-2"/> Planificar Pedido</Button>
+                      </Link>
+                       <Link href="/dashboard/inventory" passHref>
+                          <Button variant="outline" className="w-full justify-start"><Package className="mr-2"/> Ver Inventario</Button>
+                      </Link>
+                       <Link href="/dashboard/reports" passHref>
+                          <Button variant="outline" className="w-full justify-start"><BarChart3 className="mr-2"/> Generar Reporte</Button>
+                      </Link>
+                  </CardContent>
+              </Card>
               <Card className="backdrop-blur-sm bg-background/50">
                   <CardHeader>
                       <div className="flex items-center gap-2">
