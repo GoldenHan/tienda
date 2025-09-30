@@ -178,7 +178,7 @@ export async function getCashTransfers(userId: string): Promise<CashTransfer[]> 
 export async function addInflow(inflow: Omit<Inflow, 'id'>, userId: string) {
     const db = getClientDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-s    const inflowsCollection = collection(db, `companies/${companyId}/inflows`);
+    const inflowsCollection = collection(db, `companies/${companyId}/inflows`);
     await addDoc(inflowsCollection, inflow);
 }
 
