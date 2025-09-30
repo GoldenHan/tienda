@@ -1,10 +1,5 @@
 
 
-export type SellingUnit = {
-  name: string;
-  abbreviation: string;
-  factor: number; // How many of this unit are in one stockingUnit
-}
 
 export type Product = {
   id: string;
@@ -18,7 +13,7 @@ export type Product = {
   imageHint: string;
   createdAt?: string;
   categoryId: string;
-  stockingUnit: 'unidad' | 'lb' | 'oz' | 'L' | 'kg';
+  stockingUnit: 'unidad' | 'lb' | 'kg' | 'L' | 'qq';
 };
 
 export type SaleItem = {

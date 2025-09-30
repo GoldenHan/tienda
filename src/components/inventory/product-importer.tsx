@@ -20,7 +20,7 @@ interface ProductImporterProps {
 const REQUIRED_COLUMNS = ["Nombre", "Cantidad", "Precio de Venta", "Costo de Compra", "Unidad de Medida"];
 const OPTIONAL_COLUMNS = ["Descripcion", "Umbral Stock Bajo", "Nombre Categoria"];
 
-const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'oz', 'L', 'kg', 'qq'];
+const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'kg', 'L', 'qq'];
 
 export function ProductImporter({ categories, onImport }: ProductImporterProps) {
     const { user } = useAuth();
@@ -66,11 +66,13 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     if (existingCategoryMap.has(lowerCategoryName)) {
                         categoryId = existingCategoryMap.get(lowerCategoryName)!;
                     } else {
+                        // Create category on the fly
                         const newId = await addCategory(categoryName, user.uid);
                         existingCategoryMap.set(lowerCategoryName, newId);
                         categoryId = newId;
                     }
                 } else {
+                     // Assign to 'Sin Categoría' if not specified
                      const sinCategoria = "Sin Categoría";
                      if (existingCategoryMap.has(sinCategoria.toLowerCase())) {
                         categoryId = existingCategoryMap.get(sinCategoria.toLowerCase())!;
@@ -134,21 +136,21 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
     const handleDownloadTemplate = () => {
         const data = [
             {
-                "Nombre": "Ejemplo: Arroz",
-                "Descripcion": "Ejemplo: Arroz 80/20 de primera",
-                "Cantidad": 100,
-                "Precio de Venta": 18,
-                "Costo de Compra": 14,
-                "Umbral Stock Bajo": 20,
-                "Nombre Categoria": "Granos",
+                "Nombre": "Ejemplo: Queso Seco",
+                "Descripcion": "Ejemplo: Queso de crema de exportación",
+                "Cantidad": 10,
+                "Precio de Venta": 160,
+                "Costo de Compra": 120,
+                "Umbral Stock Bajo": 2,
+                "Nombre Categoria": "Lácteos",
                 "Unidad de Medida": "lb"
             },
             {
-                "Nombre": "Ejemplo: Gaseosa",
-                "Descripcion": "Ejemplo: Gaseosa en botella de vidrio",
+                "Nombre": "Ejemplo: Coca-Cola 3L",
+                "Descripcion": "Ejemplo: Gaseosa en botella de plástico de 3 litros",
                 "Cantidad": 24,
-                "Precio de Venta": 30,
-                "Costo de Compra": 22,
+                "Precio de Venta": 80,
+                "Costo de Compra": 65,
                 "Umbral Stock Bajo": 5,
                 "Nombre Categoria": "Bebidas",
                 "Unidad de Medida": "unidad"
