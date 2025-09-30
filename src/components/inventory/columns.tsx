@@ -20,11 +20,12 @@ export type ProductColumnActions = {
 export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: ProductColumnActions): ColumnDef<Product>[] => {
   const categoryMap = new Map(categories.map(cat => [cat.id, cat.name]));
 
-  const unitLabels: Record<Product['unitOfMeasure'], string> = {
+  const unitLabels: Record<Product['stockingUnit'], string> = {
     unidad: 'u',
     lb: 'lb',
-    onz: 'oz',
+    oz: 'oz',
     L: 'L',
+    kg: 'kg'
   };
 
   return [
@@ -86,7 +87,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
               variant="ghost"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Cantidad
+              Stock
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -94,7 +95,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
       },
       cell: ({ row }) => {
         const quantity = row.getValue("quantity") as number;
-        const unit = row.original.unitOfMeasure;
+        const unit = row.original.stockingUnit;
         const unitLabel = unitLabels[unit] || 'u';
         return <div className="text-center">{quantity} {unitLabel}</div>
       }
@@ -121,7 +122,7 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
               variant="ghost"
               onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
             >
-              Precio de Venta
+              Precio Base
               <ArrowUpDown className="ml-2 h-4 w-4" />
             </Button>
           </div>
@@ -129,11 +130,12 @@ export const getColumns = ({ onUpdateProduct, onDeleteProduct, categories }: Pro
       },
       cell: ({ row }) => {
         const amount = parseFloat(row.getValue("salePrice"))
+        const unitLabel = unitLabels[row.original.stockingUnit] || 'u';
         const formatted = new Intl.NumberFormat("es-NI", {
           style: "currency",
           currency: "NIO",
         }).format(amount)
-        return <div className="text-right font-medium">{formatted}</div>
+        return <div className="text-right font-medium">{formatted} / {unitLabel}</div>
       },
     },
     {

@@ -1,19 +1,25 @@
 
 
+export type SellingUnit = {
+  name: string;
+  abbreviation: string;
+  factor: number; // How many of this unit are in one stockingUnit
+}
+
 export type Product = {
   id: string;
   name: string;
   description: string;
   purchaseCost: number;
-  salePrice: number;
-  quantity: number;
+  salePrice: number; // Price for one stockingUnit
+  quantity: number; // Quantity in stockingUnit
   lowStockThreshold: number;
   imageUrl: string;
   imageHint: string;
   createdAt?: string;
   categoryId: string;
-  unitOfMeasure: 'unidad' | 'lb' | 'onz' | 'L';
-  isDecimal: boolean;
+  stockingUnit: 'unidad' | 'lb' | 'oz' | 'L' | 'kg';
+  sellingUnits: SellingUnit[];
 };
 
 export type SaleItem = {

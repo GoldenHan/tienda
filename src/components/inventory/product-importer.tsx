@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Loader2, Table, Download } from "lucide-react";
 import { addMultipleProducts, addCategory } from "@/lib/actions/setup";
-import { Category, Product } from "@/lib/types";
+import { Category, Product, SellingUnit } from "@/lib/types";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
 interface ProductImporterProps {
@@ -55,6 +55,13 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
 
             const productsToCreate: Omit<Product, "id">[] = [];
 
+            const unitLabels: Record<Product['stockingUnit'], string> = {
+                unidad: 'Unidad', lb: 'Libra', oz: 'Onza', L: 'Litro', kg: 'Kilo'
+            };
+            const unitAbbr: Record<Product['stockingUnit'], string> = {
+                unidad: 'u', lb: 'lb', oz: 'oz', L: 'L', kg: 'kg'
+            };
+
             for (const row of json) {
                 const categoryName = row["Nombre Categoria"]?.toString().trim();
                 let categoryId = "";
@@ -64,7 +71,6 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     if (existingCategoryMap.has(lowerCategoryName)) {
                         categoryId = existingCategoryMap.get(lowerCategoryName)!;
                     } else {
-                        // Create new category and get its ID
                         const newId = await addCategory(categoryName, user.uid);
                         existingCategoryMap.set(lowerCategoryName, newId);
                         categoryId = newId;
@@ -83,9 +89,14 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                 const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
                 
                 const unit = (row["Unidad de Medida"] || 'unidad').toLowerCase();
-                const validUnits = ['unidad', 'lb', 'onz', 'L'];
-                const unitOfMeasure = validUnits.includes(unit) ? unit as Product['unitOfMeasure'] : 'unidad';
-                const isDecimal = unitOfMeasure !== 'unidad';
+                const validUnits: Product['stockingUnit'][] = ['unidad', 'lb', 'oz', 'L', 'kg'];
+                const stockingUnit = validUnits.includes(unit) ? unit as Product['stockingUnit'] : 'unidad';
+
+                const defaultSellingUnit: SellingUnit = {
+                    name: unitLabels[stockingUnit],
+                    abbreviation: unitAbbr[stockingUnit],
+                    factor: 1,
+                };
 
                 productsToCreate.push({
                     name: row["Nombre"],
@@ -97,8 +108,8 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
                     categoryId: categoryId,
                     imageUrl: randomPlaceholder.imageUrl,
                     imageHint: randomPlaceholder.imageHint,
-                    unitOfMeasure: unitOfMeasure,
-                    isDecimal: isDecimal
+                    stockingUnit: stockingUnit,
+                    sellingUnits: [defaultSellingUnit]
                 });
             }
 
@@ -163,7 +174,7 @@ export function ProductImporter({ categories, onImport }: ProductImporterProps) 
              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-800 dark:bg-blue-900/20 dark:text-blue-200 dark:border-blue-800">
                 <p className="font-bold mb-2">Columnas Obligatorias:</p>
                 <ul className="list-disc list-inside">
-                    {REQUIRED_COLUMNS.map(col => <li key={col}><strong>{col}</strong> (Valores para Unidad de Medida: 'unidad', 'lb', 'onz', 'L')</li>)}
+                    {REQUIRED_COLUMNS.map(col => <li key={col}><strong>{col}</strong> (Valores para Unidad de Medida: 'unidad', 'lb', 'oz', 'L', 'kg')</li>)}
                 </ul>
                  <p className="font-bold mt-2 mb-2">Columnas Opcionales:</p>
                 <ul className="list-disc list-inside">

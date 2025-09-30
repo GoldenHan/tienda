@@ -4,21 +4,27 @@
 import { useState } from "react";
 import Image from "next/image";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Product, Category } from "@/lib/types";
+import { Product, Category, SellingUnit } from "@/lib/types";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, UploadCloud } from "lucide-react";
+import { Loader2, UploadCloud, Trash2, PlusCircle } from "lucide-react";
 import { uploadImage } from "@/lib/storage-helpers";
 import { Textarea } from "../ui/textarea";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../ui/select";
 import { useAuth } from "@/context/auth-context";
 import { getCompanyIdForUser } from "@/lib/firestore-helpers";
-import { Switch } from "../ui/switch";
+import { Separator } from "../ui/separator";
+
+const sellingUnitSchema = z.object({
+  name: z.string().min(1, "El nombre es requerido"),
+  abbreviation: z.string().min(1, "La abreviatura es requerida"),
+  factor: z.coerce.number().min(0.0001, "El factor debe ser positivo"),
+});
 
 const formSchema = z.object({
   name: z.string().min(1, "El nombre es requerido"),
@@ -28,17 +34,8 @@ const formSchema = z.object({
   purchaseCost: z.coerce.number().min(0, "El costo de compra debe ser positivo"),
   lowStockThreshold: z.coerce.number().min(0, "El umbral debe ser un número positivo"),
   categoryId: z.string().min(1, "Debes seleccionar una categoría"),
-  unitOfMeasure: z.enum(['unidad', 'lb', 'onz', 'L']),
-  isDecimal: z.boolean(),
-}).refine(data => {
-    // Si la cantidad no es decimal, debe ser un entero
-    if (!data.isDecimal) {
-        return Number.isInteger(data.quantity);
-    }
-    return true;
-}, {
-    message: "La cantidad debe ser un número entero para productos unitarios.",
-    path: ["quantity"],
+  stockingUnit: z.enum(['unidad', 'lb', 'oz', 'L', 'kg']),
+  sellingUnits: z.array(sellingUnitSchema).min(1, "Debe haber al menos una unidad de venta."),
 });
 
 
@@ -53,24 +50,31 @@ interface ProductFormProps {
 
 export function ProductForm({ product, categories, onSubmit, isSubmitting }: ProductFormProps) {
   const { toast } = useToast();
-  const { user } = useAuth(); // Needed for uploadImage
+  const { user } = useAuth();
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(product?.imageUrl || null);
   const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<ProductFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      name: product?.name || "",
-      description: product?.description || "",
-      quantity: product?.quantity || 0,
-      salePrice: product?.salePrice || 0,
-      purchaseCost: product?.purchaseCost || 0,
-      lowStockThreshold: product?.lowStockThreshold || 10,
-      categoryId: product?.categoryId || "",
-      unitOfMeasure: product?.unitOfMeasure || 'unidad',
-      isDecimal: product?.isDecimal || false,
+    defaultValues: product ? {
+        ...product,
+    } : {
+      name: "",
+      description: "",
+      quantity: 0,
+      salePrice: 0,
+      purchaseCost: 0,
+      lowStockThreshold: 10,
+      categoryId: "",
+      stockingUnit: 'unidad',
+      sellingUnits: [{ name: "Unidad", abbreviation: "u", factor: 1 }],
     },
+  });
+
+  const { fields, append, remove, update } = useFieldArray({
+    control: form.control,
+    name: "sellingUnits",
   });
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -98,14 +102,13 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
     try {
       if (imageFile) {
         const companyId = await getCompanyIdForUser(user.uid);
-        finalImageUrl = await uploadImage(imageFile, companyId); // Pass companyId to uploadImage
+        finalImageUrl = await uploadImage(imageFile, companyId);
         finalImageHint = imageFile.name.split('.')[0].replace(/[-_]/g, ' ').substring(0, 20) || 'producto';
         toast({
           title: "Imagen Subida",
           description: "La nueva imagen del producto se ha guardado.",
         });
       } else if (!product?.imageUrl) {
-        // Only assign placeholder if it's a new product with no image
         const randomPlaceholder = PlaceHolderImages[Math.floor(Math.random() * PlaceHolderImages.length)];
         finalImageUrl = randomPlaceholder.imageUrl;
         finalImageHint = randomPlaceholder.imageHint;
@@ -140,11 +143,13 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
   };
   
   const isLoading = isUploading || isSubmitting;
-  const watchIsDecimal = form.watch('isDecimal');
+  
+  const stockingUnit = form.watch('stockingUnit');
+  const unitLabels = { unidad: "Unidad", lb: "Libra", oz: "Onza", L: "Litro", kg: "Kilogramo"};
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-4">
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         
         <FormItem>
           <FormLabel>Imagen del Producto</FormLabel>
@@ -183,7 +188,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             <FormItem>
               <FormLabel>Nombre del Producto</FormLabel>
               <FormControl>
-                <Input placeholder="Ej. Taza Artesanal" {...field} disabled={isLoading} />
+                <Input placeholder="Ej. Queso Seco" {...field} disabled={isLoading} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -199,7 +204,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
                 <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                     <FormControl>
                     <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una categoría para el producto" />
+                        <SelectValue placeholder="Selecciona una categoría" />
                     </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -236,85 +241,108 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
         <div className="grid grid-cols-2 gap-4">
             <FormField
                 control={form.control}
-                name="unitOfMeasure"
+                name="stockingUnit"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Unidad de Medida</FormLabel>
-                    <Select onValueChange={(value) => {
-                        field.onChange(value);
-                        if (value === 'unidad') {
-                            form.setValue('isDecimal', false);
-                        } else {
-                            form.setValue('isDecimal', true);
-                        }
-                    }} defaultValue={field.value} disabled={isLoading}>
+                    <FormLabel>Unidad de Almacenamiento</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoading}>
                         <FormControl>
                             <SelectTrigger><SelectValue /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
                             <SelectItem value="unidad">Unidad</SelectItem>
                             <SelectItem value="lb">Libra (lb)</SelectItem>
-                            <SelectItem value="onz">Onza (oz)</SelectItem>
+                            <SelectItem value="oz">Onza (oz)</SelectItem>
                             <SelectItem value="L">Litro (L)</SelectItem>
+                            <SelectItem value="kg">Kilogramo (kg)</SelectItem>
                         </SelectContent>
                     </Select>
+                    <FormDescription>La unidad en que compras y gestionas el stock.</FormDescription>
                     <FormMessage />
                     </FormItem>
                 )}
             />
              <FormField
                 control={form.control}
-                name="isDecimal"
+                name="quantity"
                 render={({ field }) => (
-                    <FormItem className="flex flex-col rounded-lg border p-3">
-                        <div className="flex items-center justify-between space-x-2">
-                             <FormLabel>
-                                Permitir Decimales
-                            </FormLabel>
-                            <FormControl>
-                                <Switch
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                    disabled={isLoading || form.getValues('unitOfMeasure') !== 'unidad'}
-                                />
-                            </FormControl>
-                        </div>
-                        <FormDescription>
-                            Permite vender este producto en cantidades fraccionadas (ej. 1.5 lb).
-                        </FormDescription>
-                    </FormItem>
+                <FormItem>
+                    <FormLabel>Cantidad en Stock ({unitLabels[stockingUnit]})</FormLabel>
+                    <FormControl>
+                    <Input type="number" step="any" {...field} disabled={isLoading} />
+                    </FormControl>
+                    <FormMessage />
+                </FormItem>
                 )}
             />
         </div>
+
+        <Separator />
         
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="quantity"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Cantidad en Stock</FormLabel>
-                <FormControl>
-                  <Input type="number" step={watchIsDecimal ? '0.01' : '1'} {...field} disabled={isLoading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="lowStockThreshold"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Umbral Stock Bajo</FormLabel>
-                <FormControl>
-                  <Input type="number" {...field} disabled={isLoading} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+        <div>
+            <FormLabel>Unidades de Venta</FormLabel>
+            <FormDescription className="mb-4">Define cómo se venderá este producto. El precio base y el factor de conversión se basan en la unidad de almacenamiento.</FormDescription>
+            <div className="space-y-4">
+                 {fields.map((field, index) => (
+                    <div key={field.id} className="flex items-start gap-2 p-3 border rounded-md">
+                        <div className="grid grid-cols-3 gap-2 flex-1">
+                             <FormField
+                                control={form.control}
+                                name={`sellingUnits.${index}.name`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs">Nombre</FormLabel>
+                                    <FormControl><Input placeholder="Ej. Onza" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name={`sellingUnits.${index}.abbreviation`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs">Abreviatura</FormLabel>
+                                    <FormControl><Input placeholder="Ej. oz" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={form.control}
+                                name={`sellingUnits.${index}.factor`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs">Factor vs {unitLabels[stockingUnit]}</FormLabel>
+                                    <FormControl><Input type="number" step="any" placeholder="Ej. 16" {...field} /></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        </div>
+                        <Button type="button" variant="ghost" size="icon" className="text-destructive mt-6" onClick={() => remove(index)}>
+                            <Trash2 className="h-4 w-4" />
+                        </Button>
+                    </div>
+                ))}
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => append({ name: '', abbreviation: '', factor: 1 })}
+                    >
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Añadir Unidad de Venta
+                </Button>
+                <FormField
+                    control={form.control}
+                    name="sellingUnits"
+                    render={() => <FormMessage />}
+                />
+            </div>
         </div>
+
+        <Separator />
         
          <div className="grid grid-cols-2 gap-4">
           <FormField
@@ -322,7 +350,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             name="purchaseCost"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Costo de Compra (C$)</FormLabel>
+                <FormLabel>Costo de Compra (por {unitLabels[stockingUnit]})</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} disabled={isLoading} />
                 </FormControl>
@@ -335,7 +363,7 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             name="salePrice"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Precio de Venta (C$)</FormLabel>
+                <FormLabel>Precio de Venta (por {unitLabels[stockingUnit]})</FormLabel>
                 <FormControl>
                   <Input type="number" step="0.01" {...field} disabled={isLoading} />
                 </FormControl>
@@ -344,6 +372,20 @@ export function ProductForm({ product, categories, onSubmit, isSubmitting }: Pro
             )}
           />
         </div>
+
+        <FormField
+            control={form.control}
+            name="lowStockThreshold"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Umbral Stock Bajo (en {unitLabels[stockingUnit]})</FormLabel>
+                <FormControl>
+                  <Input type="number" step="any" {...field} disabled={isLoading} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
         <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? <Loader2 className="animate-spin" /> : (product ? "Guardar Cambios" : "Añadir Producto")}

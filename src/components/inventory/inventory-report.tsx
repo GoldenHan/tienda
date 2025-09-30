@@ -36,7 +36,7 @@ export function InventoryReport({ allProducts }: InventoryReportProps) {
   }, [allProducts]);
   
   const totalItems = React.useMemo(() => {
-    return allProducts.reduce((acc, product) => acc + product.quantity, 0);
+    return allProducts.filter(p => p.stockingUnit === 'unidad').reduce((acc, product) => acc + product.quantity, 0);
   }, [allProducts]);
 
   const handlePrint = () => {
@@ -54,9 +54,9 @@ export function InventoryReport({ allProducts }: InventoryReportProps) {
     const worksheet = XLSX.utils.json_to_sheet(allProducts.map(p => ({
         Nombre: p.name,
         Cantidad: p.quantity,
-        'Unidad Medida': p.unitOfMeasure,
+        'Unidad Almacenamiento': p.stockingUnit,
         'Costo de Compra': p.purchaseCost,
-        'Precio de Venta': p.salePrice,
+        'Precio de Venta Base': p.salePrice,
         'Valor Total': p.purchaseCost * p.quantity,
         'Estado': p.quantity <= p.lowStockThreshold ? 'Poco Stock' : 'En Stock'
     })));
@@ -71,11 +71,12 @@ export function InventoryReport({ allProducts }: InventoryReportProps) {
       currency: "NIO",
     }).format(amount);
 
-    const unitLabels: Record<Product['unitOfMeasure'], string> = {
+    const unitLabels: Record<Product['stockingUnit'], string> = {
         unidad: 'u',
         lb: 'lb',
-        onz: 'oz',
+        oz: 'oz',
         L: 'L',
+        kg: 'kg',
     };
 
   return (
@@ -108,7 +109,7 @@ export function InventoryReport({ allProducts }: InventoryReportProps) {
                 <TableRow>
                     <TableHead>Producto</TableHead>
                     <TableHead>Estado</TableHead>
-                    <TableHead className="text-center">Cantidad</TableHead>
+                    <TableHead className="text-center">Stock</TableHead>
                     <TableHead className="text-right">Costo Unitario</TableHead>
                     <TableHead className="text-right">Valor Total de Stock</TableHead>
                 </TableRow>
@@ -123,7 +124,7 @@ export function InventoryReport({ allProducts }: InventoryReportProps) {
                                 {product.quantity <= product.lowStockThreshold ? "Poco Stock" : "En Stock"}
                             </Badge>
                         </TableCell>
-                        <TableCell className="text-center">{product.quantity} {unitLabels[product.unitOfMeasure] || 'u'}</TableCell>
+                        <TableCell className="text-center">{product.quantity} {unitLabels[product.stockingUnit] || 'u'}</TableCell>
                         <TableCell className="text-right">{formatCurrency(product.purchaseCost)}</TableCell>
                         <TableCell className="text-right font-medium">{formatCurrency(product.purchaseCost * product.quantity)}</TableCell>
                     </TableRow>
