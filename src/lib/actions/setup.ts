@@ -556,7 +556,7 @@ export async function addCashTransfer(transfer: Omit<CashTransfer, 'id'>, userId
 export async function updateReconciliationStatus(dateId: string, status: 'open' | 'closed', userId: string): Promise<void> {
     const db = getAdminDbOrThrow();
     const companyId = await getCompanyIdForUser(userId);
-s    const reconRef = db.doc(`companies/${companyId}/reconciliations/${dateId}`);
+    const reconRef = db.doc(`companies/${companyId}/reconciliations/${dateId}`);
     await reconRef.set({
         status: status,
         updatedAt: FieldValue.serverTimestamp()
