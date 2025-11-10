@@ -1,20 +1,3 @@
-
-# Firebase
-firebase.json
-firestore.rules
-storage.rules
-database.rules.json
-.firebaserc
-functions/
-.env
-.env.local
-
-# Next.js
-.next/
-out/
-
-# Node
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+src/lib/firebase/client.ts
+src/lib/firebase/server.ts
+node_modules

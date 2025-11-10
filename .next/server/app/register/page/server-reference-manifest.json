@@ -1,0 +1,35 @@
+{
+  "node": {
+    "003e55ce336b04d3a13975537d10e57747b5e9f2bb": {
+      "workers": {
+        "app/register/page": {
+          "moduleId": "[project]/.next-internal/server/app/register/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/lib/actions/setup.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true,
+          "exportedName": "isInitialSetupRequired",
+          "filename": "src/lib/actions/setup.ts"
+        }
+      },
+      "layer": {
+        "app/register/page": "action-browser"
+      },
+      "exportedName": "isInitialSetupRequired",
+      "filename": "src/lib/actions/setup.ts"
+    },
+    "40b4177845e77e8779f45ba6afa1f228a6a569e41b": {
+      "workers": {
+        "app/register/page": {
+          "moduleId": "[project]/.next-internal/server/app/register/page/actions.js { ACTIONS_MODULE0 => \"[project]/src/lib/actions/setup.ts [app-rsc] (ecmascript)\" } [app-rsc] (server actions loader, ecmascript)",
+          "async": true,
+          "exportedName": "createInitialAdminUser",
+          "filename": "src/lib/actions/setup.ts"
+        }
+      },
+      "layer": {
+        "app/register/page": "action-browser"
+      },
+      "exportedName": "createInitialAdminUser",
+      "filename": "src/lib/actions/setup.ts"
+    }
+  },
+  "edge": {}
+}
