@@ -13,7 +13,7 @@ env:
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
     value: ${env:NEXT_PUBLIC_FIREBASE_PROJECT_ID}
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: ${env:NEXT_public_firebase_storage_bucket}
+    value: ${env:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
     value: ${env:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
@@ -28,7 +28,7 @@ build:
     - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
       value: ${env:NEXT_PUBLIC_FIREBASE_PROJECT_ID}
     - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-      value: ${env:NEXT_public_firebase_storage_bucket}
+      value: ${env:NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}
     - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
       value: ${env:NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID}
     - variable: NEXT_PUBLIC_FIREBASE_APP_ID
