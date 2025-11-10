@@ -79,3 +79,79 @@ npm run dev
 ### 6. Abrir la Aplicación
 
 Abre tu navegador y visita [http://localhost:3000](http://localhost:3000). La aplicación web debería estar funcionando.
+
+## Esquema de la Base de Datos
+
+A continuación se presenta un esquema SQL genérico como punto de partida. Puedes adaptarlo a tu motor de base de datos preferido (PostgreSQL, MySQL, etc.).
+
+```sql
+-- Tabla para las empresas (Tenants)
+CREATE TABLE companies (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Tabla para los usuarios
+CREATE TABLE users (
+    id VARCHAR(255) PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password_hash VARCHAR(255) NOT NULL,
+    company_id VARCHAR(255) NOT NULL,
+    role VARCHAR(50) NOT NULL DEFAULT 'employee', -- Ej: 'admin', 'employee'
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+
+-- Tabla para los productos
+CREATE TABLE products (
+    id VARCHAR(255) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    company_id VARCHAR(255) NOT NULL,
+    -- Unidad en la que se almacena y cuenta el stock (ej: 'kg', 'litro', 'unidad')
+    storage_unit VARCHAR(50) NOT NULL,
+    stock_quantity DECIMAL(10, 3) NOT NULL DEFAULT 0.000,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE
+);
+
+-- Tabla para las unidades de venta de cada producto
+-- Permite vender un producto en unidades diferentes a la de almacenamiento
+-- Ej: Almacenar queso en 'kg' (storage_unit) y venderlo en 'gramo' o 'libra'
+CREATE TABLE product_sale_units (
+    id VARCHAR(255) PRIMARY KEY,
+    product_id VARCHAR(255) NOT NULL,
+    unit_name VARCHAR(50) NOT NULL, -- Ej: 'gramo', 'libra', 'porción'
+    price DECIMAL(10, 2) NOT NULL,
+    -- Factor de conversión respecto a la unidad de almacenamiento del producto
+    -- Ej: Si storage_unit es 'kg' y unit_name es 'gramo', conversion_factor es 0.001
+    conversion_factor DECIMAL(10, 5) NOT NULL,
+    FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+);
+
+-- Tabla para las ventas
+CREATE TABLE sales (
+    id VARCHAR(255) PRIMARY KEY,
+    company_id VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255) NOT NULL,
+    total_amount DECIMAL(10, 2) NOT NULL,
+    sale_date TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Tabla para los artículos de una venta (tabla de unión)
+CREATE TABLE sale_items (
+    id VARCHAR(255) PRIMARY KEY,
+    sale_id VARCHAR(255) NOT NULL,
+    product_id VARCHAR(255) NOT NULL,
+    -- La unidad en la que se vendió (de la tabla product_sale_units)
+    sale_unit_name VARCHAR(50) NOT NULL,
+    quantity_sold DECIMAL(10, 3) NOT NULL,
+    price_at_sale DECIMAL(10, 2) NOT NULL,
+    FOREIGN KEY (sale_id) REFERENCES sales(id) ON DELETE CASCADE,
+    FOREIGN KEY (product_id) REFERENCES products(id)
+);
+
+```
