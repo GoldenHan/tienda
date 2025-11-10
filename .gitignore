@@ -3,3 +3,4 @@ src/lib/firebase/client.ts
 src/lib/firebase/server.ts
 src/lib
 src/firestore.rules
+src/ai
