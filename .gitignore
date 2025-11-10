@@ -1,3 +1,4 @@
+.env
 src/lib/firebase/client.ts
 src/lib/firebase/server.ts
 node_modules
